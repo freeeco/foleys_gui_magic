@@ -521,6 +521,8 @@ public:
     FOLEYS_DECLARE_GUI_FACTORY (PlotItem)
 
     static const juce::Identifier  pDecay;
+    static const juce::Identifier  pLineWidth;
+    static const juce::Identifier  pRelativeLineWidth;
     static const juce::Identifier  pGradient;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
@@ -544,6 +546,12 @@ public:
 
         auto decay = float (getProperty (pDecay));
         plot.setDecayFactor (decay);
+        
+        auto lineWidth = float (getProperty (pLineWidth));
+        plot.setLineWidth (lineWidth);
+        
+        auto relativeLineWidth = float (getProperty (pRelativeLineWidth));
+        plot.setRelativeLineWidth (relativeLineWidth);
 
         auto gradient = configNode.getProperty (pGradient, juce::String()).toString();
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
@@ -554,6 +562,8 @@ public:
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicPlotSource>() });
         props.push_back ({ configNode, pDecay,      SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pRelativeLineWidth,      SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pGradient,   SettableProperty::Gradient, {}, {} });
         return props;
     }
@@ -568,8 +578,10 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PlotItem)
 };
-const juce::Identifier  PlotItem::pDecay    {"plot-decay"};
-const juce::Identifier  PlotItem::pGradient {"plot-gradient"};
+const juce::Identifier  PlotItem::pDecay                 {"plot-decay"};
+const juce::Identifier  PlotItem::pLineWidth             {"line-width"};
+const juce::Identifier  PlotItem::pRelativeLineWidth     {"relative-line-width"};
+const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 
 //==============================================================================
 
