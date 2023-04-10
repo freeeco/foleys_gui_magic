@@ -62,6 +62,16 @@ void MagicPlotComponent::setDecayFactor (float decayFactor)
     updateGlowBufferSize();
 }
 
+void MagicPlotComponent::setRelativeLineWidth (float width)
+{
+    relativeLineWidth = width;
+}
+
+void MagicPlotComponent::setLineWidth (float width)
+{
+    lineWidth = width;
+}
+
 void MagicPlotComponent::setGradientFromString (const juce::String& cssString, Stylesheet& stylesheet)
 {
     if (cssString.isNotEmpty())
@@ -113,7 +123,16 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
     if (colour.isTransparent() == false)
     {
         g.setColour (colour);
-        g.strokePath (path, juce::PathStrokeType (2.0));
+
+        if (relativeLineWidth){
+            g.strokePath (path, juce::PathStrokeType (getHeight()*relativeLineWidth*0.01));
+        }
+        else if (lineWidth){
+            g.strokePath (path, juce::PathStrokeType (lineWidth));
+        }
+        else{
+            g.strokePath (path, juce::PathStrokeType (2.0));
+        }
     }
 }
 

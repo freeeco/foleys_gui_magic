@@ -94,12 +94,21 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
     resetLastDataFlag();
 }
 
+
+
+void MagicOscilloscope::setRate (const double _rate)
+{
+    rate = _rate;
+}
+
+
+
 void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPath, juce::Rectangle<float> bounds, MagicPlotComponent&)
 {
     if (sampleRate < 20.0f)
         return;
 
-    const auto  numToDisplay = int (0.01 * sampleRate) - 1;
+    const auto  numToDisplay = int (rate * sampleRate) - 1; //  *** edit: modified display rate ***
     const auto* data = samples.getReadPointer (0);
 
     auto pos = writePosition.load() - numToDisplay;

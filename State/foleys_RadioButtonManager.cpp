@@ -86,7 +86,7 @@ void RadioButtonHandler::buttonClicked (juce::Button* clickedButton)
         parameter->setValueNotifyingHost (value);
         parameter->endChangeGesture();
     }
-
+    
     radioButtonManager.buttonActivated (clickedButton);
 }
 

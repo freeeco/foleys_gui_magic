@@ -61,6 +61,9 @@ public:
      */
     void pushSamples (const juce::AudioBuffer<float>& buffer) override;
 
+    
+    void setRate (const double _rate);
+
     /**
      This is the callback that creates the frequency plot for drawing.
 
@@ -79,6 +82,8 @@ private:
 
     juce::AudioBuffer<float> samples;
     std::atomic<int>         writePosition;
+    
+    double rate = 0.01;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicOscilloscope)
 };
