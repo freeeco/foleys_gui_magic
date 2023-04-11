@@ -9,9 +9,9 @@ Edited foleys_MagicLevelMeter.cpp so that the meter is displayed horizontally or
 Oscilloscope Plot
 -----------------
 
-foleys_MagicPlotComponent.cpp - Added fields in PGM editor for line-width and relative-line-width to set the line width for the plot. relative-line-width sets the line to a percentage of the height of the component.
+foleys_MagicPlotComponent.cpp - Added a field in PGM editor for line-width to set the line width for the plot. adding "%" to the end of the value will set the line to be a percentage of the height of the component.
 
-foleys_MagicOscilloscope.cpp - has a new method 'setRate' to change the display rate.
+foleys_MagicOscilloscope.cpp has a new method 'setRate' to change the display rate.
 
 Auto Save
 ---------
