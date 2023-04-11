@@ -21,7 +21,7 @@ Slowed down timer frequency in foleys_ToolBox.cpp
 Default Window Size
 -------------------
 
-Added DEFAULT_WINDOW_WIDTH & DEFAULT_WINDOW_HEIGTH directives to foleys_MagicPluginEditor.cpp as some hosts will use these values when first initialising VST3, if a default preset is not loaded (patchwork & bitwig).
+Added DEFAULT_WINDOW_WIDTH & DEFAULT_WINDOW_HEIGTH directives to foleys_MagicPluginEditor.cpp as some hosts will use these values when first initialising a VST3 and a default preset is not loaded (patchwork & bitwig).
 
 
 
