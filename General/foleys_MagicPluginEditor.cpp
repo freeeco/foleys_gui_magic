@@ -82,9 +82,18 @@ void MagicPluginEditor::updateSize()
 {
     const auto rootNode = builder->getGuiRootNode();
 
+#if defined DEFAULT_WINDOW_WIDTH
+    int width = rootNode.getProperty (IDs::width, DEFAULT_WINDOW_WIDTH);
+#else
     int width = rootNode.getProperty (IDs::width, 600);
+#endif
+    
+#if defined DEFAULT_WINDOW_HEIGHT
+    int height = rootNode.getProperty (IDs::height, DEFAULT_WINDOW_HEIGHT);
+#else
     int height = rootNode.getProperty (IDs::height, 400);
-
+#endif
+    
     bool resizable = builder->getStyleProperty (IDs::resizable, builder->getGuiRootNode());
     bool resizeCorner = builder->getStyleProperty (IDs::resizeCorner, builder->getGuiRootNode());
 
