@@ -1,24 +1,24 @@
 Changes in this fork (develop branch)
 =====================================
 
-HORIZONTAL METER
+Horizontal Meter
 ----------------
 
 Edited foleys_MagicLevelMeter.cpp so that the meter is displayed horizontally or vertically depending on it's dimensions.
 
-OSCILLOSCOPE PLOT
+Oscilloscope Plot
 -----------------
 
 foleys_MagicPlotComponent.cpp - Added fields in PGM editor for line-width and relative-line-width to set the line width for the plot. relative-line-width sets the line to a percentage of the height of the component.
 
 foleys_MagicOscilloscope.cpp - has a new method 'setRate' to change the display rate.
 
-AUTO SAVE
+Auto Save
 ---------
 
 Slowed down timer frequency in foleys_ToolBox.cpp
 
-DEFAULT WINDOW SIZE
+Default Window Size
 -------------------
 
 Added DEFAULT_WINDOW_WIDTH & DEFAULT_WINDOW_HEIGTH directives to foleys_MagicPluginEditor.cpp as some hosts will use these values when first initialising VST3, if a default preset is not loaded (patchwork & bitwig).
