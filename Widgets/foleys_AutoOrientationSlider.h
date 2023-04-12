@@ -67,17 +67,39 @@ public:
             auto index = juce::roundToInt ((numImages - 1) * valueToProportionOfLength (getValue()));
             auto knobArea = getLookAndFeel().getSliderLayout(*this).sliderBounds;
 
+            float areaW = knobArea.getWidth();
+            float areaH = knobArea.getHeight();
+            float areaAspect = areaH / areaW;
+            
             if (horizontalFilmStrip)
             {
-                auto w = filmStrip.getWidth() / numImages;
-                g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getHeight(),
-                             index * w, 0, w, filmStrip.getHeight());
+                float w = filmStrip.getWidth() / numImages;
+                float h = filmStrip.getHeight();
+                float aspect = h / w;
+                
+                if (aspect > areaAspect){
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 index * w, 0, w, filmStrip.getHeight());
+                }
+                else{
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 index * w, 0, w, filmStrip.getHeight());
+                }
             }
             else
             {
-                auto h = filmStrip.getHeight() / numImages;
-                g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getHeight(),
-                             0, index * h, filmStrip.getWidth(), h);
+                float h = filmStrip.getHeight() / numImages;
+                float w = filmStrip.getWidth();
+                float aspect = h / w;
+                
+                if (aspect > areaAspect){
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 0, index * h, filmStrip.getWidth(), h);
+                }
+                else{
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 0, index * h, filmStrip.getWidth(), h);
+                }
             }
         }
     }

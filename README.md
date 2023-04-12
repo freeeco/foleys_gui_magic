@@ -24,6 +24,10 @@ Default Window Size
 Added DEFAULT_WINDOW_WIDTH & DEFAULT_WINDOW_HEIGTH directives to foleys_MagicPluginEditor.cpp as some hosts will use these values when first initialising a VST3 and a default preset is not loaded (patchwork & bitwig).
 
 
+Slider filmstrip maintain aspect ratio
+--------------------------------------
+
+modified foleys_AutoOrientationSlider.h so that filmstrips maintains thier aspect ratio when resized.
 
 
 
