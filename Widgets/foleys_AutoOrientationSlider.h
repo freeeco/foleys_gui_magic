@@ -71,14 +71,21 @@ public:
             float areaH = knobArea.getHeight();
             float areaAspect = areaH / areaW;
             
+
+            
             if (horizontalFilmStrip)
             {
                 float w = filmStrip.getWidth() / numImages;
                 float h = filmStrip.getHeight();
                 float aspect = h / w;
+#if defined SLIDER_FILMSTRIP_CENTERED
+                auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+#else
+                auto xOffset = 0;
+#endif
                 
                 if (aspect > areaAspect){
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                    g.drawImage (filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
                                  index * w, 0, w, filmStrip.getHeight());
                 }
                 else{
@@ -91,9 +98,14 @@ public:
                 float h = filmStrip.getHeight() / numImages;
                 float w = filmStrip.getWidth();
                 float aspect = h / w;
+#if defined SLIDER_FILMSTRIP_CENTERED
+                auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+#else
+                auto xOffset = 0;
+#endif
                 
                 if (aspect > areaAspect){
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                    g.drawImage (filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
                                  0, index * h, filmStrip.getWidth(), h);
                 }
                 else{

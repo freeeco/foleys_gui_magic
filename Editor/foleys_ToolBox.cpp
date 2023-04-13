@@ -408,9 +408,11 @@ void ToolBox::setLastLocation(juce::File file)
     autoSaveFile = lastLocation.getParentDirectory()
                                .getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
     
-#define AUTO_SAVE_MINUTES 5
-    
+#if defined AUTO_SAVE_MINUTES
     startTimer (Timers::AutoSave, 6000*AUTO_SAVE_MINUTES);
+#else
+    startTimer (Timers::AutoSave, 6000*5);
+#endif
 }
 
 std::unique_ptr<juce::FileFilter> ToolBox::getFileFilter()
