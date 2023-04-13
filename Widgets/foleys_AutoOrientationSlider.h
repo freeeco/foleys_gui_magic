@@ -78,18 +78,25 @@ public:
                 float w = filmStrip.getWidth() / numImages;
                 float h = filmStrip.getHeight();
                 float aspect = h / w;
-#if defined SLIDER_FILMSTRIP_CENTERED
+                
+#if defined SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
                 auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
 #else
                 auto xOffset = 0;
 #endif
                 
+#if defined SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+                auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+#else
+                auto yOffset = 0;
+#endif
+
                 if (aspect > areaAspect){
                     g.drawImage (filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
                                  index * w, 0, w, filmStrip.getHeight());
                 }
                 else{
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getWidth()*aspect,
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
                                  index * w, 0, w, filmStrip.getHeight());
                 }
             }
@@ -98,10 +105,17 @@ public:
                 float h = filmStrip.getHeight() / numImages;
                 float w = filmStrip.getWidth();
                 float aspect = h / w;
-#if defined SLIDER_FILMSTRIP_CENTERED
+                
+#if defined SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
                 auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
 #else
                 auto xOffset = 0;
+#endif
+                
+#if defined SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+                auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+#else
+                auto yOffset = 0;
 #endif
                 
                 if (aspect > areaAspect){
@@ -109,7 +123,7 @@ public:
                                  0, index * h, filmStrip.getWidth(), h);
                 }
                 else{
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getWidth()*aspect,
+                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
                                  0, index * h, filmStrip.getWidth(), h);
                 }
             }
