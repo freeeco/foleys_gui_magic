@@ -184,7 +184,24 @@ void Container::updateLayout()
     viewport.setBounds (getClientBounds());
     viewport.setScrollBarsShown (scrollMode == ScrollMode::ScrollVertical || scrollMode == ScrollMode::ScrollBoth,
                                  scrollMode == ScrollMode::ScrollHorizontal || scrollMode == ScrollMode::ScrollBoth);
+    
+    // fixed aspect ratio?
+    float viewAspect = magicBuilder.getStyleProperty (IDs::viewAspect, configNode);
+    if (viewAspect){
+        auto clientBounds = getClientBounds();
+        float clientW = clientBounds.getWidth();
+        float clientH = clientBounds.getHeight();
+        float clientAspect = clientH/clientW;
+        auto viewWidth = viewport.getWidth();
+        auto viewHeight = viewport.getHeight();
+        if (clientAspect<viewAspect)
+            viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
+        else
+            viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+    }
+    
     auto clientBounds = viewport.getLocalBounds();
+    
 
     if (layout == LayoutType::FlexBox)
     {

@@ -35,6 +35,12 @@ GuiItem Opacity Setting
 
 Added an opacity setting to the GuiItems in foleys_MagicJUCEFactories.cpp
 
+Fixed aspect ratio for 'View' items'
+------------------------------
+
+Added 'view-aspect' property to the editor for View items, if set then the items contained in the view will be resized with a fixed aspect ratio. Edits made to foleys_PropertiesEditor.cpp, foleys_StringDefinitions.h & foleys_Container.cpp
+
+
 foleys_gui_magic
 ===============
 
