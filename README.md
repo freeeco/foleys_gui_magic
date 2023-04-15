@@ -13,10 +13,10 @@ foleys_MagicPlotComponent.cpp - Added a field in PGM editor for the plot compone
 
 foleys_MagicOscilloscope.cpp has a new method 'setRate' to change the frequency of the scope.
 
-Auto Save
----------
+Auto Save Frequency
+-------------------
 
-Slowed down timer frequency in foleys_ToolBox.cpp
+Set timer frequency in foleys_ToolBox.cpp. Use preprocessor definition AUTO_SAVE_MINUTES
 
 Default Window Size
 -------------------
@@ -27,10 +27,13 @@ Added DEFAULT_WINDOW_WIDTH & DEFAULT_WINDOW_HEIGTH directives to foleys_MagicPlu
 Slider filmstrip maintain aspect ratio
 --------------------------------------
 
-modified foleys_AutoOrientationSlider.h so that filmstrips maintains thier aspect ratio when resized.
+Modified foleys_AutoOrientationSlider.h so that filmstrips maintains thier aspect ratio when resized.
 Use preprocessor definitions SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED and SLIDER_FILMSTRIP_VERTICALLY_CENTERED to set horizontal and vertical centered justification.
 
+GuiItem Opacity Setting
+-----------------------
 
+Added an opacity setting to the GuiItems in foleys_MagicJUCEFactories.cpp
 
 foleys_gui_magic
 ===============

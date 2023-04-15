@@ -71,6 +71,7 @@ public:
 
     static const juce::Identifier  pFilmStrip;
     static const juce::Identifier  pNumImages;
+    static const juce::Identifier  pOpacity;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -146,6 +147,7 @@ public:
 
         int numFilmImages = getProperty (pNumImages);
         slider.setNumImages (numFilmImages, false);
+        if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -162,6 +164,7 @@ public:
         props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
         props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
         props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
+        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
 
         return props;
     }
@@ -193,6 +196,7 @@ const juce::Identifier  SliderItem::pInterval   { "interval" };
 const juce::Identifier  SliderItem::pSuffix     { "suffix" };
 const juce::Identifier  SliderItem::pFilmStrip  { "filmstrip" };
 const juce::Identifier  SliderItem::pNumImages  { "num-filmstrip-images" };
+const juce::Identifier  SliderItem::pOpacity      { "opacity" };
 
 
 //==============================================================================
@@ -523,6 +527,7 @@ public:
     static const juce::Identifier  pDecay;
     static const juce::String      pLineWidth;
     static const juce::Identifier  pGradient;
+    static const juce::Identifier  pOpacity;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -557,6 +562,7 @@ public:
         }
 
         auto gradient = configNode.getProperty (pGradient, juce::String()).toString();
+        if (float opacity = getProperty (pOpacity)) plot.setAlpha(opacity);
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
     }
 
@@ -567,6 +573,7 @@ public:
         props.push_back ({ configNode, pDecay,      SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pGradient,   SettableProperty::Gradient, {}, {} });
+        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
         return props;
     }
 
@@ -583,6 +590,7 @@ private:
 const juce::Identifier  PlotItem::pDecay                 {"plot-decay"};
 const juce::String      PlotItem::pLineWidth             {"line-width"};
 const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
+const juce::Identifier  PlotItem::pOpacity               { "opacity" };
 
 //==============================================================================
 
@@ -598,6 +606,7 @@ public:
     static const juce::Identifier  pContextParameter;
     static const juce::Identifier  pSenseFactor;
     static const juce::Identifier  pJumpToClick;
+    static const juce::Identifier  pOpacity;
 
     XYDraggerItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node)
@@ -658,6 +667,8 @@ public:
         auto jumpToClick = getProperty (pJumpToClick);
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
+        
+        if (float opacity = getProperty (pOpacity)) dragger.setAlpha(opacity);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -672,6 +683,7 @@ public:
         props.push_back ({ configNode, pRadius, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pSenseFactor, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pJumpToClick, SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
 
         return props;
     }
@@ -693,6 +705,7 @@ const juce::Identifier  XYDraggerItem::pWheelParameter  { "wheel-parameter" };
 const juce::Identifier  XYDraggerItem::pContextParameter { "right-click" };
 const juce::Identifier  XYDraggerItem::pSenseFactor     { "xy-sense-factor" };
 const juce::Identifier  XYDraggerItem::pJumpToClick     { "xy-jump-to-click" };
+const juce::Identifier  XYDraggerItem::pOpacity         { "opacity" };
 
 //==============================================================================
 
@@ -814,6 +827,8 @@ class LevelMeterItem : public GuiItem
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (LevelMeterItem)
+    
+    static const juce::Identifier  pOpacity;
 
     LevelMeterItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -834,12 +849,14 @@ public:
         auto sourceID = configNode.getProperty (IDs::source, juce::String()).toString();
         if (sourceID.isNotEmpty())
             meter.setLevelSource (getMagicState().getObjectWithType<MagicLevelSource>(sourceID));
+        if (float opacity = getProperty (pOpacity)) meter.setAlpha(opacity);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicLevelSource>() });
+        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
         return props;
     }
 
@@ -853,6 +870,7 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeterItem)
 };
+const juce::Identifier  LevelMeterItem::pOpacity           { "opacity" };
 
 //==============================================================================
 
