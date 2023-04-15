@@ -50,6 +50,24 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
     auto w = writePosition.load();
     const auto numSamples = buffer.getNumSamples();
     const auto available  = samples.getNumSamples() - w;
+    
+#if defined SIDECHAIN_OSCILLOSCOPE
+    
+    if (available >= numSamples)
+    {
+        samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples);
+        syncSamples.copyFrom (0, w, buffer.getReadPointer (1), numSamples);
+    }
+    else
+    {
+        samples.copyFrom (0, w, buffer.getReadPointer (0),            available);
+        samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available);
+        
+        syncSamples.copyFrom (0, w, buffer.getReadPointer (1),            available);
+        syncSamples.copyFrom (0, 0, buffer.getReadPointer (1, available), numSamples - available);
+    }
+
+#else
 
     if (channel < 0)
     {
@@ -85,6 +103,8 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
             samples.copyFrom (0, 0, buffer.getReadPointer (channel, available), numSamples - available);
         }
     }
+    
+#endif
 
     if (available > numSamples)
         writePosition.store (w + numSamples);
@@ -95,12 +115,10 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
 }
 
 
-
 void MagicOscilloscope::setRate (const double _rate)
 {
     rate = _rate;
 }
-
 
 
 void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPath, juce::Rectangle<float> bounds, MagicPlotComponent&)
@@ -110,7 +128,37 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
 
     const auto  numToDisplay = int (rate * sampleRate) - 1; //  *** edit: modified display rate ***
     const auto* data = samples.getReadPointer (0);
+    
+#if defined SIDECHAIN_OSCILLOSCOPE
+    
+    const auto* syncData = syncSamples.getReadPointer (0);
 
+    auto pos = writePosition.load() - numToDisplay;
+    if (pos < 0)
+        pos += samples.getNumSamples();
+
+    // trigger
+    auto sign = syncData [pos] > 0.0f;
+    auto bail = int (sampleRate / 20.0f);
+
+    while (sign == false && --bail > 0)
+    {
+        if (--pos < 0)
+            pos += samples.getNumSamples();
+
+        sign = syncData [pos] > 0.0f;
+    }
+
+    while (sign == true && --bail > 0)
+    {
+        if (--pos < 0)
+            pos += samples.getNumSamples();
+
+        sign = syncData [pos] > 0.0f;
+    }
+    
+#else
+    
     auto pos = writePosition.load() - numToDisplay;
     if (pos < 0)
         pos += samples.getNumSamples();
@@ -134,6 +182,8 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
 
         sign = data [pos] > 0.0f;
     }
+    
+#endif
 
     path.clear();
     path.startNewSubPath (bounds.getX(),
@@ -155,12 +205,16 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
     filledPath.closeSubPath();
 }
 
+
 void MagicOscilloscope::prepareToPlay (double sampleRateToUse, int)
 {
     sampleRate = sampleRateToUse;
 
     samples.setSize (1, static_cast<int> (sampleRate));
     samples.clear();
+    
+    syncSamples.setSize (1, static_cast<int> (sampleRate));
+    syncSamples.clear();
 
     writePosition.store (0);
 }

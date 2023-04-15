@@ -40,6 +40,11 @@ Fixed aspect ratio for 'View' items
 
 Added 'view-aspect' property to the editor for 'View' items, if set then the items contained in the view will be resized while maintaining a fixed aspect ratio. Edits made to foleys_PropertiesEditor.cpp, foleys_StringDefinitions.h & foleys_Container.cpp
 
+Sidechain The Oscilloscope
+--------------------------
+
+Added preprocessor definitions SIDECHAIN_OSCILLOSCOPE so that the 2nd channel of the buffer sent to the oscilloscope is used as a 'sync signal' to reset it. Edited foleys_MagicOscilloscope.cpp & foleys_MagicOscilloscope.h
+
 
 foleys_gui_magic
 ===============

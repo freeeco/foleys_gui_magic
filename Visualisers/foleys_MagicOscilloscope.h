@@ -81,6 +81,9 @@ private:
     double                   sampleRate = 0.0;
 
     juce::AudioBuffer<float> samples;
+#if defined SIDECHAIN_OSCILLOSCOPE
+    juce::AudioBuffer<float> syncSamples;
+#endif
     std::atomic<int>         writePosition;
     
     double rate = 0.01;
