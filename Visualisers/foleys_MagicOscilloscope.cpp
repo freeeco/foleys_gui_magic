@@ -52,7 +52,7 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
     const auto available  = samples.getNumSamples() - w;
     
 #if defined SIDECHAIN_OSCILLOSCOPE
-    
+
     if (available >= numSamples)
     {
         samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples);
@@ -213,8 +213,12 @@ void MagicOscilloscope::prepareToPlay (double sampleRateToUse, int)
     samples.setSize (1, static_cast<int> (sampleRate));
     samples.clear();
     
+#if defined SIDECHAIN_OSCILLOSCOPE
+    
     syncSamples.setSize (1, static_cast<int> (sampleRate));
     syncSamples.clear();
+    
+#endif
 
     writePosition.store (0);
 }
