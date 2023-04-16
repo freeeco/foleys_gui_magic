@@ -43,7 +43,7 @@ Added 'view-aspect' property to the editor for 'View' items, if set then the ite
 Sidechain The Oscilloscope
 --------------------------
 
-Added preprocessor definitions SIDECHAIN_OSCILLOSCOPE so that the 2nd channel of the buffer sent to the oscilloscope is used as a 'sync signal' to reset it. Edited foleys_MagicOscilloscope.cpp & foleys_MagicOscilloscope.h
+Added setSidechainChannel method to foleys_MagicOscilloscope so that the a channel of the buffer sent to the oscilloscope can be used as a 'sync signal' to reset it. Edited foleys_MagicOscilloscope.cpp & foleys_MagicOscilloscope.h
 
 
 foleys_gui_magic
