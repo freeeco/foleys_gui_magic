@@ -356,8 +356,8 @@ void PropertiesEditor::addContainerProperties()
     juce::Array<juce::PropertyComponent*> array;
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::display, styleItem, { IDs::contents, IDs::flexbox, IDs::tabbed }));
-    array.add (new StyleTextPropertyComponent (builder, IDs::repaintHz, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::viewAspect, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::repaintHz, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::scrollMode, styleItem, { IDs::noScroll, IDs::scrollHorizontal, IDs::scrollVertical, IDs::scrollBoth }));
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexDirection, styleItem, { IDs::flexDirRow, IDs::flexDirRowReverse, IDs::flexDirColumn, IDs::flexDirColumnReverse }));

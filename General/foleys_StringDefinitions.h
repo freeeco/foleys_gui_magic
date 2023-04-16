@@ -100,8 +100,8 @@ namespace IDs
     static juce::Identifier radius       { "radius" };
 
     static juce::Identifier display      { "display" };
-    static juce::Identifier repaintHz    { "repaint-hz" };
     static juce::Identifier viewAspect   { "view-aspect" };
+    static juce::Identifier repaintHz    { "repaint-hz" };
 
     static juce::String     contents     { "contents" };
     static juce::String     tabbed       { "tabbed" };
