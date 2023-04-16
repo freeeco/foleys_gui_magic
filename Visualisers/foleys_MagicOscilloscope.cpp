@@ -45,66 +45,71 @@ MagicOscilloscope::MagicOscilloscope (int channelToDisplay)
 {
 }
 
+
+void MagicOscilloscope::setSidechainChannel (int channel)
+{
+    sidechainChannel = channel;
+}
+
+
 void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
 {
     auto w = writePosition.load();
     const auto numSamples = buffer.getNumSamples();
     const auto available  = samples.getNumSamples() - w;
     
-#if defined SIDECHAIN_OSCILLOSCOPE
-
-    if (available >= numSamples)
-    {
-        samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples);
-        syncSamples.copyFrom (0, w, buffer.getReadPointer (1), numSamples);
-    }
-    else
-    {
-        samples.copyFrom (0, w, buffer.getReadPointer (0),            available);
-        samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available);
+    if (sidechainChannel >= 0){
         
-        syncSamples.copyFrom (0, w, buffer.getReadPointer (1),            available);
-        syncSamples.copyFrom (0, 0, buffer.getReadPointer (1, available), numSamples - available);
-    }
-
-#else
-
-    if (channel < 0)
-    {
-        // mono summing all channels and average
-        const auto gain = 1.0f / buffer.getNumChannels();
         if (available >= numSamples)
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples, gain);
-            for (int c = 1; c < buffer.getNumChannels(); ++c)
-                samples.addFrom (0, w, buffer.getReadPointer (c), numSamples, gain);
+            samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples);
+            syncSamples.copyFrom (0, w, buffer.getReadPointer (1), numSamples);
         }
         else
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (0),            available, gain);
-            samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available, gain);
-            for (int c = 1; c < buffer.getNumChannels(); ++c)
+            samples.copyFrom (0, w, buffer.getReadPointer (0),            available);
+            samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available);
+            
+            syncSamples.copyFrom (0, w, buffer.getReadPointer (1),            available);
+            syncSamples.copyFrom (0, 0, buffer.getReadPointer (1, available), numSamples - available);
+        }
+    }
+    else{
+        if (channel < 0)
+        {
+            // mono summing all channels and average
+            const auto gain = 1.0f / buffer.getNumChannels();
+            if (available >= numSamples)
             {
-                samples.addFrom (0, w, buffer.getReadPointer (c),            available, gain);
-                samples.addFrom (0, 0, buffer.getReadPointer (c, available), numSamples - available, gain);
+                samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples, gain);
+                for (int c = 1; c < buffer.getNumChannels(); ++c)
+                    samples.addFrom (0, w, buffer.getReadPointer (c), numSamples, gain);
+            }
+            else
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (0),            available, gain);
+                samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available, gain);
+                for (int c = 1; c < buffer.getNumChannels(); ++c)
+                {
+                    samples.addFrom (0, w, buffer.getReadPointer (c),            available, gain);
+                    samples.addFrom (0, 0, buffer.getReadPointer (c, available), numSamples - available, gain);
+                }
+            }
+        }
+        else
+        {
+            // plotting individual channel
+            if (available >= numSamples)
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (channel), numSamples);
+            }
+            else
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (channel),            available);
+                samples.copyFrom (0, 0, buffer.getReadPointer (channel, available), numSamples - available);
             }
         }
     }
-    else
-    {
-        // plotting individual channel
-        if (available >= numSamples)
-        {
-            samples.copyFrom (0, w, buffer.getReadPointer (channel), numSamples);
-        }
-        else
-        {
-            samples.copyFrom (0, w, buffer.getReadPointer (channel),            available);
-            samples.copyFrom (0, 0, buffer.getReadPointer (channel, available), numSamples - available);
-        }
-    }
-    
-#endif
 
     if (available > numSamples)
         writePosition.store (w + numSamples);
@@ -129,61 +134,61 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
     const auto  numToDisplay = int (rate * sampleRate) - 1; //  *** edit: modified display rate ***
     const auto* data = samples.getReadPointer (0);
     
-#if defined SIDECHAIN_OSCILLOSCOPE
-    
-    const auto* syncData = syncSamples.getReadPointer (0);
-
     auto pos = writePosition.load() - numToDisplay;
-    if (pos < 0)
-        pos += samples.getNumSamples();
+    
+    if (sidechainChannel >= 0){
+        
+        const auto* syncData = syncSamples.getReadPointer (0);
 
-    // trigger
-    auto sign = syncData [pos] > 0.0f;
-    auto bail = int (sampleRate / 20.0f);
-
-    while (sign == false && --bail > 0)
-    {
-        if (--pos < 0)
+        if (pos < 0)
             pos += samples.getNumSamples();
-
-        sign = syncData [pos] > 0.0f;
-    }
-
-    while (sign == true && --bail > 0)
-    {
-        if (--pos < 0)
-            pos += samples.getNumSamples();
-
-        sign = syncData [pos] > 0.0f;
+        
+        // trigger
+        auto sign = syncData [pos] > 0.0f;
+        auto bail = int (sampleRate / 20.0f);
+        
+        while (sign == false && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = syncData [pos] > 0.0f;
+        }
+        
+        while (sign == true && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = syncData [pos] > 0.0f;
+        }
     }
     
-#else
-    
-    auto pos = writePosition.load() - numToDisplay;
-    if (pos < 0)
-        pos += samples.getNumSamples();
+    else{
 
-    // trigger
-    auto sign = data [pos] > 0.0f;
-    auto bail = int (sampleRate / 20.0f);
-
-    while (sign == false && --bail > 0)
-    {
-        if (--pos < 0)
+        if (pos < 0)
             pos += samples.getNumSamples();
-
-        sign = data [pos] > 0.0f;
+        
+        // trigger
+        auto sign = data [pos] > 0.0f;
+        auto bail = int (sampleRate / 20.0f);
+        
+        while (sign == false && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = data [pos] > 0.0f;
+        }
+        
+        while (sign == true && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = data [pos] > 0.0f;
+        }
     }
-
-    while (sign == true && --bail > 0)
-    {
-        if (--pos < 0)
-            pos += samples.getNumSamples();
-
-        sign = data [pos] > 0.0f;
-    }
-    
-#endif
 
     path.clear();
     path.startNewSubPath (bounds.getX(),
@@ -213,12 +218,8 @@ void MagicOscilloscope::prepareToPlay (double sampleRateToUse, int)
     samples.setSize (1, static_cast<int> (sampleRate));
     samples.clear();
     
-#if defined SIDECHAIN_OSCILLOSCOPE
-    
     syncSamples.setSize (1, static_cast<int> (sampleRate));
     syncSamples.clear();
-    
-#endif
 
     writePosition.store (0);
 }
