@@ -111,7 +111,6 @@ void MagicLevelMeter::paint (juce::Graphics& g)
             g.drawRect (bar, 1.0f);
             bar.reduce (1, 1);
             g.setColour (barFillColour);
-            DBG(juce::Decibels::gainToDecibels (source->getMaxValue (i)));
             g.fillRoundedRectangle (bar.withWidth (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getX (), bar.getRight ())), bar.getHeight()*0.5f*barCorner);
             
             // draw peak-hold line
