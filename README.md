@@ -6,6 +6,13 @@ Horizontal Meter
 
 Edited foleys_MagicLevelMeter.cpp so that the meter is displayed horizontally or vertically depending on it's dimensions.
 
+Also foleys_MagicLevelMeter.cpp has a new methods:
+
+'setBarCorner' to change the corner radius of the bar
+'setPeakLineThickness' to change the thickness of the peak-hold bar
+
+Setting for these added to the meter's PGM factory
+
 Oscilloscope Plot
 -----------------
 

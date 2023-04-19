@@ -73,9 +73,15 @@ public:
     void setLevelSource (MagicLevelSource* newSource);
 
     void timerCallback() override;
+    
+    void setBarCorner (float corner);
+    
+    void setPeakLineThickness (float lineThickness);
 
 private:
     juce::WeakReference<MagicLevelSource> source;
+    float barCorner = 0;
+    float peakLineThickness = 1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicLevelMeter)
 };

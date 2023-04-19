@@ -829,6 +829,8 @@ public:
     FOLEYS_DECLARE_GUI_FACTORY (LevelMeterItem)
     
     static const juce::Identifier  pOpacity;
+    static const juce::Identifier  pBarCorner;
+    static const juce::Identifier  pPeakLineThickness;
 
     LevelMeterItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -850,6 +852,8 @@ public:
         if (sourceID.isNotEmpty())
             meter.setLevelSource (getMagicState().getObjectWithType<MagicLevelSource>(sourceID));
         if (float opacity = getProperty (pOpacity)) meter.setAlpha(opacity);
+        if (float corner = getProperty (pBarCorner)) meter.setBarCorner(corner);
+        if (float thickness = getProperty (pPeakLineThickness)) meter.setPeakLineThickness(thickness);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -857,6 +861,8 @@ public:
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicLevelSource>() });
         props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pBarCorner, foleys::SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} });
         return props;
     }
 
@@ -871,6 +877,8 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeterItem)
 };
 const juce::Identifier  LevelMeterItem::pOpacity           { "opacity" };
+const juce::Identifier  LevelMeterItem::pBarCorner         { "bar-corner" };
+const juce::Identifier  LevelMeterItem::pPeakLineThickness { "peak-line-thickness" };
 
 //==============================================================================
 
