@@ -44,6 +44,12 @@ Container::Container (MagicGUIBuilder& builder, juce::ValueTree node)
 {
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&containerBox, false);
+    currentTab.addListener (this);
+}
+
+Container::~Container()
+{
+    currentTab.removeListener (this);
 }
 
 void Container::update()
@@ -70,6 +76,13 @@ void Container::update()
         setLayoutMode (LayoutType::Tabbed);
     else
         setLayoutMode (LayoutType::FlexBox);
+
+    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
+    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
+
+    const auto tabProperty = magicBuilder.getStyleProperty (IDs::selectedTab, configNode).toString();
+    if (tabProperty.isNotEmpty())
+        currentTab.referTo(getMagicState().getPropertyAsValue(tabProperty));
 
     auto repaintHz = magicBuilder.getStyleProperty (IDs::repaintHz, configNode).toString();
     if (repaintHz.isNotEmpty())
@@ -185,7 +198,7 @@ void Container::updateLayout()
     viewport.setScrollBarsShown (scrollMode == ScrollMode::ScrollVertical || scrollMode == ScrollMode::ScrollBoth,
                                  scrollMode == ScrollMode::ScrollHorizontal || scrollMode == ScrollMode::ScrollBoth);
     auto clientBounds = viewport.getLocalBounds();
-    
+
     if (layout == LayoutType::FlexBox)
     {
         // fixed aspect ratio?
@@ -201,8 +214,9 @@ void Container::updateLayout()
                 viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
             else
                 viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+            
+            clientBounds = viewport.getLocalBounds();
         }
-        clientBounds = viewport.getLocalBounds();
         
         flexBox.items.clear();
         for (auto& child : children)
@@ -244,12 +258,15 @@ void Container::updateLayout()
                 viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
             else
                 viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+            
+            clientBounds = viewport.getLocalBounds();
         }
-        clientBounds = viewport.getLocalBounds();
         
-        containerBox.setBounds (clientBounds);
-        updateTabbedButtons();
-        tabbedButtons->setBounds (clientBounds.removeFromTop (30));
+        if (tabbedButtons) {
+            containerBox.setBounds(clientBounds);
+            updateTabbedButtons();
+            tabbedButtons->setBounds(clientBounds.removeFromTop (tabbarHeight));
+        }
 
         for (auto& child : children)
             child->setBounds (clientBounds);
@@ -299,7 +316,7 @@ void Container::updateTabbedButtons()
     }
 
     tabbedButtons->addChangeListener (this);
-    tabbedButtons->setCurrentTabIndex (currentTab, false);
+    tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
     updateSelectedTab();
 }
 
@@ -376,6 +393,12 @@ void Container::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     currentTab = tabbedButtons ? tabbedButtons->getCurrentTabIndex() : 0;
     updateSelectedTab();
+}
+
+void Container::valueChanged (juce::Value& source)
+{
+    if (source == currentTab)
+      updateSelectedTab();
 }
 
 void Container::updateSelectedTab()

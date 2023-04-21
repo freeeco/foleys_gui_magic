@@ -147,6 +147,7 @@ public:
 
         int numFilmImages = getProperty (pNumImages);
         slider.setNumImages (numFilmImages, false);
+        
         if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
     }
 
@@ -196,7 +197,7 @@ const juce::Identifier  SliderItem::pInterval   { "interval" };
 const juce::Identifier  SliderItem::pSuffix     { "suffix" };
 const juce::Identifier  SliderItem::pFilmStrip  { "filmstrip" };
 const juce::Identifier  SliderItem::pNumImages  { "num-filmstrip-images" };
-const juce::Identifier  SliderItem::pOpacity      { "opacity" };
+const juce::Identifier SliderItem::pOpacity     { "opacity" };
 
 
 //==============================================================================
@@ -268,6 +269,7 @@ public:
     FOLEYS_DECLARE_GUI_FACTORY (TextButtonItem)
 
     static const juce::Identifier pText;
+    static const juce::Identifier pProperty;
     static const juce::Identifier pOnClick;
 
     TextButtonItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
@@ -288,12 +290,16 @@ public:
         attachment.reset();
 
         auto parameterName = configNode.getProperty (IDs::parameter, juce::String()).toString();
-        auto radioValue = getProperty (IDs::buttonRadioValue);
+        auto radioValue    = getProperty (IDs::buttonRadioValue);
+        auto propertyName  = getProperty (pProperty).toString();
 
         if (parameterName.isNotEmpty() && radioValue.isVoid())
             attachment = getMagicState().createAttachment (parameterName, button);
         else
             attachment.reset();
+
+        if (propertyName.isNotEmpty())
+            property.referTo (getMagicState().getPropertyAsValue (propertyName));
 
         auto groupID = static_cast<int>(getProperty (IDs::buttonRadioGroup));
         if (groupID > 0)
@@ -305,8 +311,22 @@ public:
         button.setButtonText (magicBuilder.getStyleProperty (pText, configNode));
 
         auto triggerID = getProperty (pOnClick).toString();
-        if (triggerID.isNotEmpty())
-            button.onClick = getMagicState().getTrigger (triggerID);
+        triggerToCall = triggerID.isNotEmpty() ? getMagicState().getTrigger (triggerID) : nullptr;
+
+        if (propertyName.isNotEmpty())
+        {
+            button.onClick = [this, radioValue]
+            {
+                property.setValue (radioValue);
+
+                if (triggerToCall)
+                    triggerToCall();
+            };
+        }
+        else
+        {
+            button.onClick = triggerToCall;
+        }
 
         handler.setRadioGroupValue(radioValue, getMagicState().getParameter(parameterName));
     }
@@ -317,6 +337,7 @@ public:
 
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pOnClick, SettableProperty::Choice, {}, magicBuilder.createTriggerMenuLambda() });
         props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} });
@@ -333,11 +354,14 @@ private:
     juce::TextButton button;
     RadioButtonHandler handler {button, magicBuilder.getRadioButtonManager()};
     std::unique_ptr<juce::ButtonParameterAttachment> attachment;
+    std::function<void()> triggerToCall;
+    juce::Value property;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TextButtonItem)
 };
-const juce::Identifier TextButtonItem::pText    { "text" };
-const juce::Identifier TextButtonItem::pOnClick { "onClick" };
+const juce::Identifier TextButtonItem::pText     { "text" };
+const juce::Identifier TextButtonItem::pOnClick  { "onClick" };
+const juce::Identifier TextButtonItem::pProperty { "property" };
 
 
 //==============================================================================
@@ -348,7 +372,7 @@ public:
     FOLEYS_DECLARE_GUI_FACTORY (ToggleButtonItem)
 
     static const juce::Identifier pText;
-    static const juce::Identifier pValue;
+    static const juce::Identifier pProperty;
 
     ToggleButtonItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -375,7 +399,7 @@ public:
 
         button.setButtonText (magicBuilder.getStyleProperty (pText, configNode));
 
-        auto propertyID = getProperty (pValue).toString();
+        auto propertyID = getProperty (pProperty).toString();
         if (propertyID.isNotEmpty())
             button.getToggleStateValue().referTo (getMagicState().getPropertyAsValue (propertyID));
 
@@ -394,7 +418,7 @@ public:
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} });
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} });
         return props;
@@ -412,8 +436,8 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToggleButtonItem)
 };
-const juce::Identifier ToggleButtonItem::pText  { "text" };
-const juce::Identifier ToggleButtonItem::pValue { "value" };
+const juce::Identifier ToggleButtonItem::pText     { "text" };
+const juce::Identifier ToggleButtonItem::pProperty { "property" };
 
 
 //==============================================================================
@@ -668,7 +692,8 @@ public:
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
         
-        if (float opacity = getProperty (pOpacity)) dragger.setAlpha(opacity);
+        if (float opacity = getProperty (pOpacity))
+            dragger.setAlpha(opacity);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
