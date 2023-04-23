@@ -36,6 +36,8 @@
 
 #include "foleys_RootItem.h"
 
+juce::TooltipWindow* pluginToolTipWindow;
+
 namespace foleys
 {
 
@@ -56,6 +58,9 @@ void RootItem::updateColours()
     auto outline = magicBuilder.getStyleProperty (IDs::tooltipOutline, configNode);
     if (! outline.isVoid())
         tooltip.getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, Stylesheet::parseColour (outline));
+    
+    tooltip.setMillisecondsBeforeTipAppears(INT_MAX);
+    pluginToolTipWindow = &tooltip;
 }
 
 
