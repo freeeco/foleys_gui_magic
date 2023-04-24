@@ -386,8 +386,8 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
 
     if (highlight.isNotEmpty())
     {
-        g.setColour (juce::Colours::red);
-        g.drawFittedText (highlight, getLocalBounds(), juce::Justification::centred, 3);
+        g.setColour (juce::Colour(1.0f, 0.0f, 0.0f, 0.3f));
+        g.fillRoundedRectangle((getWidth()-getHeight())/2,0,getHeight(),getHeight(),getHeight());
     }
 }
 

@@ -52,10 +52,15 @@ Sidechain The Oscilloscope
 
 Added setSidechainChannel method to foleys_MagicOscilloscope so that the a channel of the buffer sent to the oscilloscope can be used as a 'sync signal' to reset it. Edited foleys_MagicOscilloscope.cpp & foleys_MagicOscilloscope.h
 
-Sidechain The Oscilloscope
---------------------------
+Tooltips Window Access
+----------------------
 
-In foleys_RootItem.cpp added global variable to get a pointer to the tooltip window in order to enable / disable with a setting.
+In foleys_RootItem.cpp added a function to send a pointer to the tooltip window in order to enable / disable tooltips with a plugin setting.
+
+MIDI Learn
+----------
+
+foleys_GuiItem.cpp -> Changed the drag and drop hightlighting mode to a semi-transparent circle over the target control
 
 
 foleys_gui_magic

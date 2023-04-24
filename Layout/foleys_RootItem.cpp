@@ -36,7 +36,15 @@
 
 #include "foleys_RootItem.h"
 
-juce::TooltipWindow* pluginToolTipWindow;
+#if defined USE_PLUGIN_SETTINGS
+namespace toybox {
+class PluginSettings {
+public: void setToolTipWindow(juce::TooltipWindow* _toolTipWindow);
+};
+extern PluginSettings pluginSettings;
+} // namespace toybox
+#endif
+
 
 namespace foleys
 {
@@ -59,9 +67,14 @@ void RootItem::updateColours()
     if (! outline.isVoid())
         tooltip.getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, Stylesheet::parseColour (outline));
     
+#if defined USE_PLUGIN_SETTINGS
     tooltip.setMillisecondsBeforeTipAppears(INT_MAX);
-    pluginToolTipWindow = &tooltip;
+    toybox::pluginSettings.setToolTipWindow(&tooltip);
+#endif
+
+    
 }
+
 
 
 } // namespace foleys
