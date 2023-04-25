@@ -128,6 +128,11 @@ public:
      Connects a midi controller CC to a parameter for MIDI learn
      */
     void mapMidiController (int cc, const juce::String& parameterID);
+    
+    /**
+     Removes a midi controller CC parameter mapping
+     */
+    void unmapAllMidiController (int cc);
 
     /**
      Returns the last moved controller for MIDI learn

@@ -72,7 +72,6 @@ void RootItem::updateColours()
     toybox::pluginSettings.setToolTipWindow(&tooltip);
 #endif
 
-    
 }
 
 

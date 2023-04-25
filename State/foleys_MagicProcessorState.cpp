@@ -226,6 +226,11 @@ void MagicProcessorState::mapMidiController (int cc, const juce::String& paramet
     midiMapper.mapMidiController (cc, parameterID);
 }
 
+void MagicProcessorState::unmapAllMidiController (int cc)
+{
+    midiMapper.unmapAllMidiController (cc);
+}
+
 int MagicProcessorState::getLastController() const
 {
     return midiMapper.getLastController();

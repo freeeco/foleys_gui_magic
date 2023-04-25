@@ -107,6 +107,7 @@ void ApplicationSettings::save()
 
 void ApplicationSettings::timerCallback()
 {
+    stopTimer();
     load();
 }
 
