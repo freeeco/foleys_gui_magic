@@ -96,6 +96,11 @@ public:
      Set a file to save common settings for all instances
      */
     void setApplicationSettingsFile (juce::File file);
+    
+    /**
+     Returns path to settings file
+     */
+    juce::File getApplicationSettingsFile();
 
     /**
      This is a settings ValueTree that is stored globally for all plugin instances

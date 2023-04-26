@@ -62,6 +62,20 @@ MIDI Learn
 
 foleys_GuiItem.cpp -> Changed the drag and drop hightlighting mode to a semi-transparent circle over the target control
 
+Exposed unmapAllMidiController in foleys_MagicProcessorState.cpp to use when clearing all midi mappings from the plugin.
+
+Application Settings
+--------------------
+Added stopTimer(), stops hanging when midi learning controls
+
+Settings File / Set Window Size
+-------------------------------
+
+Added getFileName() method to foleys_ApplicationSettings.cpp and getApplicationSettingsFile() to foleys_MagicGUIState.cpp
+
+Added settings fiile loading to foleys_MagicPluginEditor.cpp in order to set the plugin window size from the settings file when the plugin loads.
+
+Changed getOrCreateChildWithName to getChildWithName in a couple of places in foleys_MidiParameterMapper.cpp to avoid spurious entries in the settings file
 
 foleys_gui_magic
 ===============

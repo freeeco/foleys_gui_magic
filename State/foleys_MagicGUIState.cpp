@@ -118,6 +118,11 @@ void MagicGUIState::setApplicationSettingsFile (juce::File file)
     settings->setFileName (file);
 }
 
+juce::File MagicGUIState::getApplicationSettingsFile()
+{
+    return settings->getFileName();
+}
+
 juce::ValueTree& MagicGUIState::getSettings()
 {
     return settings->settings;

@@ -63,6 +63,7 @@ public:
     juce::ValueTree settings { "Settings" };
 
     void setFileName (juce::File file);
+    juce::File getFileName();
 
 private:
     void timerCallback() override;

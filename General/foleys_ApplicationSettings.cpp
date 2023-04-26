@@ -61,6 +61,11 @@ void ApplicationSettings::setFileName (juce::File file)
     startTimerHz (1);
 }
 
+juce::File ApplicationSettings::getFileName ()
+{
+    return settingsFile;
+}
+
 void ApplicationSettings::load()
 {
     ScopedInterProcessLock lock (settingsFile.getFileName() + ".lock", 500,

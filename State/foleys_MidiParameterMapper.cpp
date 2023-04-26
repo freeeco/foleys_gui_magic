@@ -98,7 +98,7 @@ void MidiParameterMapper::mapMidiController (int cc, const juce::String& paramet
 
 void MidiParameterMapper::unmapMidiController (int cc, const juce::String& parameterID)
 {
-    auto mappings = getMappingSettings();
+    auto mappings = settings->settings.getChildWithName (IDs::mappings);
     if (! mappings.isValid())
         return;
 
@@ -115,7 +115,7 @@ void MidiParameterMapper::unmapMidiController (int cc, const juce::String& param
 
 void MidiParameterMapper::unmapAllMidiController (int cc)
 {
-    auto mappings = getMappingSettings();
+    auto mappings = settings->settings.getChildWithName (IDs::mappings);
     if (! mappings.isValid())
         return;
 
@@ -142,7 +142,7 @@ juce::ValueTree MidiParameterMapper::getMappingSettings()
 
 void MidiParameterMapper::recreateMidiMapper()
 {
-    auto mappings = getMappingSettings();
+    auto mappings = settings->settings.getChildWithName (IDs::mappings);
     if (! mappings.isValid())
         return;
 
