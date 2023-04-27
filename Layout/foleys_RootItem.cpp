@@ -58,7 +58,7 @@ void RootItem::updateColours()
     if (! outline.isVoid())
         tooltip.getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, Stylesheet::parseColour (outline));
     
-    magicBuilder.setToolTipWindow(&tooltip);
+    magicBuilder.setTooltipWindow(&tooltip);
 }
 
 

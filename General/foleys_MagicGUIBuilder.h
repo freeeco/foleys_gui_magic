@@ -215,9 +215,9 @@ public:
 
     juce::UndoManager& getUndoManager();
     
-    juce::TooltipWindow*  getToolTipWindow();
+    juce::TooltipWindow*  getTooltipWindow();
     
-    void setToolTipWindow (juce::TooltipWindow* _toolTipWindow);
+    void setTooltipWindow (juce::TooltipWindow* _toolTipWindow);
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void attachToolboxToWindow (juce::Component& window);

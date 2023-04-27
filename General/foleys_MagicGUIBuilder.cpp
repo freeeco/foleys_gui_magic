@@ -383,12 +383,12 @@ juce::UndoManager& MagicGUIBuilder::getUndoManager()
     return undo;
 }
 
-juce::TooltipWindow* MagicGUIBuilder::getToolTipWindow()
+juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
 {
     return toolTipWindow;
 }
 
-void MagicGUIBuilder::setToolTipWindow (juce::TooltipWindow* window)
+void MagicGUIBuilder::setTooltipWindow (juce::TooltipWindow* window)
 {
     toolTipWindow = window;
 }
