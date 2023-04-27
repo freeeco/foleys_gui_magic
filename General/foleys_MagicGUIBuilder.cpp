@@ -383,6 +383,16 @@ juce::UndoManager& MagicGUIBuilder::getUndoManager()
     return undo;
 }
 
+juce::TooltipWindow* MagicGUIBuilder::getToolTipWindow()
+{
+    return toolTipWindow;
+}
+
+void MagicGUIBuilder::setToolTipWindow (juce::TooltipWindow* window)
+{
+    toolTipWindow = window;
+}
+
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
 void MagicGUIBuilder::setEditMode (bool shouldEdit)

@@ -96,17 +96,15 @@ void MagicPluginEditor::updateSize()
     
     auto settingsFile = processorState.getApplicationSettingsFile();
     auto stream = settingsFile.createInputStream();
-    if (stream.get() != nullptr){
-        
+    if (stream.get() != nullptr)
+    {
         auto tree = juce::ValueTree::fromXml (stream->readEntireStreamAsString());
         if (tree.isValid())
         {
-            juce::ValueTree settings;
             auto sizeNode = tree.getChildWithName (foleys::IDs::lastSize);
-            if (sizeNode.hasProperty (foleys::IDs::width) != false)
+            if (sizeNode.hasProperty (foleys::IDs::width) && sizeNode.hasProperty (foleys::IDs::height) )
             {
-                if (sizeNode.hasProperty (foleys::IDs::height) != false)
-                    width  = sizeNode.getProperty (foleys::IDs::width);
+                width  = sizeNode.getProperty (foleys::IDs::width);
                 height = sizeNode.getProperty (foleys::IDs::height);
             }
         }

@@ -55,7 +55,7 @@ Added setSidechainChannel method to foleys_MagicOscilloscope so that the a chann
 Tooltips Window Access
 ----------------------
 
-In foleys_RootItem.cpp added a function to send a pointer to the tooltip window in order to enable / disable tooltips with a plugin setting.
+Added getToolTipWindow & setToolTipWindow to foleys_MagicGUIBuilder.cpp (initialised in foleys_RootItem.cpp).
 
 MIDI Learn
 ----------

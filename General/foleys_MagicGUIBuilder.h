@@ -214,6 +214,10 @@ public:
     MagicGUIState& getMagicState();
 
     juce::UndoManager& getUndoManager();
+    
+    juce::TooltipWindow*  getToolTipWindow();
+    
+    void setToolTipWindow (juce::TooltipWindow* _toolTipWindow);
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void attachToolboxToWindow (juce::Component& window);
@@ -250,6 +254,8 @@ private:
     std::unique_ptr<juce::Component> overlayDialog;
 
     std::map<juce::Identifier, std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&)> factories;
+    
+    juce::TooltipWindow* toolTipWindow;
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     bool editMode = false;
