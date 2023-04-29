@@ -71,6 +71,8 @@ public:
     bool hitTest (int, int) override { return false; }
 
     bool needsUpdate() const;
+    
+    void setAlwaysPlot(bool flag);
 
 private:
     void drawPlot (juce::Graphics& g);
@@ -87,6 +89,7 @@ private:
     float       decay = 0.0f;
     float       lineWidth = 0.0f;
     float       relativeLineWidth = 0.0f;
+    bool        alwaysPlot = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotComponent)
 };

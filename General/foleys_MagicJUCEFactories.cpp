@@ -552,6 +552,7 @@ public:
     static const juce::String      pLineWidth;
     static const juce::Identifier  pGradient;
     static const juce::Identifier  pOpacity;
+    static const juce::Identifier  pAlwaysPlot;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -588,6 +589,12 @@ public:
         auto gradient = configNode.getProperty (pGradient, juce::String()).toString();
         if (float opacity = getProperty (pOpacity)) plot.setAlpha(opacity);
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
+        
+        if (getProperty (pAlwaysPlot))
+            plot.setAlwaysPlot(true);
+        else
+            plot.setAlwaysPlot(false);
+        
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -598,6 +605,8 @@ public:
         props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pGradient,   SettableProperty::Gradient, {}, {} });
         props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pAlwaysPlot, foleys::SettableProperty::Toggle, {}, {}});
+        
         return props;
     }
 
@@ -615,6 +624,7 @@ const juce::Identifier  PlotItem::pDecay                 {"plot-decay"};
 const juce::String      PlotItem::pLineWidth             {"line-width"};
 const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 const juce::Identifier  PlotItem::pOpacity               { "opacity" };
+const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };
 
 //==============================================================================
 

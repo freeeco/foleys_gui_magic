@@ -89,12 +89,17 @@ void MagicPlotComponent::paint (juce::Graphics& g)
 {
     if (plotSource == nullptr)
         return;
-
-    const auto lastUpdate = plotSource->getLastDataUpdate();
-    if (lastUpdate > lastDataTimestamp)
-    {
+    
+    if (alwaysPlot){
         plotSource->createPlotPaths (path, filledPath, getLocalBounds().toFloat(), *this);
-        lastDataTimestamp = lastUpdate;
+    }
+    else{
+        const auto lastUpdate = plotSource->getLastDataUpdate();
+        if (lastUpdate > lastDataTimestamp)
+        {
+            plotSource->createPlotPaths (path, filledPath, getLocalBounds().toFloat(), *this);
+            lastDataTimestamp = lastUpdate;
+        }
     }
 
     if (! glowBuffer.isNull())
@@ -172,6 +177,11 @@ void MagicPlotComponent::resized()
 {
     lastDataTimestamp = 0;
     updateGlowBufferSize();
+}
+
+void MagicPlotComponent::setAlwaysPlot(bool flag)
+{
+    alwaysPlot = flag;
 }
 
 

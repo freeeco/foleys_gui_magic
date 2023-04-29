@@ -131,7 +131,7 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
     if (sampleRate < 20.0f)
         return;
 
-    const auto  numToDisplay = int (rate * sampleRate) - 1; //  *** edit: modified display rate ***
+    const auto  numToDisplay = int (rate * sampleRate) - 1; // scope frequency
     const auto* data = samples.getReadPointer (0);
     
     auto pos = writePosition.load() - numToDisplay;
