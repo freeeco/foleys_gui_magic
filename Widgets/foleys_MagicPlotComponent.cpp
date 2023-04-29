@@ -120,9 +120,12 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
 
     if (gradient)
         gradient->setupGradientFill (g, getLocalBounds().toFloat());
+    
+    auto roundedPath = path.createPathWithRoundedCorners(cornerRadius);
+    auto roundedFilledPath = filledPath.createPathWithRoundedCorners(cornerRadius);
 
     if (gradient || !colour.isTransparent())
-        g.fillPath (filledPath);
+        g.fillPath (roundedFilledPath);
 
     colour = findColour (active ? plotColourId : plotInactiveColourId);
     if (colour.isTransparent() == false)
@@ -130,13 +133,13 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
         g.setColour (colour);
 
         if (relativeLineWidth){
-            g.strokePath (path, juce::PathStrokeType (getHeight()*relativeLineWidth*0.01));
+            g.strokePath (roundedPath, juce::PathStrokeType (getHeight()*relativeLineWidth*0.01));
         }
         else if (lineWidth){
-            g.strokePath (path, juce::PathStrokeType (lineWidth));
+            g.strokePath (roundedPath, juce::PathStrokeType (lineWidth));
         }
         else{
-            g.strokePath (path, juce::PathStrokeType (2.0));
+            g.strokePath (roundedPath, juce::PathStrokeType (2.0));
         }
     }
 }
@@ -182,6 +185,11 @@ void MagicPlotComponent::resized()
 void MagicPlotComponent::setAlwaysPlot(bool flag)
 {
     alwaysPlot = flag;
+}
+
+void MagicPlotComponent::setCornerRadius(bool radius)
+{
+    cornerRadius = radius;
 }
 
 

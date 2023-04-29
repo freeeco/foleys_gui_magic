@@ -550,6 +550,7 @@ public:
 
     static const juce::Identifier  pDecay;
     static const juce::String      pLineWidth;
+    static const juce::Identifier  pRoundedCorners;
     static const juce::Identifier  pGradient;
     static const juce::Identifier  pOpacity;
     static const juce::Identifier  pAlwaysPlot;
@@ -591,21 +592,26 @@ public:
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
         
         if (getProperty (pAlwaysPlot))
-            plot.setAlwaysPlot(true);
+            plot.setAlwaysPlot (true);
         else
-            plot.setAlwaysPlot(false);
+            plot.setAlwaysPlot (false);
         
+        if (getProperty (pRoundedCorners))
+            plot.setCornerRadius (1.0f);
+        else
+            plot.setCornerRadius (0.0f);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicPlotSource>() });
-        props.push_back ({ configNode, pDecay,      SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, IDs::source,     SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicPlotSource>() });
+        props.push_back ({ configNode, pDecay,          SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pGradient,   SettableProperty::Gradient, {}, {} });
-        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pAlwaysPlot, foleys::SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pRoundedCorners, SettableProperty::Toggle, {}, {} });
+        props.push_back ({ configNode, pGradient,       SettableProperty::Gradient, {}, {} });
+        props.push_back ({ configNode, pOpacity,        SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         
         return props;
     }
@@ -622,6 +628,7 @@ private:
 };
 const juce::Identifier  PlotItem::pDecay                 {"plot-decay"};
 const juce::String      PlotItem::pLineWidth             {"line-width"};
+const juce::Identifier  PlotItem::pRoundedCorners        { "rounded-corners" };
 const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 const juce::Identifier  PlotItem::pOpacity               { "opacity" };
 const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };

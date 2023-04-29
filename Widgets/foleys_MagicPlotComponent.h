@@ -73,6 +73,7 @@ public:
     bool needsUpdate() const;
     
     void setAlwaysPlot(bool flag);
+    void setCornerRadius(bool radius);
 
 private:
     void drawPlot (juce::Graphics& g);
@@ -90,6 +91,7 @@ private:
     float       lineWidth = 0.0f;
     float       relativeLineWidth = 0.0f;
     bool        alwaysPlot = false;
+    float       cornerRadius = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotComponent)
 };
