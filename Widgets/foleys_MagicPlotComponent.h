@@ -61,8 +61,7 @@ public:
 
     void setPlotSource (MagicPlotSource* source);
     void setDecayFactor (float decayFactor);
-    void setLineWidth (float width);
-    void setRelativeLineWidth (float width);
+    void setLineWidth (juce::String width);
     void setGradientFromString (const juce::String& cssString, Stylesheet& stylesheet);
 
     void paint (juce::Graphics& g) override;
@@ -84,14 +83,12 @@ private:
     juce::Path                           path;
     juce::Path                           filledPath;
     std::unique_ptr<GradientBackground>  gradient;
-
-    juce::int64 lastDataTimestamp = 0;
-    juce::Image glowBuffer;
-    float       decay = 0.0f;
-    float       lineWidth = 0.0f;
-    float       relativeLineWidth = 0.0f;
-    bool        alwaysPlot = false;
-    float       cornerRadius = 0.0f;
+    juce::int64                          lastDataTimestamp = 0;
+    juce::Image                          glowBuffer;
+    float                                decay = 0.0f;
+    juce::String                         lineWidth = "1.0";
+    bool                                 alwaysPlot = false;
+    float                                cornerRadius = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotComponent)
 };

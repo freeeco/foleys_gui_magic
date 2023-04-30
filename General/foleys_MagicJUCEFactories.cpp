@@ -577,14 +577,12 @@ public:
         auto decay = float (getProperty (pDecay));
         plot.setDecayFactor (decay);
         
-        auto lineWidthString = juce::String (getProperty (pLineWidth));
-        if (lineWidthString.endsWith ("%")){
-            plot.setRelativeLineWidth (lineWidthString.getFloatValue());
-            plot.setLineWidth (0.0f);
+        juce::String lineWidthString = (getProperty (pLineWidth));
+        if (lineWidthString.isNotEmpty()){
+            plot.setLineWidth (lineWidthString);
         }
         else{
-            plot.setRelativeLineWidth (0.0f);
-            plot.setLineWidth (lineWidthString.getFloatValue());
+            plot.setLineWidth ("1.0");
         }
 
         auto gradient = configNode.getProperty (pGradient, juce::String()).toString();
