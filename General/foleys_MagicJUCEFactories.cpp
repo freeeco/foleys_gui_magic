@@ -873,6 +873,8 @@ public:
     static const juce::Identifier  pOpacity;
     static const juce::Identifier  pBarCorner;
     static const juce::Identifier  pPeakLineThickness;
+    static const juce::Identifier  pHorizontalFlip;
+    static const juce::Identifier  pVerticalFlip;
 
     LevelMeterItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -893,9 +895,30 @@ public:
         auto sourceID = configNode.getProperty (IDs::source, juce::String()).toString();
         if (sourceID.isNotEmpty())
             meter.setLevelSource (getMagicState().getObjectWithType<MagicLevelSource>(sourceID));
-        if (float opacity = getProperty (pOpacity)) meter.setAlpha(opacity);
-        if (float corner = getProperty (pBarCorner)) meter.setBarCorner(corner);
-        if (float thickness = getProperty (pPeakLineThickness)) meter.setPeakLineThickness(thickness);
+        if (float opacity = getProperty (pOpacity))
+            meter.setAlpha(opacity);
+        else
+            meter.setAlpha(1);
+        
+        if (float corner = getProperty (pBarCorner))
+            meter.setBarCorner(corner);
+        else
+            meter.setBarCorner(0);
+        
+        if (float thickness = getProperty (pPeakLineThickness))
+            meter.setPeakLineThickness(thickness);
+        else
+            meter.setPeakLineThickness(1);
+        
+        if (getProperty (pHorizontalFlip))
+            meter.setHorizontalFlip(true);
+        else
+            meter.setHorizontalFlip(false);
+        
+        if (getProperty (pVerticalFlip))
+            meter.setVerticalFlip(true);
+        else
+            meter.setVerticalFlip(false);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -905,6 +928,8 @@ public:
         props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pBarCorner, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pHorizontalFlip, foleys::SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pVerticalFlip, foleys::SettableProperty::Toggle, {}, {}});
         return props;
     }
 
@@ -921,6 +946,8 @@ private:
 const juce::Identifier  LevelMeterItem::pOpacity           { "opacity" };
 const juce::Identifier  LevelMeterItem::pBarCorner         { "bar-corner" };
 const juce::Identifier  LevelMeterItem::pPeakLineThickness { "peak-line-thickness" };
+const juce::Identifier  LevelMeterItem::pHorizontalFlip    { "horizontal-flip" };
+const juce::Identifier  LevelMeterItem::pVerticalFlip      { "vertical-flip" };
 
 //==============================================================================
 

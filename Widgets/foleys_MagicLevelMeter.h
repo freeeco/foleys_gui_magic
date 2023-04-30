@@ -77,11 +77,17 @@ public:
     void setBarCorner (float corner);
     
     void setPeakLineThickness (float lineThickness);
+    
+    void setHorizontalFlip (bool flip);
+    
+    void setVerticalFlip (bool flip);
 
 private:
     juce::WeakReference<MagicLevelSource> source;
     float barCorner = 0;
     float peakLineThickness = 1;
+    bool horizontalFlip = false;
+    bool verticalFlip = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicLevelMeter)
 };

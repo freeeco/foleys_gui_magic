@@ -53,6 +53,21 @@ MagicLevelMeter::MagicLevelMeter()
 
 void MagicLevelMeter::paint (juce::Graphics& g)
 {
+    
+    this->setTransform (juce::AffineTransform()); // clear transformation
+    
+    if (horizontalFlip){
+        auto t1 = juce::AffineTransform::rotation (juce::MathConstants< float >::pi, getWidth()/2, getHeight()/2);
+        auto t2 = juce::AffineTransform::verticalFlip (getHeight());
+        auto t3 = t1.followedBy(t2);
+        this->setTransform (t3);
+    }
+    
+    if (verticalFlip){
+        auto transform = juce::AffineTransform::verticalFlip (getHeight());
+        this->setTransform (transform);
+    }
+    
     if (auto* lnf = dynamic_cast<LookAndFeelMethods*>(&getLookAndFeel()))
     {
         lnf->drawLevelMeter (g, *this, source, getLocalBounds());
@@ -135,6 +150,16 @@ void MagicLevelMeter::setBarCorner (float corner)
 void MagicLevelMeter::setPeakLineThickness (float lineThickness)
 {
     peakLineThickness = lineThickness;
+}
+
+void MagicLevelMeter::setHorizontalFlip (bool flip)
+{
+    horizontalFlip = flip;
+}
+
+void MagicLevelMeter::setVerticalFlip (bool flip)
+{
+    verticalFlip = flip;
 }
 
 void MagicLevelMeter::timerCallback()
