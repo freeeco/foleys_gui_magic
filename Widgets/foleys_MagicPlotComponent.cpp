@@ -133,7 +133,7 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
         g.setColour (colour);
 
         if (relativeLineWidth){
-            g.strokePath (roundedPath, juce::PathStrokeType (getHeight()*relativeLineWidth*0.01));
+            g.strokePath (roundedPath, juce::PathStrokeType (getHeight() * relativeLineWidth * 0.01));
         }
         else if (lineWidth){
             g.strokePath (roundedPath, juce::PathStrokeType (lineWidth));
