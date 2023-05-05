@@ -201,23 +201,6 @@ void Container::updateLayout()
 
     if (layout == LayoutType::FlexBox)
     {
-        // fixed aspect ratio?
-        float viewAspect = magicBuilder.getStyleProperty (IDs::viewAspect, configNode);
-        if (viewAspect){
-            clientBounds = getClientBounds();
-            float clientW = clientBounds.getWidth();
-            float clientH = clientBounds.getHeight();
-            float clientAspect = clientH/clientW;
-            float viewWidth = viewport.getWidth();
-            float viewHeight = viewport.getHeight();
-            if (clientAspect<viewAspect)
-                viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
-            else
-                viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
-            
-            clientBounds = viewport.getLocalBounds();
-        }
-        
         flexBox.items.clear();
         for (auto& child : children)
             flexBox.items.add (child->getFlexItem());
@@ -248,6 +231,7 @@ void Container::updateLayout()
         // fixed aspect ratio?
         float viewAspect = magicBuilder.getStyleProperty (IDs::viewAspect, configNode);
         if (viewAspect){
+            viewAspect = 1 / viewAspect;
             clientBounds = getClientBounds();
             float clientW = clientBounds.getWidth();
             float clientH = clientBounds.getHeight();
