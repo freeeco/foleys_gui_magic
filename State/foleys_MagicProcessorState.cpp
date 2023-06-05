@@ -116,7 +116,8 @@ std::unique_ptr<juce::ButtonParameterAttachment> MagicProcessorState::createAtta
 
     // You have connected a control to a parameter that doesn't exist. Please fix your GUI.
     // You may safely click continue in your debugger
-    jassertfalse;
+//    jassertfalse;
+    DBG ("You have connected a control to a parameter that doesn't exist. Please fix your GUI");
     return {};
 }
 
