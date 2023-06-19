@@ -553,6 +553,7 @@ public:
     static const juce::Identifier  pRoundedCorners;
     static const juce::Identifier  pGradient;
     static const juce::Identifier  pOpacity;
+    static const juce::Identifier  pScaled;
     static const juce::Identifier  pAlwaysPlot;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
@@ -589,10 +590,19 @@ public:
         if (float opacity = getProperty (pOpacity)) plot.setAlpha(opacity);
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
         
+        // continuously draw the plot?
+        
         if (getProperty (pAlwaysPlot))
             plot.setAlwaysPlot (true);
         else
             plot.setAlwaysPlot (false);
+            
+        // scale the plot by the width of the line to avoid clipping when using very thick lines?
+        
+        if (getProperty (pScaled))
+            plot.setScaled (true);
+        else
+            plot.setScaled (false);
         
         if (getProperty (pRoundedCorners))
             plot.setCornerRadius (1.0f);
@@ -609,6 +619,7 @@ public:
         props.push_back ({ configNode, pRoundedCorners, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pGradient,       SettableProperty::Gradient, {}, {} });
         props.push_back ({ configNode, pOpacity,        SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         
         return props;
@@ -629,6 +640,7 @@ const juce::String      PlotItem::pLineWidth             {"line-width"};
 const juce::Identifier  PlotItem::pRoundedCorners        { "rounded-corners" };
 const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 const juce::Identifier  PlotItem::pOpacity               { "opacity" };
+const juce::Identifier  PlotItem::pScaled                { "scaled" };
 const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };
 
 //==============================================================================

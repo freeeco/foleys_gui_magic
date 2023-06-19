@@ -45,7 +45,8 @@ namespace foleys
  The MagicPlotComponent allows drawing the data from a MagicPlotSource.
  */
 class MagicPlotComponent  : public juce::Component,
-                            juce::SettableTooltipClient
+                            juce::SettableTooltipClient,
+                            private juce::Timer
 {
 public:
 
@@ -71,13 +72,15 @@ public:
 
     bool needsUpdate() const;
     
-    void setAlwaysPlot(bool flag);
+    void setAlwaysPlot (bool flag);
+    void setScaled (bool flag);
     void setCornerRadius(bool radius);
 
 private:
     void drawPlot (juce::Graphics& g);
     void drawPlotGlowing (juce::Graphics& g);
     void updateGlowBufferSize();
+    void timerCallback() override;
 
     juce::WeakReference<MagicPlotSource> plotSource;
     juce::Path                           path;
@@ -88,6 +91,7 @@ private:
     float                                decay = 0.0f;
     juce::String                         lineWidth = "1.0";
     bool                                 alwaysPlot = false;
+    bool                                 scaled = false;
     float                                cornerRadius = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotComponent)

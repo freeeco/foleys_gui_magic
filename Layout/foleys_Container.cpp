@@ -230,6 +230,7 @@ void Container::updateLayout()
     {
         // fixed aspect ratio?
         float viewAspect = magicBuilder.getStyleProperty (IDs::viewAspect, configNode);
+        juce::String viewJustification = magicBuilder.getStyleProperty (IDs::viewJustification, configNode);
         if (viewAspect){
             viewAspect = 1 / viewAspect;
             clientBounds = getClientBounds();
@@ -238,12 +239,38 @@ void Container::updateLayout()
             float clientAspect = clientH/clientW;
             float viewWidth = viewport.getWidth();
             float viewHeight = viewport.getHeight();
-            if (clientAspect<viewAspect)
-                viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
-            else
-                viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+            
+            if (viewJustification == "left") {
+                
+                if (clientAspect<viewAspect)
+                    viewport.setBounds( 0, 0 ,viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.setBounds(0, (clientH-(viewWidth*viewAspect))/2 ,viewWidth,viewWidth*viewAspect);
+                
+            }
+            
+            else if (viewJustification == "right"){
+                
+                if (clientAspect<viewAspect)
+                    viewport.setBounds( clientW - (viewHeight/viewAspect), 0 ,viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.setBounds(clientW - viewWidth, (clientH-(viewWidth*viewAspect))/2 ,viewWidth,viewWidth*viewAspect);
+                
+            }
+            
+            else{
+                
+                // centred justification
+                
+                if (clientAspect<viewAspect)
+                    viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+                
+            }
             
             clientBounds = viewport.getLocalBounds();
+            
         }
         
         if (tabbedButtons) {

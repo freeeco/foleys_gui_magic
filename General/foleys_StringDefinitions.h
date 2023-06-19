@@ -101,6 +101,7 @@ namespace IDs
 
     static juce::Identifier display      { "display" };
     static juce::Identifier viewAspect   { "view-aspect" };
+    static juce::Identifier viewJustification   { "view-justification" };
     static juce::Identifier repaintHz    { "repaint-hz" };
     static juce::String     contents     { "contents" };
     static juce::String     tabbed       { "tabbed" };
@@ -118,7 +119,6 @@ namespace IDs
     static juce::String     scrollHorizontal { "scroll-horizontal" };
     static juce::String     scrollVertical   { "scroll-vertical" };
     static juce::String     scrollBoth       { "scroll" };
-
 
     static juce::String     root         { "root" };
 

@@ -357,6 +357,7 @@ void PropertiesEditor::addContainerProperties()
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::display, styleItem, { IDs::contents, IDs::flexbox, IDs::tabbed }));
     array.add (new StyleTextPropertyComponent (builder, IDs::viewAspect, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::viewJustification, styleItem, { "left", "centre", "right" }));
     array.add (new StyleTextPropertyComponent (builder, IDs::repaintHz, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::scrollMode, styleItem, { IDs::noScroll, IDs::scrollHorizontal, IDs::scrollVertical, IDs::scrollBoth }));
     array.add (new StyleTextPropertyComponent (builder, IDs::tabHeight, styleItem));

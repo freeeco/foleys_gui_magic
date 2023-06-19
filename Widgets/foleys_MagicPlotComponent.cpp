@@ -48,7 +48,7 @@ MagicPlotComponent::MagicPlotComponent()
     setColour (plotInactiveFillColourId, juce::Colours::orange.darker().withAlpha (0.5f));
 
     setOpaque (false);
-    setPaintingIsUnclipped (true);
+    setPaintingIsUnclipped (false);
 }
 
 void MagicPlotComponent::setPlotSource (MagicPlotSource* source)
@@ -116,6 +116,22 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
     if (gradient)
         gradient->setupGradientFill (g, getLocalBounds().toFloat());
     
+    float lw;
+    if (lineWidth.endsWith ("%")){
+        lw = getHeight() * lineWidth.getFloatValue() * 0.01;
+    }
+    else{
+        lw = lineWidth.getFloatValue();
+    }
+    
+    // reduce the size of the path by the line thickness
+    
+    if (scaled){
+        auto t = juce::AffineTransform::scale((getHeight()-lw)/getHeight(),(getHeight()-lw)/getHeight(),getWidth()/2, getHeight()/2);
+        path.applyTransform(t);
+        filledPath.applyTransform(t);
+    }
+
     auto roundedPath = path.createPathWithRoundedCorners(cornerRadius);
     auto roundedFilledPath = filledPath.createPathWithRoundedCorners(cornerRadius);
 
@@ -126,15 +142,6 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
     if (colour.isTransparent() == false)
     {
         g.setColour (colour);
-        
-        float lw;
-        if (lineWidth.endsWith ("%")){
-            lw = getHeight() * lineWidth.getFloatValue() * 0.01;
-        }
-        else{
-            lw = lineWidth.getFloatValue();
-        }
-        
         g.strokePath (roundedPath, juce::PathStrokeType (lw));
     }
 }
@@ -180,11 +187,25 @@ void MagicPlotComponent::resized()
 void MagicPlotComponent::setAlwaysPlot(bool flag)
 {
     alwaysPlot = flag;
+    if (alwaysPlot)
+        startTimerHz(60);
+    else
+        stopTimer();
+}
+
+void MagicPlotComponent::setScaled(bool flag)
+{
+    scaled = flag;
 }
 
 void MagicPlotComponent::setCornerRadius(bool radius)
 {
     cornerRadius = radius;
+}
+
+void MagicPlotComponent::timerCallback()
+{
+    repaint();
 }
 
 
