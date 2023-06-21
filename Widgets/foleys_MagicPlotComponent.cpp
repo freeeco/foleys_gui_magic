@@ -48,7 +48,7 @@ MagicPlotComponent::MagicPlotComponent()
     setColour (plotInactiveFillColourId, juce::Colours::orange.darker().withAlpha (0.5f));
 
     setOpaque (false);
-    setPaintingIsUnclipped (false);
+    setPaintingIsUnclipped (true);
 }
 
 void MagicPlotComponent::setPlotSource (MagicPlotSource* source)
@@ -127,7 +127,7 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
     // reduce the size of the path by the line thickness
     
     if (scaled){
-        auto t = juce::AffineTransform::scale((getHeight()-lw)/getHeight(),(getHeight()-lw)/getHeight(),getWidth()/2, getHeight()/2);
+        auto t = juce::AffineTransform::scale((getWidth()-lw)/getWidth(),(getHeight()-lw)/getHeight(),getWidth()/2, getHeight()/2);
         path.applyTransform(t);
         filledPath.applyTransform(t);
     }
@@ -187,10 +187,16 @@ void MagicPlotComponent::resized()
 void MagicPlotComponent::setAlwaysPlot(bool flag)
 {
     alwaysPlot = flag;
+    
     if (alwaysPlot)
-        startTimerHz(60);
+        startTimerHz(alwaysPlotHz);
     else
         stopTimer();
+}
+
+void MagicPlotComponent::setAlwaysPlotHz(int Hz)
+{
+    alwaysPlotHz = Hz;
 }
 
 void MagicPlotComponent::setScaled(bool flag)

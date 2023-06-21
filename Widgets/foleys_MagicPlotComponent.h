@@ -73,6 +73,7 @@ public:
     bool needsUpdate() const;
     
     void setAlwaysPlot (bool flag);
+    void setAlwaysPlotHz (int Hz);
     void setScaled (bool flag);
     void setCornerRadius(bool radius);
 
@@ -91,6 +92,7 @@ private:
     float                                decay = 0.0f;
     juce::String                         lineWidth = "1.0";
     bool                                 alwaysPlot = false;
+    int                                  alwaysPlotHz = 30;
     bool                                 scaled = false;
     float                                cornerRadius = 0.0f;
 

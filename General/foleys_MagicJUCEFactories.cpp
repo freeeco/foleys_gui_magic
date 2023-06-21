@@ -555,6 +555,7 @@ public:
     static const juce::Identifier  pOpacity;
     static const juce::Identifier  pScaled;
     static const juce::Identifier  pAlwaysPlot;
+    static const juce::Identifier  pAlwaysPlotHz;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -592,6 +593,11 @@ public:
         
         // continuously draw the plot?
         
+        if (getProperty (pAlwaysPlotHz))
+            plot.setAlwaysPlotHz (getProperty (pAlwaysPlotHz));
+        else
+            plot.setAlwaysPlot (30);
+        
         if (getProperty (pAlwaysPlot))
             plot.setAlwaysPlot (true);
         else
@@ -621,6 +627,7 @@ public:
         props.push_back ({ configNode, pOpacity,        SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
         
         return props;
     }
@@ -642,6 +649,7 @@ const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 const juce::Identifier  PlotItem::pOpacity               { "opacity" };
 const juce::Identifier  PlotItem::pScaled                { "scaled" };
 const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };
+const juce::Identifier  PlotItem::pAlwaysPlotHz          { "always-plot-Hz" };
 
 //==============================================================================
 

@@ -38,6 +38,8 @@
 #include "foleys_StringDefinitions.h"
 #include "../State/foleys_MagicProcessorState.h"
 
+bool windowNeedsUpdate = false;
+
 namespace foleys
 {
 
@@ -69,6 +71,10 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
 
     builder->attachToolboxToWindow (*this);
 #endif
+    
+#if !JUCE_IOS
+    startTimerHz(40);
+#endif
 }
 
 MagicPluginEditor::~MagicPluginEditor()
@@ -94,6 +100,10 @@ void MagicPluginEditor::updateSize()
     int height = rootNode.getProperty (IDs::height, 400);
 #endif
     
+#if !JUCE_IOS
+    processorState.getLastEditorSize (width, height);
+#endif
+
     auto settingsFile = processorState.getApplicationSettingsFile();
     auto stream = settingsFile.createInputStream();
     if (stream.get() != nullptr)
@@ -120,7 +130,7 @@ void MagicPluginEditor::updateSize()
 
     if (resizable)
     {
-        processorState.getLastEditorSize (width, height);
+//        processorState.getLastEditorSize (width, height);
 
         auto maximalBounds = juce::Desktop::getInstance().getDisplays().getTotalBounds (true);
         int minWidth = rootNode.getProperty (IDs::minWidth, 10);
@@ -174,5 +184,16 @@ void MagicPluginEditor::resized()
 
     processorState.setLastEditorSize (getWidth(), getHeight());
 }
+
+#if !JUCE_IOS
+void MagicPluginEditor::timerCallback()
+{
+    if (windowNeedsUpdate){
+        windowNeedsUpdate = false;
+        updateSize();
+        resized();
+    }
+}
+#endif
 
 } // namespace foleys

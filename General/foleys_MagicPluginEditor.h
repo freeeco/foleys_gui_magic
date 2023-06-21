@@ -51,6 +51,10 @@ class MagicProcessorState;
  */
 class MagicPluginEditor  : public juce::AudioProcessorEditor,
                            public juce::DragAndDropContainer
+#if !JUCE_IOS
+                          ,private juce::Timer
+#endif
+
 {
 public:
     /**
@@ -82,7 +86,11 @@ private:
      Setup the size and resizable and size limits
      */
     void updateSize();
-
+    
+#if !JUCE_IOS
+    void timerCallback() override;
+#endif
+    
 #if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
     juce::OpenGLContext oglContext;
 #endif
