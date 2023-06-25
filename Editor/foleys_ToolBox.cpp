@@ -134,7 +134,24 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     addChildComponent (resizeCorner);
     resizeCorner.setAlwaysOnTop (true);
 
-    setBounds (100, 100, 300, 700);
+    int x = 100;
+    int y = 100;
+    int width = 300;
+    int height = 100;
+#if defined TOOLBOX_X
+    x = TOOLBOX_X;
+#endif
+#if defined TOOLBOX_Y
+    y = TOOLBOX_Y;
+#endif
+#if defined TOOLBOX_WIDTH
+    width = TOOLBOX_WIDTH;
+#endif
+#if defined TOOLBOX_HEIGHT
+    height = TOOLBOX_HEIGHT;
+#endif
+    
+    setBounds (x, y, width, height);
     addToDesktop (getLookAndFeel().getMenuWindowFlags());
 
     startTimer (Timers::WindowDrag, 100);

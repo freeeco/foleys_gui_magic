@@ -13,12 +13,20 @@ Also foleys_MagicLevelMeter.cpp has a new methods:
 
 Setting for these added to the meter's PGM factory
 
+Added a 'flip' propety
+
 Oscilloscope Plot
 -----------------
 
 foleys_MagicPlotComponent.cpp - Added a field in PGM editor for the plot component: 'line-width'. Sets the line width of the plot. Adding "%" to the end of the value will set the line to be a percentage of the height of the component.
 
 foleys_MagicOscilloscope.cpp has a new method 'setRate' to change the frequency of the scope.
+
+Added 'Always Plot' setting for RNBO buffers etc
+
+Added a property to scale the plot slightly by the line width to avoid clipping at the edges
+
+Added a property to round corners
 
 Auto Save Frequency
 -------------------
@@ -76,6 +84,16 @@ Added getFileName() method to foleys_ApplicationSettings.cpp and getApplicationS
 Added settings fiile loading to foleys_MagicPluginEditor.cpp in order to set the plugin window size from the settings file when the plugin loads.
 
 Changed getOrCreateChildWithName to getChildWithName in a couple of places in foleys_MidiParameterMapper.cpp to avoid spurious entries in the settings file
+
+XML with missing parameters
+---------------------------
+
+foleys_MagicProcessorState.cpp -> Changed assertion to DBG when loading xml with missing parameters
+
+Toolbox Palette Default Size
+--------------------
+
+Edited foleys_ToolBox.cpp to add directives for TOOLBOX_X, TOOLBOX_Y, TOOLBOX_WIDTH and TOOLBOX_HEIGHT
 
 foleys_gui_magic
 ===============
