@@ -71,6 +71,7 @@ public:
 
     static const juce::Identifier  pFilmStrip;
     static const juce::Identifier  pNumImages;
+    static const juce::Identifier  pDisableScrollWheel;
     static const juce::Identifier  pOpacity;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
@@ -148,6 +149,11 @@ public:
         int numFilmImages = getProperty (pNumImages);
         slider.setNumImages (numFilmImages, false);
         
+        if (getProperty (pDisableScrollWheel))
+            slider.setScrollWheelEnabled(false);
+        else
+            slider.setScrollWheelEnabled(true);
+        
         if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
     }
 
@@ -165,6 +171,7 @@ public:
         props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
         props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
         props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
+        props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
 
         return props;
@@ -197,6 +204,7 @@ const juce::Identifier  SliderItem::pInterval   { "interval" };
 const juce::Identifier  SliderItem::pSuffix     { "suffix" };
 const juce::Identifier  SliderItem::pFilmStrip  { "filmstrip" };
 const juce::Identifier  SliderItem::pNumImages  { "num-filmstrip-images" };
+const juce::Identifier  SliderItem::pDisableScrollWheel    { "disable-scroll-wheel" };
 const juce::Identifier SliderItem::pOpacity     { "opacity" };
 
 
