@@ -44,6 +44,7 @@ Slider filmstrip maintain aspect ratio
 
 Modified foleys_AutoOrientationSlider.h so that filmstrips maintains thier aspect ratio when resized.
 Use preprocessor definitions SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED and SLIDER_FILMSTRIP_VERTICALLY_CENTERED to set horizontal and vertical centered justification.
+Also added high resampling quality to slider component drawing
 
 GuiItem Opacity Setting
 -----------------------
