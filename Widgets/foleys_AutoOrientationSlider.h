@@ -71,7 +71,7 @@ public:
             float areaH = knobArea.getHeight();
             float areaAspect = areaH / areaW;
             
-
+            g.setImageResamplingQuality(juce::Graphics::ResamplingQuality::highResamplingQuality);
             
             if (horizontalFilmStrip)
             {
