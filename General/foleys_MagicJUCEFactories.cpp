@@ -781,6 +781,8 @@ class KeyboardItem : public GuiItem
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (KeyboardItem)
+    
+    static const juce::String      pKeyWidth;
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node),
@@ -800,8 +802,16 @@ public:
 
     void update() override
     {
-        auto size = getProperty ("key-width");
-        keyboard.setKeyWidth (size.isVoid() ? 50.0f : float (size));
+        auto size = float (getProperty (pKeyWidth));
+        if (!size)
+            size = 50.0f;
+        keyboard.setKeyWidth (size);
+        
+#if JUCE_IOS
+        keyboard.setScrollButtonWidth(26);
+#else
+        keyboard.setScrollButtonWidth(12);
+#endif
 
         auto orientation = getProperty ("orientation").toString();
         if (orientation == "vertical-left")
@@ -810,6 +820,14 @@ public:
             keyboard.setOrientation (juce::MidiKeyboardComponent::verticalKeyboardFacingRight);
         else
             keyboard.setOrientation (juce::MidiKeyboardComponent::horizontalKeyboard);
+    }
+    
+    std::vector<SettableProperty> getSettableProperties() const override
+    {
+        std::vector<SettableProperty> props;
+        props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} });
+        
+        return props;
     }
 
     juce::Component* getWrappedComponent() override
@@ -822,6 +840,7 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardItem)
 };
+const juce::String      KeyboardItem::pKeyWidth             {"key-width"};
 
 //==============================================================================
 
