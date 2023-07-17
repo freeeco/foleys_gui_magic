@@ -92,9 +92,14 @@ XML with missing parameters
 foleys_MagicProcessorState.cpp -> Changed assertion to DBG when loading xml with missing parameters
 
 Toolbox Palette Default Size
---------------------
+----------------------------
 
 Edited foleys_ToolBox.cpp to add directives for TOOLBOX_X, TOOLBOX_Y, TOOLBOX_WIDTH and TOOLBOX_HEIGHT
+
+Keyboard
+--------
+
+In foleys_MagicJUCEFactories.cpp changed keyboard up & down button width for iOS, added key-width setting
 
 foleys_gui_magic
 ===============
