@@ -82,7 +82,7 @@ Settings File / Set Window Size
 
 Added getFileName() method to foleys_ApplicationSettings.cpp and getApplicationSettingsFile() to foleys_MagicGUIState.cpp
 
-Added settings fiile loading to foleys_MagicPluginEditor.cpp in order to set the plugin window size from the settings file when the plugin loads.
+Added settings file loading to foleys_MagicPluginEditor.cpp in order to set the plugin window size from the settings file when the plugin loads.
 
 Changed getOrCreateChildWithName to getChildWithName in a couple of places in foleys_MidiParameterMapper.cpp to avoid spurious entries in the settings file
 
@@ -100,6 +100,11 @@ Keyboard
 --------
 
 In foleys_MagicJUCEFactories.cpp changed keyboard up & down button width for iOS, added key-width setting
+
+Window Resizing
+---------------
+
+Added getWindowNeedsUpdate and setWindowNeedsUpdate flag to foleys_MagicGUIState.h to trigger refresh of the window if the window size has been changed from within plugin, the flag is chedcked by a timer in foleys_MagicPluginEditor.cpp
 
 foleys_gui_magic
 ===============

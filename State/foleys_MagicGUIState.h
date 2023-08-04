@@ -41,6 +41,10 @@
 #include "../Visualisers/foleys_MagicPlotSource.h"
 #include "../General/foleys_StringDefinitions.h"
 
+
+class ToyboxPluginAudioProcessor;
+
+
 namespace foleys
 {
 
@@ -225,6 +229,20 @@ public:
      Return the referenced AudioProcessor, if this state can provide one
      */
     virtual juce::AudioProcessor* getProcessor() { return nullptr; }
+    
+    ToyboxPluginAudioProcessor& getToyboxProcessor() { return *processor; }
+    void setToyboxProcessor(ToyboxPluginAudioProcessor* p) { processor = p; }
+    
+    void setWindowNeedsUpdate(bool flag) { needsUpdate = flag; }
+    bool getWindowNeedsUpdate() {
+        if (needsUpdate){
+            needsUpdate = false;
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
@@ -254,6 +272,9 @@ private:
     std::map<juce::Identifier, std::unique_ptr<ObjectBase>> advertisedObjects;
 
     juce::TimeSliceThread visualiserThread { "Visualiser Thread" };
+    
+    ToyboxPluginAudioProcessor* processor;
+    bool needsUpdate = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

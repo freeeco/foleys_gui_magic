@@ -38,7 +38,6 @@
 #include "foleys_StringDefinitions.h"
 #include "../State/foleys_MagicProcessorState.h"
 
-bool windowNeedsUpdate = false;
 
 namespace foleys
 {
@@ -130,8 +129,6 @@ void MagicPluginEditor::updateSize()
 
     if (resizable)
     {
-//        processorState.getLastEditorSize (width, height);
-
         auto maximalBounds = juce::Desktop::getInstance().getDisplays().getTotalBounds (true);
         int minWidth = rootNode.getProperty (IDs::minWidth, 10);
         int minHeight = rootNode.getProperty (IDs::minHeight, 10);
@@ -188,8 +185,7 @@ void MagicPluginEditor::resized()
 #if !JUCE_IOS
 void MagicPluginEditor::timerCallback()
 {
-    if (windowNeedsUpdate){
-        windowNeedsUpdate = false;
+    if (processorState.getWindowNeedsUpdate()){
         updateSize();
         resized();
     }
