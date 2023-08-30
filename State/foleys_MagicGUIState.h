@@ -243,6 +243,16 @@ public:
             return false;
         }
     }
+    
+    bool getWindowSizeInitialized() {
+        if (windowSizeInitialized){
+            return true;
+        }
+        else{
+            windowSizeInitialized = true;
+            return false;
+        }
+    }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
@@ -275,6 +285,7 @@ private:
     
     ToyboxPluginAudioProcessor* processor;
     bool needsUpdate = false;
+    bool windowSizeInitialized = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

@@ -62,6 +62,43 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
     if (guiTree.isValid())
         setConfigTree (guiTree);
 
+    // Get and store initial window size the first time plugin is opened
+    
+    if (!processorState.getWindowSizeInitialized()){
+        
+        const auto rootNode = builder->getGuiRootNode();
+        
+#if defined DEFAULT_WINDOW_WIDTH
+        int width = rootNode.getProperty (IDs::width, DEFAULT_WINDOW_WIDTH);
+#else
+        int width = rootNode.getProperty (IDs::width, 600);
+#endif
+        
+#if defined DEFAULT_WINDOW_HEIGHT
+        int height = rootNode.getProperty (IDs::height, DEFAULT_WINDOW_HEIGHT);
+#else
+        int height = rootNode.getProperty (IDs::height, 400);
+#endif
+        
+        auto settingsFile = processorState.getApplicationSettingsFile();
+        auto stream = settingsFile.createInputStream();
+        if (stream.get() != nullptr)
+        {
+            auto tree = juce::ValueTree::fromXml (stream->readEntireStreamAsString());
+            if (tree.isValid())
+            {
+                auto sizeNode = tree.getChildWithName (foleys::IDs::lastSize);
+                if (sizeNode.hasProperty (foleys::IDs::width) && sizeNode.hasProperty (foleys::IDs::height) )
+                {
+                    width  = sizeNode.getProperty (foleys::IDs::width);
+                    height = sizeNode.getProperty (foleys::IDs::height);
+                }
+            }
+        }
+        
+        processorState.setLastEditorSize (width, height);
+    }
+
     updateSize();
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
@@ -70,7 +107,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
 
     builder->attachToolboxToWindow (*this);
 #endif
-    
+
 #if !JUCE_IOS
     startTimerHz(40);
 #endif
@@ -85,40 +122,10 @@ MagicPluginEditor::~MagicPluginEditor()
 
 void MagicPluginEditor::updateSize()
 {
-    const auto rootNode = builder->getGuiRootNode();
+    int width, height;
+    if(!processorState.getLastEditorSize (width, height))
+        return;
 
-#if defined DEFAULT_WINDOW_WIDTH
-    int width = rootNode.getProperty (IDs::width, DEFAULT_WINDOW_WIDTH);
-#else
-    int width = rootNode.getProperty (IDs::width, 600);
-#endif
-    
-#if defined DEFAULT_WINDOW_HEIGHT
-    int height = rootNode.getProperty (IDs::height, DEFAULT_WINDOW_HEIGHT);
-#else
-    int height = rootNode.getProperty (IDs::height, 400);
-#endif
-    
-#if !JUCE_IOS
-    processorState.getLastEditorSize (width, height);
-#endif
-
-    auto settingsFile = processorState.getApplicationSettingsFile();
-    auto stream = settingsFile.createInputStream();
-    if (stream.get() != nullptr)
-    {
-        auto tree = juce::ValueTree::fromXml (stream->readEntireStreamAsString());
-        if (tree.isValid())
-        {
-            auto sizeNode = tree.getChildWithName (foleys::IDs::lastSize);
-            if (sizeNode.hasProperty (foleys::IDs::width) && sizeNode.hasProperty (foleys::IDs::height) )
-            {
-                width  = sizeNode.getProperty (foleys::IDs::width);
-                height = sizeNode.getProperty (foleys::IDs::height);
-            }
-        }
-    }
-    
     bool resizable = builder->getStyleProperty (IDs::resizable, builder->getGuiRootNode());
     bool resizeCorner = builder->getStyleProperty (IDs::resizeCorner, builder->getGuiRootNode());
 
@@ -129,6 +136,9 @@ void MagicPluginEditor::updateSize()
 
     if (resizable)
     {
+        
+        const auto rootNode = builder->getGuiRootNode();
+        
         auto maximalBounds = juce::Desktop::getInstance().getDisplays().getTotalBounds (true);
         int minWidth = rootNode.getProperty (IDs::minWidth, 10);
         int minHeight = rootNode.getProperty (IDs::minHeight, 10);
