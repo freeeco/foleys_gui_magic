@@ -106,6 +106,12 @@ Window Resizing
 
 Added getWindowNeedsUpdate and setWindowNeedsUpdate flag to foleys_MagicGUIState.h to trigger refresh of the window if the window size has been changed from within plugin, the flag is chedcked by a timer in foleys_MagicPluginEditor.cpp
 
+MIDI Keyboard Styling
+---------------------
+
+Added text-label-color to the Keyboard GUIItem 
+
+
 foleys_gui_magic
 ===============
 

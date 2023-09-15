@@ -795,6 +795,7 @@ public:
             { "key-separator-line-color", juce::MidiKeyboardComponent::keySeparatorLineColourId },
             { "mouse-over-color",      juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId },
             { "key-down-color",        juce::MidiKeyboardComponent::keyDownOverlayColourId },
+            { "text-label-color",      juce::MidiKeyboardComponent::textLabelColourId },
         });
 
         addAndMakeVisible (keyboard);
