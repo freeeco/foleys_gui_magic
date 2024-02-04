@@ -159,11 +159,7 @@ public:
         if (sensitivity)
             slider.setMouseDragSensitivity(sensitivity);
         else
-#if JUCE_IOS
             slider.setMouseDragSensitivity(300);
-#else
-            slider.setMouseDragSensitivity(300);
-#endif
         
         if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
     }
