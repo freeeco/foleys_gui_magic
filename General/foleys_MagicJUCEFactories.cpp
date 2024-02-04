@@ -68,6 +68,7 @@ public:
     static const juce::Identifier  pMaxValue;
     static const juce::Identifier  pInterval;
     static const juce::Identifier  pSuffix;
+    static const juce::Identifier  pSensitivity;
 
     static const juce::Identifier  pFilmStrip;
     static const juce::Identifier  pNumImages;
@@ -154,6 +155,16 @@ public:
         else
             slider.setScrollWheelEnabled(true);
         
+        int sensitivity = getProperty (pSensitivity);
+        if (sensitivity)
+            slider.setMouseDragSensitivity(sensitivity);
+        else
+#if JUCE_IOS
+            slider.setMouseDragSensitivity(300);
+#else
+            slider.setMouseDragSensitivity(300);
+#endif
+        
         if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
     }
 
@@ -169,6 +180,7 @@ public:
         props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} });
         props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
+        props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} });
         props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
         props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
@@ -202,6 +214,7 @@ const juce::Identifier  SliderItem::pMinValue   { "min-value" };
 const juce::Identifier  SliderItem::pMaxValue   { "max-value" };
 const juce::Identifier  SliderItem::pInterval   { "interval" };
 const juce::Identifier  SliderItem::pSuffix     { "suffix" };
+const juce::Identifier  SliderItem::pSensitivity  { "sensitivity" };
 const juce::Identifier  SliderItem::pFilmStrip  { "filmstrip" };
 const juce::Identifier  SliderItem::pNumImages  { "num-filmstrip-images" };
 const juce::Identifier  SliderItem::pDisableScrollWheel    { "disable-scroll-wheel" };
