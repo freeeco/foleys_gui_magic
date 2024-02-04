@@ -109,7 +109,18 @@ Added getWindowNeedsUpdate and setWindowNeedsUpdate flag to foleys_MagicGUIState
 MIDI Keyboard Styling
 ---------------------
 
-Added text-label-color to the Keyboard GUIItem 
+Added 'text-label-color' to the Keyboard GUIItem 
+
+Slider
+---------------------
+
+Added 'sensitivity' to the Slider GUIItem 
+
+Parameters
+---------------------
+
+Names of mssing paramters are printed to console
+
 
 
 foleys_gui_magic
