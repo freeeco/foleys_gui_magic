@@ -123,7 +123,7 @@ void Container::createSubComponents()
         if (childItem)
         {
             containerBox.addAndMakeVisible (childItem.get());
-            childItem->createSubComponents();
+//            childItem->createSubComponents();
 
             children.push_back (std::move (childItem));
         }

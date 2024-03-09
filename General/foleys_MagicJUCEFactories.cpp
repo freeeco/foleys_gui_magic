@@ -162,6 +162,9 @@ public:
             slider.setMouseDragSensitivity(300);
         
         if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
+        
+        slider.setWantsKeyboardFocus(false);
+        slider.setMouseClickGrabsKeyboardFocus(false);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
