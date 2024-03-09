@@ -116,11 +116,46 @@ Slider
 
 Added 'sensitivity' to the Slider GUIItem 
 
+Added:
+```
+slider.setWantsKeyboardFocus(false);
+slider.setMouseClickGrabsKeyboardFocus(false);
+```
+to prevent grabbing keyboard focus from on-screen keyboard.
+
 Parameters
 ---------------------
 
 Names of mssing paramters are printed to console
 
+
+View Drawing Recursion
+----------------------
+
+In foleys_Container.cpp, the line
+
+```
+//            childItem->createSubComponents();
+```
+in Container::createSubComponents
+
+is removed to avoid extra recursion that was slowing down refresing of the GUI
+
+-->
+
+```
+    for (auto childNode : configNode)
+    {
+        auto childItem = magicBuilder.createGuiItem (childNode);
+        if (childItem)
+        {
+            containerBox.addAndMakeVisible (childItem.get());
+//            childItem->createSubComponents(); // <--- REMOVE THIS LINE
+
+            children.push_back (std::move (childItem));
+        }
+    }
+```
 
 
 foleys_gui_magic
