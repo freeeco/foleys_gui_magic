@@ -52,6 +52,7 @@ namespace foleys
 {
 
 class SliderItem : public GuiItem
+                 , private juce::Timer
 {
 
 public:
@@ -91,6 +92,7 @@ public:
         });
 
         addAndMakeVisible (slider);
+        startTimer(300);
     }
 
     void update() override
@@ -154,7 +156,7 @@ public:
             slider.setScrollWheelEnabled(false);
         else
             slider.setScrollWheelEnabled(true);
-        
+          
         int sensitivity = getProperty (pSensitivity);
         if (sensitivity)
             slider.setMouseDragSensitivity(sensitivity);
@@ -165,6 +167,7 @@ public:
         
         slider.setWantsKeyboardFocus(false);
         slider.setMouseClickGrabsKeyboardFocus(false);
+        slider.setVelocityModeParameters(4, 1, 0, true, juce::ModifierKeys::shiftModifier);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -201,6 +204,18 @@ public:
 private:
     AutoOrientationSlider slider;
     std::unique_ptr<juce::SliderParameterAttachment> attachment;
+    
+    void timerCallback() final
+    {
+        auto tooltipNode = getMagicState().getSettings().getChildWithName ("controls");
+        auto velcityMode = tooltipNode.getProperty ("dynamic-knobs");
+        if (velcityMode){
+            slider.setVelocityBasedMode(true);
+        }
+        else{
+            slider.setVelocityBasedMode(false);
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SliderItem)
 };

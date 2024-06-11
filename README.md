@@ -157,6 +157,21 @@ is removed to avoid extra recursion that was slowing down refresing of the GUI
     }
 ```
 
+Velocity Mode For Sliders
+-------------------------
+
+added dynamic-knobs to slider GUI Item in foleys_MagicJUCEFactories.cpp
+
+
+FileDropContainer for iOS
+-------------------------
+
+connected FileDropContainer to peer in constructor of foleys_MagicPluginEditor.cpp for drag and drop in iOS (see https://forum.juce.com/t/drag-and-drop-files-to-juce-component-ios-auv3/42322/18)
+
+
+
+
+
 
 foleys_gui_magic
 ===============
