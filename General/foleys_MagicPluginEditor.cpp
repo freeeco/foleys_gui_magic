@@ -36,7 +36,7 @@
 
 #include "foleys_MagicPluginEditor.h"
 #include "foleys_StringDefinitions.h"
-#include "../ios_FileDropContainer/ios_FileDropContainer.h"
+#include "../../toybox_plugins/Libraries/iOSDragAndDrop/ios_FileDropContainer.h"
 #include "../State/foleys_MagicProcessorState.h"
 
 
