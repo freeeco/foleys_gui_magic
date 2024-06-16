@@ -79,6 +79,10 @@ public:
     void paint (juce::Graphics& g) override;
 
     void resized() override;
+    
+#if JUCE_WINDOWS
+    void parentHierarchyChanged() override;
+#endif
 
 private:
 

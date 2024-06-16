@@ -197,16 +197,27 @@ void MagicPluginEditor::resized()
     processorState.setLastEditorSize (getWidth(), getHeight());
 }
 
+#if JUCE_WINDOWS
+void MagicPluginEditor::parentHierarchyChanged()
+{
+    //
+    // parentHierarchyChanged will be called when the parent desktop window
+    // component peer is created or destroyed
+    //
+    // Check to see if the peer exists and set the parent window to software
+    // rendering mode
+    //
+    if (auto peer = getPeer())
+    {
+        peer->setCurrentRenderingEngine(0);
+    }
+}
+#endif
+
 #if !JUCE_IOS
 void MagicPluginEditor::timerCallback()
 {
     if (processorState.getWindowNeedsUpdate()){
-        
-#if JUCE_WINDOWS
-        auto peer = getPeer();
-        if (peer)
-            peer->setCurrentRenderingEngine(0);
-#endif
         updateSize();
         resized();
     }
