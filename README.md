@@ -169,7 +169,16 @@ FileDropContainer for iOS
 connected FileDropContainer to peer in constructor of foleys_MagicPluginEditor.cpp for drag and drop in iOS (see https://forum.juce.com/t/drag-and-drop-files-to-juce-component-ios-auv3/42322/18)
 
 
+WebBrowser GUIItem
+------------------
 
+Added url property to WebBrowserItem in foleys_MagicJUCEFactories.cpp
+
+
+Direct2D renderer selection
+----------------------------
+
+Added to timer callback --> 'windows needs updating' in foleys_MagicPluginEditor.cpp
 
 
 

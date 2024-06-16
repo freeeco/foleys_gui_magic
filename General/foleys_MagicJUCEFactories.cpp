@@ -1120,6 +1120,8 @@ class WebBrowserItem : public GuiItem
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (WebBrowserItem)
+    
+    static const juce::Identifier  pUrl;
 
     WebBrowserItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -1128,7 +1130,14 @@ public:
 
     void update() override
     {
-        browser.goToURL (getProperty ("url").toString());
+        browser.goToURL (getProperty (pUrl).toString());
+    }
+
+    std::vector<SettableProperty> getSettableProperties() const override
+    {
+        std::vector<SettableProperty> props;
+        props.push_back ({ configNode, pUrl, SettableProperty::Text, {}, {} });
+        return props;
     }
 
     juce::Component* getWrappedComponent() override
@@ -1141,6 +1150,8 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebBrowserItem)
 };
+const juce::Identifier  WebBrowserItem::pUrl            { "url" };
+
 #endif // JUCE_WEB_BROWSER
 
 void MagicGUIBuilder::registerJUCEFactories()

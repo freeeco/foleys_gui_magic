@@ -201,6 +201,12 @@ void MagicPluginEditor::resized()
 void MagicPluginEditor::timerCallback()
 {
     if (processorState.getWindowNeedsUpdate()){
+        
+#if JUCE_WINDOWS
+        auto peer = getPeer();
+        if (peer)
+            peer->setCurrentRenderingEngine(0);
+#endif
         updateSize();
         resized();
     }
