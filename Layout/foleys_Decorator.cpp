@@ -192,6 +192,9 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
         justification = juce::Justification::centredTop;
 
     backgroundImage = stylesheet.getBackgroundImage (node);
+#if JUCE_WINDOWS & JUCE_VERSION >= 8 & IMAGES_SOFTWARE_IMAGE_TYPE
+    backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
+#endif
     backgroundGradient.setup (builder.getStyleProperty (IDs::backgroundGradient, node).toString(), stylesheet);
 
     auto alphaVar = builder.getStyleProperty (IDs::backgroundAlpha, node);

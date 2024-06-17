@@ -151,7 +151,7 @@ public:
     void setFilmStrip (juce::Image& image)
     {
         filmStrip = image;
-#if JUCE_WINDOWS & FILMSTRIP_SOFTWARE_IMAGE_TYPE
+#if JUCE_WINDOWS  & JUCE_VERSION >= 8 & FILMSTRIP_SOFTWARE_IMAGE_TYPE
         filmStrip = juce::SoftwareImageType().convert(filmStrip);
 #endif
     }

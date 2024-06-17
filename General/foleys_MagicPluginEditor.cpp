@@ -197,7 +197,7 @@ void MagicPluginEditor::resized()
     processorState.setLastEditorSize (getWidth(), getHeight());
 }
 
-#if JUCE_WINDOWS
+#if JUCE_WINDOWS & JUCE_VERSION >= 8
 void MagicPluginEditor::parentHierarchyChanged()
 {
     //
