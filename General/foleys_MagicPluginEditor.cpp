@@ -209,7 +209,7 @@ void MagicPluginEditor::parentHierarchyChanged()
     //
     if (auto peer = getPeer())
     {
-        peer->setCurrentRenderingEngine(0);
+        peer->setCurrentRenderingEngine(1);
     }
 }
 #endif
