@@ -80,7 +80,7 @@ public:
 
     void resized() override;
     
-#if JUCE_WINDOWS & JUCE_VERSION >= 8
+#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
     void parentHierarchyChanged() override;
 #endif
 
