@@ -34,15 +34,22 @@
  ==============================================================================
  */
 
+
+#pragma once
+
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#pragma once
+#if JUCE_IOS
+#include "../../toybox_plugins/Libraries/iOSDragAndDrop/ios_FileDropContainer.h"
+#endif
+
 
 namespace foleys
 {
 
 class MagicProcessorState;
+
 
 /**
  This is a generic AudioProcessorEditor, that is completely
@@ -63,7 +70,7 @@ public:
     MagicPluginEditor (MagicProcessorState& processorState, std::unique_ptr<MagicGUIBuilder> builder = {});
 
     ~MagicPluginEditor() override;
-
+    
     /**
      Setup a GUI from a previously stored ValueTree
 
@@ -83,6 +90,7 @@ public:
 #if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
     void parentHierarchyChanged() override;
 #endif
+    
 
 private:
 
@@ -102,7 +110,11 @@ private:
     MagicProcessorState& processorState;
 
     std::unique_ptr<MagicGUIBuilder> builder;
-
+    
+#if JUCE_IOS
+    juce::FileDropContainer dropContainer;
+#endif
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPluginEditor)
 };
 

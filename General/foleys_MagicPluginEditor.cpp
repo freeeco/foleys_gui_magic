@@ -36,7 +36,6 @@
 
 #include "foleys_MagicPluginEditor.h"
 #include "foleys_StringDefinitions.h"
-#include "../../toybox_plugins/Libraries/iOSDragAndDrop/ios_FileDropContainer.h"
 #include "../State/foleys_MagicProcessorState.h"
 
 
@@ -114,7 +113,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
 #endif
     
 #if JUCE_IOS
-    juce::FileDropContainer::getInstance()->setParentComponent(getTopLevelComponent());
+    dropContainer.setParentComponent(getTopLevelComponent());
 #endif
 }
 
