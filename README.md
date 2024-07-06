@@ -181,6 +181,12 @@ Direct2D renderer selection
 Added to timer callback --> 'windows needs updating' in foleys_MagicPluginEditor.cpp
 
 
+Default margin, padding, radius and background colour
+-----------------------------------------------------
+
+Edited defaults in foleys_Decorator.cpp and foleys_Decorator.h
+
+
 
 foleys_gui_magic
 ===============

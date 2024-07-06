@@ -215,13 +215,17 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
 
 void Decorator::reset()
 {
-    backgroundColour = juce::Colours::darkgrey;
+//    backgroundColour = juce::Colours::darkgrey;
+    backgroundColour = juce::Colours::transparentBlack;
     borderColour     = juce::Colours::silver;
 
-    margin  = { 5.0f };
-    padding = { 5.0f };
+//    margin  = { 5.0f };
+    margin  = { 0.0f };
+//    padding = { 5.0f };
+    padding = { 0.0f };
     border  = 0.0f;
-    radius  = 5.0f;
+//    radius  = 5.0f;
+    radius  = 0.0f;
 
     caption.clear();
     justification = juce::Justification::centredTop;

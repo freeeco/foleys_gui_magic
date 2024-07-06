@@ -77,13 +77,17 @@ public:
 
 private:
 
-    juce::Colour backgroundColour { juce::Colours::darkgrey };
+//    juce::Colour backgroundColour { juce::Colours::darkgrey };
+    juce::Colour backgroundColour { juce::Colours::transparentBlack };
     juce::Colour borderColour     { juce::Colours::silver };
 
-    Box<float> margin  { 5.0f };
-    Box<float> padding { 5.0f };
+//    Box<float> margin  { 5.0f };
+    Box<float> margin  { 0.0f };
+//    Box<float> padding { 5.0f };
+    Box<float> padding { 0.0f };
     float border  = 0.0f;
-    float radius  = 5.0f;
+//    float radius  = 5.0f;
+    float radius  = 0.0f;
 
     juce::String        caption;
     juce::Justification justification = juce::Justification::centredTop;
