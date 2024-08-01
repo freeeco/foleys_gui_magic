@@ -195,24 +195,36 @@ Added methods for nudging left, right and up, down to foleys_GuiItem.cpp
 
 
 
-Set default renderer
---------------------
+Set default windows renderer
+----------------------------
 
-Add to foleys_MagicPluginEditor.cpp add parentHierarchyChanged() method -->
+In foleys_MagicPluginEditor.cpp add parentHierarchyChanged() method -->
 
 ```
 #if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
-    if (auto peer = getPeer())
-    {
-#if USE_DIRECT2D
-        peer->setCurrentRenderingEngine(1);
-#else
-        peer->setCurrentRenderingEngine(0);
-#endif
+    if (auto peer = getPeer()){
+        if (renderer = 1){
+            peer->setCurrentRenderingEngine(1);
+        }
+        else{
+            peer->setCurrentRenderingEngine(0);
+        }
     }
 }
+#endif
+```
+
+and in constructor -->
+
+```
+#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+                auto guiNode = tree.getChildWithName ("gui");
+                if (guiNode.hasProperty ("windows-renderer"))
+                {
+                    renderer = guiNode.getProperty ("windows-renderer");
+                }
 #endif
 ```
 

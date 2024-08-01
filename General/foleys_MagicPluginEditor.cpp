@@ -93,6 +93,13 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
                     width  = sizeNode.getProperty (foleys::IDs::width);
                     height = sizeNode.getProperty (foleys::IDs::height);
                 }
+#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+                auto guiNode = tree.getChildWithName ("gui");
+                if (guiNode.hasProperty ("windows-renderer"))
+                {
+                    renderer = guiNode.getProperty ("windows-renderer");
+                }
+#endif
             }
         }
         
@@ -107,6 +114,8 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
 
     builder->attachToolboxToWindow (*this);
 #endif
+    
+
 
 #if !JUCE_IOS
     startTimerHz(40);
@@ -199,14 +208,14 @@ void MagicPluginEditor::resized()
 #if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
-    if (auto peer = getPeer())
-    {
-#if USE_DIRECT2D
-        peer->setCurrentRenderingEngine(1);
-#else
-        peer->setCurrentRenderingEngine(0);
-#endif
-    } 
+    if (auto peer = getPeer()){
+        if (renderer = 1){
+            peer->setCurrentRenderingEngine(1);
+        }
+        else{
+            peer->setCurrentRenderingEngine(0);
+        }
+    }
 }
 #endif
 
