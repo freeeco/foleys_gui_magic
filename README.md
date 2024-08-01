@@ -187,6 +187,51 @@ Default margin, padding, radius and background colour
 Edited defaults in foleys_Decorator.cpp and foleys_Decorator.h
 
 
+Key commands to nudge position
+------------------------------
+
+Added key commands for arrow keys to: foleys_ToolBox.cpp (hold shift when using arrow keys)
+Added methods for nudging left, right and up, down to foleys_GuiItem.cpp
+
+
+
+Set default renderer
+--------------------
+
+Add to foleys_MagicPluginEditor.cpp add parentHierarchyChanged() method -->
+
+```
+#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+void MagicPluginEditor::parentHierarchyChanged()
+{
+    if (auto peer = getPeer())
+    {
+#if USE_DIRECT2D
+        peer->setCurrentRenderingEngine(1);
+#else
+        peer->setCurrentRenderingEngine(0);
+#endif
+    }
+}
+#endif
+```
+
+
+Turn Off OpenGL on Mac / iOS (as native renderer is better)
+----------------------------------------------------------
+
+in foleys_MagicPluginEditor.cpp
+
+append after all FOLEYS_ENABLE_OPEN_GL_CONTEXT directives '&& JUCE_WINDOWS'  e.g. -->
+
+```
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
+    oglContext.attachTo (*this);
+#endif
+```
+
+
+
 
 foleys_gui_magic
 ===============

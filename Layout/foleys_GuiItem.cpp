@@ -434,6 +434,54 @@ void GuiItem::setDraggable (bool selected)
     }
 }
 
+void GuiItem::nudgeLeft ()
+{
+    auto itemBounds = getBounds();
+    int distance = 1;
+    const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+    if (modifiers.isCtrlDown())
+        distance = 4;
+    itemBounds.setX(itemBounds.getX() - distance);
+    setBounds(itemBounds);
+    savePosition();
+}
+
+void GuiItem::nudgeRight ()
+{
+    auto itemBounds = getBounds();
+    int distance = 1;
+    const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+    if (modifiers.isCtrlDown())
+        distance = 4;
+    itemBounds.setX(itemBounds.getX() + distance);
+    setBounds(itemBounds);
+    savePosition();
+}
+
+void GuiItem::nudgeUp ()
+{
+    auto itemBounds = getBounds();
+    int distance = 1;
+    const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+    if (modifiers.isCtrlDown())
+        distance = 4;
+    itemBounds.setY(itemBounds.getY() - distance);
+    setBounds(itemBounds);
+    savePosition();
+}
+
+void GuiItem::nudgeDown ()
+{
+    auto itemBounds = getBounds();
+    int distance = 1;
+    const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+    if (modifiers.isCtrlDown())
+        distance = 4;
+    itemBounds.setY(itemBounds.getY() + distance);
+    setBounds(itemBounds);
+    savePosition();
+}
+
 void GuiItem::savePosition ()
 {
     auto* container = findParentComponentOfClass<Container>();

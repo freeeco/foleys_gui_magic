@@ -103,7 +103,7 @@ private:
     void timerCallback() override;
 #endif
     
-#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     juce::OpenGLContext oglContext;
 #endif
 

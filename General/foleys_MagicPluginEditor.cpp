@@ -47,7 +47,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
     processorState (stateToUse),
     builder (std::move (builderToUse))
 {
-#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     oglContext.attachTo (*this);
 #endif
 
@@ -119,7 +119,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
 
 MagicPluginEditor::~MagicPluginEditor()
 {
-#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     oglContext.detach();
 #endif
 }
@@ -199,12 +199,14 @@ void MagicPluginEditor::resized()
 #if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
-    // Set the parent window's rendering mode
-    
     if (auto peer = getPeer())
     {
+#if USE_DIRECT2D
         peer->setCurrentRenderingEngine(1);
-    }
+#else
+        peer->setCurrentRenderingEngine(0);
+#endif
+    } 
 }
 #endif
 

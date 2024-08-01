@@ -368,6 +368,58 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
+    
+   if (key.isKeyCode (juce::KeyPress::leftKey))
+   {
+       auto selected = builder.getSelectedNode();
+       auto item = builder.findGuiItem(selected);
+       if (item){
+           item->nudgeLeft();
+           return true;
+       }
+       else{
+           return false;
+       }
+   }
+    
+    if (key.isKeyCode (juce::KeyPress::rightKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeRight();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+             
+    if (key.isKeyCode (juce::KeyPress::upKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeUp();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+             
+    if (key.isKeyCode (juce::KeyPress::downKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeDown();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
 
     return false;
 }

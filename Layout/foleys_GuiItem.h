@@ -163,6 +163,11 @@ public:
 
     void itemDragEnter (const juce::DragAndDropTarget::SourceDetails& details) override;
     void itemDragExit (const juce::DragAndDropTarget::SourceDetails& details) override;
+    
+    void nudgeLeft ();
+    void nudgeRight ();
+    void nudgeUp ();
+    void nudgeDown ();
 
     void paintOverChildren (juce::Graphics& g) override;
 
@@ -170,6 +175,9 @@ public:
      Seeks recursively for a GuiItem
      */
     virtual GuiItem* findGuiItem (const juce::ValueTree& node);
+    
+    
+    
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
