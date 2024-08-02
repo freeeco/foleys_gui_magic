@@ -85,6 +85,12 @@ public:
     bool getLastEditorSize (int& width, int& height);
 
     /**
+     Store and recall renderer for Windows
+     */
+    void setRenderer (int  renderer);
+    bool getRenderer (int& renderer);
+
+    /**
      This method will serialise the plugin state from AudioProcessorValueTreeState for
      the host to save in the session
 

@@ -62,7 +62,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
     if (guiTree.isValid())
         setConfigTree (guiTree);
 
-    // Get and store initial window size the first time plugin is opened
+    // Get and store initial window size and Windows renderer the first time plugin is opened
     
     if (!processorState.getWindowSizeInitialized()){
         
@@ -97,13 +97,21 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
                 auto guiNode = tree.getChildWithName ("gui");
                 if (guiNode.hasProperty ("windows-renderer"))
                 {
-                    renderer = guiNode.getProperty ("windows-renderer");
+                    if (guiNode.getProperty("windows-renderer").toString() == "1") {
+                        renderer = 1;
+                    }
+                    else {
+                        renderer = 0;
+                    }
                 }
 #endif
             }
         }
-        
         processorState.setLastEditorSize (width, height);
+        
+#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+        processorState.setRenderer (renderer);
+#endif
     }
 
     updateSize();
@@ -115,7 +123,6 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
     builder->attachToolboxToWindow (*this);
 #endif
     
-
 
 #if !JUCE_IOS
     startTimerHz(40);
@@ -200,20 +207,26 @@ void MagicPluginEditor::paint (juce::Graphics& g)
 
 void MagicPluginEditor::resized()
 {
-    builder->updateLayout();
-
+    builder->updateLayout (getLocalBounds());
     processorState.setLastEditorSize (getWidth(), getHeight());
 }
 
 #if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
+    processorState.getRenderer (renderer);
     if (auto peer = getPeer()){
-        if (renderer = 1){
+        if (renderer == 1){
             peer->setCurrentRenderingEngine(1);
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
+            oglContext.detach();
+#endif
         }
         else{
             peer->setCurrentRenderingEngine(0);
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
+            oglContext.attachTo (*this);
+#endif
         }
     }
 }
@@ -224,7 +237,8 @@ void MagicPluginEditor::timerCallback()
 {
     if (processorState.getWindowNeedsUpdate()){
         updateSize();
-        resized();
+        builder->updateLayout (getLocalBounds());
+        processorState.setLastEditorSize (getWidth(), getHeight());
     }
 }
 #endif

@@ -144,6 +144,22 @@ bool MagicProcessorState::getLastEditorSize (int& width, int& height)
     return true;
 }
 
+void MagicProcessorState::setRenderer (int renderer)
+{
+    auto guiNode = getValueTree().getOrCreateChildWithName ("gui", nullptr);
+    guiNode.setProperty ("windows-renderer",  renderer,  nullptr);
+}
+
+bool MagicProcessorState::getRenderer (int& renderer)
+{
+    auto guiNode = getValueTree().getOrCreateChildWithName ("gui", nullptr);
+    if (guiNode.hasProperty ("windows-renderer") == false)
+        return false;
+
+    renderer = guiNode.getProperty ("windows-renderer");
+    return true;
+}
+
 void MagicProcessorState::getStateInformation (juce::MemoryBlock& destData)
 {
     auto newState = getValueTree();
