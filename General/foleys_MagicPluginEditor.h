@@ -87,7 +87,7 @@ public:
 
     void resized() override;
     
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
     void parentHierarchyChanged() override;
 #endif
 
@@ -106,7 +106,7 @@ private:
     juce::OpenGLContext oglContext;
 #endif
     
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
     int renderer = 0;
 #endif
 

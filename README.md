@@ -201,7 +201,7 @@ Set default windows renderer
 In foleys_MagicPluginEditor.cpp add parentHierarchyChanged() method -->
 
 ```
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
     if (auto peer = getPeer()){
@@ -219,7 +219,7 @@ void MagicPluginEditor::parentHierarchyChanged()
 and in constructor -->
 
 ```
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
                 auto guiNode = tree.getChildWithName ("gui");
                 if (guiNode.hasProperty ("windows-renderer"))
                 {

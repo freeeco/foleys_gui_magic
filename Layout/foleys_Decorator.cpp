@@ -136,18 +136,18 @@ Decorator::ClientBounds Decorator::getClientBounds (juce::Rectangle<int> overall
     {
         if (justification == juce::Justification::centred)
             captionBox = overallBounds;
-        else if (justification.getOnlyVerticalFlags() & juce::Justification::top)
+        else if (justification.getOnlyVerticalFlags() && juce::Justification::top)
             captionBox = box.removeFromTop (captionSize).toNearestInt();
-        else if (justification.getOnlyVerticalFlags() & juce::Justification::bottom)
+        else if (justification.getOnlyVerticalFlags() && juce::Justification::bottom)
             captionBox = box.removeFromBottom (captionSize).toNearestInt();
         else
         {
             juce::Font f (captionSize * 0.8f);
             auto w = float (f.getStringWidth (caption));
 
-            if (justification.getOnlyHorizontalFlags() & juce::Justification::left)
+            if (justification.getOnlyHorizontalFlags() && juce::Justification::left)
                 captionBox = box.removeFromLeft (w).toNearestInt();
-            else if (justification.getOnlyHorizontalFlags() & juce::Justification::right)
+            else if (justification.getOnlyHorizontalFlags() && juce::Justification::right)
                 captionBox = box.removeFromRight (w).toNearestInt();
         }
     }
@@ -192,7 +192,7 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
         justification = juce::Justification::centredTop;
 
     backgroundImage = stylesheet.getBackgroundImage (node);
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000 & IMAGES_SOFTWARE_IMAGE_TYPE
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000 && IMAGES_SOFTWARE_IMAGE_TYPE
     backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
 #endif
     backgroundGradient.setup (builder.getStyleProperty (IDs::backgroundGradient, node).toString(), stylesheet);

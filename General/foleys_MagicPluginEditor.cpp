@@ -93,7 +93,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
                     width  = sizeNode.getProperty (foleys::IDs::width);
                     height = sizeNode.getProperty (foleys::IDs::height);
                 }
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
                 auto guiNode = tree.getChildWithName ("gui");
                 if (guiNode.hasProperty ("windows-renderer"))
                 {
@@ -109,7 +109,7 @@ MagicPluginEditor::MagicPluginEditor (MagicProcessorState& stateToUse, std::uniq
         }
         processorState.setLastEditorSize (width, height);
         
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
         processorState.setRenderer (renderer);
 #endif
     }
@@ -211,7 +211,7 @@ void MagicPluginEditor::resized()
     processorState.setLastEditorSize (getWidth(), getHeight());
 }
 
-#if JUCE_WINDOWS & JUCE_VERSION >= 0x80000
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
 void MagicPluginEditor::parentHierarchyChanged()
 {
     processorState.getRenderer (renderer);
