@@ -169,9 +169,8 @@ void MagicPluginEditor::updateSize()
         // Disable resize corner in Ablton Live if using Direct2D to avoid freezes
         auto hostType = juce::PluginHostType();
         processorState.getRenderer (renderer);
-        if (renderer == 1 && hostType.isAbletonLive()){
+        if (renderer == 1 && hostType.isAbletonLive())
             resizeCorner = false;
-        }
 #endif
         setResizable (resizable, resizeCorner);
         setResizeLimits (minWidth, minHeight, maxWidth, maxHeight);
