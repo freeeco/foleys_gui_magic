@@ -170,7 +170,7 @@ void MagicPluginEditor::updateSize()
         auto hostType = juce::PluginHostType();
         processorState.getRenderer (renderer);
         if (renderer == 1 && hostType.isAbletonLive()){
-            setResizable (true, false);
+            setResizable (false, false);
         }
         else{
             setResizable (resizable, resizeCorner);
@@ -178,7 +178,6 @@ void MagicPluginEditor::updateSize()
 #else
         setResizable (resizable, resizeCorner);
 #endif
-        setResizable (resizable, resizeCorner);
         setResizeLimits (minWidth, minHeight, maxWidth, maxHeight);
         if (aspect > 0.0)
             getConstrainer()->setFixedAspectRatio (aspect);
