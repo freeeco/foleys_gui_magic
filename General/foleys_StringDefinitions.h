@@ -108,6 +108,7 @@ namespace IDs
     static juce::String     flexbox      { "flexbox" };
     static juce::Identifier tabHeight    { "tab-height" };
     static juce::Identifier selectedTab  { "tab-selected" };
+    static juce::Identifier passMouseClicks  { "pass-mouse-clicks" };
 
     static juce::Identifier focusContainerType { "focus-container" };
     static juce::String     focusNone          { "focus-none" };

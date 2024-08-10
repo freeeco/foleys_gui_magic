@@ -243,7 +243,32 @@ append after all FOLEYS_ENABLE_OPEN_GL_CONTEXT directives '&& JUCE_WINDOWS'  e.g
 ```
 
 
+Turn Off OpenGL on Mac / iOS (as native renderer is better)
+----------------------------------------------------------
 
+in foleys_Container.cpp
+
+add to Container::updateLayout() -->
+
+```
+    if (magicBuilder.getStyleProperty (IDs::passMouseClicks, configNode)){
+        containerBox.setInterceptsMouseClicks(false, true);
+    }
+```
+    
+    also 
+    
+to foleys_StringDefinitions.h -->
+    
+```  
+static juce::Identifier passMouseClicks  { "pass-mouse-clicks" };
+```   
+     
+to foleys_StringDefinitions.h -->
+
+```
+array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
+```
 
 foleys_gui_magic
 ===============

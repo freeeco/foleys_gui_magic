@@ -290,6 +290,10 @@ void Container::updateLayout()
             child->setBounds (child->resolvePosition (clientBounds));
     }
 
+    if (magicBuilder.getStyleProperty (IDs::passMouseClicks, configNode)){
+        containerBox.setInterceptsMouseClicks(false, true);
+    }
+    
     for (auto& child : children)
         child->updateLayout();
 }
