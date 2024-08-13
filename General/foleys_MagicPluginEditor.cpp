@@ -165,13 +165,6 @@ void MagicPluginEditor::updateSize()
         int maxWidth = rootNode.getProperty (IDs::maxWidth, maximalBounds.getWidth());
         int maxHeight = rootNode.getProperty (IDs::maxHeight, maximalBounds.getHeight());
         double aspect = rootNode.getProperty (IDs::aspect, 0.0);
-#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
-        // Disable resize corner in Ablton Live if using Direct2D to avoid freezes
-        auto hostType = juce::PluginHostType();
-        processorState.getRenderer (renderer);
-        if (renderer == 1 && hostType.isAbletonLive())
-            resizeCorner = false;
-#endif
         setResizable (resizable, resizeCorner);
         setResizeLimits (minWidth, minHeight, maxWidth, maxHeight);
         if (aspect > 0.0)
