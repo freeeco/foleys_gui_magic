@@ -243,8 +243,8 @@ append after all FOLEYS_ENABLE_OPEN_GL_CONTEXT directives '&& JUCE_WINDOWS'  e.g
 ```
 
 
-Turn Off OpenGL on Mac / iOS (as native renderer is better)
-----------------------------------------------------------
+Add pass-mouse-clicks propery to container / views
+--------------------------------------------------
 
 in foleys_Container.cpp
 
@@ -256,19 +256,49 @@ add to Container::updateLayout() -->
     }
 ```
     
-    also 
+also 
     
 to foleys_StringDefinitions.h -->
     
 ```  
-static juce::Identifier passMouseClicks  { "pass-mouse-clicks" };
+    static juce::Identifier passMouseClicks  { "pass-mouse-clicks" };
 ```   
      
-to foleys_StringDefinitions.h -->
+to foleys_PropertiesEditor.cpp -->
 
 ```
-array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
 ```
+
+
+
+Add buffer-to-image propery to container / views
+------------------------------------------------
+
+in foleys_Container.cpp
+
+add to Container::updateLayout() -->
+
+```
+    if (magicBuilder.getStyleProperty (IDs::bufferToImage, configNode)){
+        containerBox.setBufferedToImage(true);
+    }
+```
+    
+also 
+    
+to foleys_StringDefinitions.h -->
+    
+```  
+    static juce::Identifier bufferToImage  { "buffer-to-image" };
+```   
+     
+to foleys_PropertiesEditor.cpp -->
+
+```
+    array.add (new StyleBoolPropertyComponent (builder, IDs::bufferToImage, styleItem));
+```
+
 
 foleys_gui_magic
 ===============

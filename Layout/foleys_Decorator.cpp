@@ -142,7 +142,7 @@ Decorator::ClientBounds Decorator::getClientBounds (juce::Rectangle<int> overall
             captionBox = box.removeFromBottom (captionSize).toNearestInt();
         else
         {
-            juce::Font f (captionSize * 0.8f);
+            juce::Font f (juce::FontOptions (captionSize * 0.8f));
             auto w = float (f.getStringWidth (caption));
 
             if (justification.getOnlyHorizontalFlags() && juce::Justification::left)

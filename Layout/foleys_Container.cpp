@@ -294,6 +294,10 @@ void Container::updateLayout()
         containerBox.setInterceptsMouseClicks(false, true);
     }
     
+    if (magicBuilder.getStyleProperty (IDs::bufferToImage, configNode)){
+        containerBox.setBufferedToImage(true);
+    }
+    
     for (auto& child : children)
         child->updateLayout();
 }
