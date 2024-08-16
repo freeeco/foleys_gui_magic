@@ -300,6 +300,29 @@ to foleys_PropertiesEditor.cpp -->
 ```
 
 
+Added single image and SVGs to slider GUI Item
+----------------------------------------------
+added single image and SVGs to slider GUI Item in foleys_MagicJUCEFactories
+
+
+
+
+Added parameter property to 'View'
+----------------------------------
+Added to Container::updateLayout in foleys_Container.cpp
+
++
+
+Added     
+
+```
+std::unique_ptr<juce::ParameterAttachment> attachment; 
+```
+
+to -->
+foleys_Container.h
+
+
 foleys_gui_magic
 ===============
 

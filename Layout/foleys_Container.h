@@ -176,7 +176,6 @@ private:
     std::vector<juce::Component::SafePointer<MagicPlotComponent>> plotComponents;
     
     std::unique_ptr<juce::ParameterAttachment> attachment;
-    std::unique_ptr<juce::ParameterAttachment> containerAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Container)
 };
