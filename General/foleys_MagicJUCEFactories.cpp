@@ -60,21 +60,23 @@ public:
 
     static const juce::Identifier  pSliderType;
     static const juce::StringArray pSliderTypes;
-
     static const juce::Identifier  pSliderTextBox;
     static const juce::StringArray pTextBoxPositions;
-
     static const juce::Identifier  pValue;
     static const juce::Identifier  pMinValue;
     static const juce::Identifier  pMaxValue;
     static const juce::Identifier  pInterval;
     static const juce::Identifier  pSuffix;
     static const juce::Identifier  pSensitivity;
-
     static const juce::Identifier  pFilmStrip;
     static const juce::Identifier  pNumImages;
+    static const juce::Identifier  pImage;
+    static const juce::Identifier  pImageMode;
+    static const juce::StringArray pImageModes;
+    static const juce::Identifier  pStartAngle;
     static const juce::Identifier  pDisableScrollWheel;
     static const juce::Identifier  pOpacity;
+    static const juce::Identifier  pPassMouseClicks;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -152,6 +154,31 @@ public:
         int numFilmImages = getProperty (pNumImages);
         slider.setNumImages (numFilmImages, false);
         
+        auto imageName = getProperty (pImage).toString();
+        if (imageName.isNotEmpty())
+        {
+            if (imageName.endsWithIgnoreCase("_svg")){
+                int dataSize = 0;
+                const char* data = BinaryData::getNamedResource (imageName.toRawUTF8(), dataSize);
+                if (data != nullptr){
+                    slider.createImage (data, dataSize);
+                }
+            }
+            else{
+                auto image = Resources::getImage (imageName);
+                slider.setImage (image);
+            }
+        }
+        
+        auto mode = getProperty (pImageMode).toString();
+        if (mode == "rotary")
+            slider.setImageMode(0);
+        if (mode == "horizontal")
+            slider.setImageMode(1);
+        if (mode == "vertical")
+            slider.setImageMode(2);
+        slider.setStartAngle(getProperty (pStartAngle));
+
         if (getProperty (pDisableScrollWheel))
             slider.setScrollWheelEnabled(false);
         else
@@ -168,6 +195,10 @@ public:
         slider.setWantsKeyboardFocus(false);
         slider.setMouseClickGrabsKeyboardFocus(false);
         slider.setVelocityModeParameters(4, 1, 0, true, juce::ModifierKeys::shiftModifier);
+        
+        if (getProperty (pPassMouseClicks)){
+            slider.setInterceptsMouseClicks(false, false);
+        }
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -185,8 +216,12 @@ public:
         props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} });
         props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
         props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
+        props.push_back ({ configNode, pImage, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
+        props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) });
+        props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} });
 
         return props;
     }
@@ -219,20 +254,25 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SliderItem)
 };
-const juce::Identifier  SliderItem::pSliderType   { "slider-type" };
-const juce::StringArray SliderItem::pSliderTypes  { "auto", "linear-horizontal", "linear-vertical", "rotary", "rotary-horizontal-vertical", "inc-dec-buttons" };
-const juce::Identifier  SliderItem::pSliderTextBox    { "slider-textbox" };
-const juce::StringArray SliderItem::pTextBoxPositions { "no-textbox", "textbox-above", "textbox-below", "textbox-left", "textbox-right" };
-const juce::Identifier  SliderItem::pValue      { "value" };
-const juce::Identifier  SliderItem::pMinValue   { "min-value" };
-const juce::Identifier  SliderItem::pMaxValue   { "max-value" };
-const juce::Identifier  SliderItem::pInterval   { "interval" };
-const juce::Identifier  SliderItem::pSuffix     { "suffix" };
-const juce::Identifier  SliderItem::pSensitivity  { "sensitivity" };
-const juce::Identifier  SliderItem::pFilmStrip  { "filmstrip" };
-const juce::Identifier  SliderItem::pNumImages  { "num-filmstrip-images" };
-const juce::Identifier  SliderItem::pDisableScrollWheel    { "disable-scroll-wheel" };
-const juce::Identifier SliderItem::pOpacity     { "opacity" };
+const juce::Identifier  SliderItem::pSliderType         { "slider-type" };
+const juce::StringArray SliderItem::pSliderTypes        { "auto", "linear-horizontal", "linear-vertical", "rotary", "rotary-horizontal-vertical", "inc-dec-buttons" };
+const juce::Identifier  SliderItem::pSliderTextBox      { "slider-textbox" };
+const juce::StringArray SliderItem::pTextBoxPositions   { "no-textbox", "textbox-above", "textbox-below", "textbox-left", "textbox-right" };
+const juce::Identifier  SliderItem::pValue              { "value" };
+const juce::Identifier  SliderItem::pMinValue           { "min-value" };
+const juce::Identifier  SliderItem::pMaxValue           { "max-value" };
+const juce::Identifier  SliderItem::pInterval           { "interval" };
+const juce::Identifier  SliderItem::pSuffix             { "suffix" };
+const juce::Identifier  SliderItem::pSensitivity        { "sensitivity" };
+const juce::Identifier  SliderItem::pFilmStrip          { "filmstrip" };
+const juce::Identifier  SliderItem::pNumImages          { "num-filmstrip-images" };
+const juce::Identifier  SliderItem::pImage              { "image" };
+const juce::Identifier  SliderItem::pImageMode          { "image-mode" };
+const juce::StringArray SliderItem::pImageModes         { "rotary", "horizontal", "vertical" };
+const juce::Identifier  SliderItem::pStartAngle         { "start-angle" };
+const juce::Identifier  SliderItem::pDisableScrollWheel { "disable-scroll-wheel" };
+const juce::Identifier SliderItem::pOpacity             { "opacity" };
+const juce::Identifier SliderItem::pPassMouseClicks     { "pass-mouse-clicks" };
 
 
 //==============================================================================
@@ -992,6 +1032,8 @@ public:
             meter.setVerticalFlip(true);
         else
             meter.setVerticalFlip(false);
+        
+        meter.setInterceptsMouseClicks(false, false);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override

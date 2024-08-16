@@ -298,6 +298,29 @@ void Container::updateLayout()
         containerBox.setBufferedToImage(true);
     }
     
+    if (!magicBuilder.getStyleProperty (IDs::parameter, configNode).toString().equalsIgnoreCase("")){
+        auto parameterName = magicBuilder.getStyleProperty (IDs::parameter, configNode).toString();
+        auto* parameter = getMagicState().getParameter (parameterName);
+        if (parameter){
+            {
+                attachment = std::make_unique<juce::ParameterAttachment>(
+                                                                         *parameter,
+                                                                         [&, parameter](float value)
+                                                                         {
+                                                                             int tabIndex = std::round(value);
+                                                                             int numTabs = tabbedButtons->getNumTabs();
+                                                                             if (tabIndex >= numTabs - 1)
+                                                                                 tabIndex = numTabs - 1;
+                                                                             if (tabIndex < 0)
+                                                                                 tabIndex = 0;
+                                                                             currentTab.setValue(tabIndex);
+                                                                             tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+                                                                             updateSelectedTab();
+                                                                         });
+            }
+        }
+    }
+    
     for (auto& child : children)
         child->updateLayout();
 }

@@ -370,7 +370,8 @@ void PropertiesEditor::addContainerProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexJustifyContent, styleItem, { IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexSpaceAround, IDs::flexSpaceBetween }));
     array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
     array.add (new StyleBoolPropertyComponent (builder, IDs::bufferToImage, styleItem));
-
+    array.add (new StyleChoicePropertyComponent (builder, IDs::parameter, styleItem, builder.createParameterMenuLambda()));
+    
     array.add (new StyleChoicePropertyComponent (builder, IDs::focusContainerType, styleItem, { IDs::focusNone, IDs::focusContainer, IDs::focusKeyContainer }));
 
     properties.addSection ("Container", array, false);

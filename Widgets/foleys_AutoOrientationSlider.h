@@ -60,7 +60,97 @@ public:
     {
         if (filmStrip.isNull() || numImages == 0)
         {
-            juce::Slider::paint (g);
+            if (singleImage.isValid()){
+                if (imageMode == 0){
+                    float h = singleImage.getHeight();
+                    float w = singleImage.getWidth();
+                    float aspect = h / w;
+                    
+                    auto knobArea = getLookAndFeel().getSliderLayout(*this).sliderBounds;
+                    
+                    float areaW = knobArea.getWidth();
+                    float areaH = knobArea.getHeight();
+                    float areaAspect = areaH / areaW;
+                    
+#if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
+                    auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+#else
+                    auto xOffset = 0;
+#endif
+                    
+#if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+                    auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+#else
+                    auto yOffset = 0;
+#endif
+                    
+                    auto originalBounds = singleImage.getBounds();
+                    
+                    auto rotation = startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2));
+                    
+                    juce::AffineTransform transform = juce::AffineTransform::rotation(juce::MathConstants<float>::pi * 2.0f * rotation, originalBounds.getCentreX(), originalBounds.getCentreY());
+                    
+                    juce::Image rotatedImage(juce::Image::ARGB, singleImage.getWidth(), singleImage.getHeight(), true);
+                    juce::Graphics gImage(rotatedImage);
+                    gImage.drawImageTransformed(singleImage, transform);
+                    
+                    if (aspect > areaAspect){
+                        g.drawImage (rotatedImage, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                     0, 0, singleImage.getWidth(), h);
+                    }
+                    else{
+                        g.drawImage (rotatedImage, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                     0, 0, singleImage.getWidth(), h);
+                    }
+                }
+                else if (imageMode == 1){
+                    auto originalBounds = singleImage.getBounds().toFloat();
+                    float scaleFactor = (getHeight() / originalBounds.getHeight());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1 - startAngle) * valueToProportionOfLength (getValue());
+                    transform = transform.translated(position, 0.0f);
+                    g.drawImageTransformed(singleImage, transform);
+                }
+                else{ // imageMode == 2
+                    auto originalBounds = singleImage.getBounds().toFloat();
+                    float scaleFactor = (getWidth() / originalBounds.getWidth());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1 - startAngle) * (1 - valueToProportionOfLength (getValue()));
+                    transform = transform.translated(0.0f, position);
+                    g.drawImageTransformed(singleImage, transform);
+                }
+            }
+            else if (svg){
+                if (imageMode == 0){
+                    auto rotation = startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2));
+                    auto placement (juce::RectanglePlacement::centred);
+                    auto originalBounds = svg->getDrawableBounds();
+                    if (rotation == 0.0f)
+                        rotation = 1.0f; // Strange bug with drawable transform which doesn't seem to like angle of 0.0f
+                    juce::AffineTransform transform = juce::AffineTransform::rotation(juce::MathConstants<float>::pi * 2.0f * rotation, originalBounds.getCentreX(), originalBounds.getCentreY());
+                    svg->setDrawableTransform(transform);
+                    svg->drawWithin(g, getBounds().toFloat(), placement ,1.0f);
+                }
+                else if (imageMode == 1){
+                    auto originalBounds = svg->getDrawableBounds().toFloat();
+                    float scaleFactor = (getHeight() / originalBounds.getHeight());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    svg->setDrawableTransform(transform);
+                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1 - startAngle) * valueToProportionOfLength (getValue());
+                    svg->drawAt(g, position, 0.0f, 1.0f);
+                }
+                else{ // imageMode == 2
+                    auto originalBounds = svg->getDrawableBounds().toFloat();
+                    float scaleFactor = (getWidth() / originalBounds.getWidth());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    svg->setDrawableTransform(transform);
+                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1 - startAngle) * (1.0f - valueToProportionOfLength (getValue()));
+                    svg->drawAt(g, 0.0f, position, 1.0f);
+                }
+            }
+            else{
+                juce::Slider::paint (g);
+            }
         }
         else
         {
@@ -79,13 +169,13 @@ public:
                 float h = filmStrip.getHeight();
                 float aspect = h / w;
                 
-#if defined SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
+#if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
                 auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
 #else
                 auto xOffset = 0;
 #endif
                 
-#if defined SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+#if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
                 auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
 #else
                 auto yOffset = 0;
@@ -106,13 +196,13 @@ public:
                 float w = filmStrip.getWidth();
                 float aspect = h / w;
                 
-#if defined SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
+#if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
                 auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
 #else
                 auto xOffset = 0;
 #endif
                 
-#if defined SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+#if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
                 auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
 #else
                 auto yOffset = 0;
@@ -161,6 +251,27 @@ public:
         numImages = num;
         horizontalFilmStrip = horizontal;
     }
+    
+    void setImage (juce::Image& image)
+    {
+        singleImage = image;
+    }
+    
+    void createImage (const char* data, int dataSize)
+    {
+        svg = juce::Drawable::createFromImageData (data, dataSize);
+    }
+
+    void setImageMode (int mode)
+    {
+        imageMode = mode;
+    }
+
+    void setStartAngle (float angle)
+    {
+        startAngle = angle;
+    }
+
 
 private:
 
@@ -168,6 +279,10 @@ private:
 
     juce::Image filmStrip;
     int         numImages = 0;
+    juce::Image singleImage;
+    int         imageMode;
+    float       startAngle;
+    std::unique_ptr<juce::Drawable> svg;
     bool        horizontalFilmStrip = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoOrientationSlider)
