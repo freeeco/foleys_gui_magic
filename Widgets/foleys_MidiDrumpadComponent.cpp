@@ -77,8 +77,10 @@ void MidiDrumpadComponent::updateButtons()
 {
     pads.clear();
 
-    for (int i = 0; i < numRows * numColumns; ++i)
+    for (int i = 0; i < numRows * numColumns; ++i){
         pads.push_back (std::make_unique<Pad>(*this, rootNote + i));
+        pads[i]->setIndex (i);
+    }
 
     for (auto& pad : pads)
         addAndMakeVisible (pad.get());
@@ -148,6 +150,8 @@ void MidiDrumpadComponent::Pad::mouseDown (const juce::MouseEvent& event)
     pressure = event.isPressureValid() ? event.pressure : 1.0f;
     owner.keyboardState.noteOn (1, noteNumber, pressure);
     lastPos = event.getPosition();
+    owner.setLastClicked (index);
+    owner.setClickedFlag(true);
     owner.needsPaint = true;
 }
 
@@ -175,6 +179,9 @@ void MidiDrumpadComponent::Pad::handleNoteOn (juce::MidiKeyboardState* source,
         return;
 
     isDown = true;
+    
+    owner.setLastPlayed (index);
+    owner.setPlayedFlag(true);
 
     owner.needsPaint = true;
 }

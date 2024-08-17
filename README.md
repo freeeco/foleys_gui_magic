@@ -323,6 +323,16 @@ to -->
 foleys_Container.h
 
 
+
+Added value attachments to Midi Drumpad
+---------------------------------------
+Added to -->
+
+foleys_MagicJUCEFactories.cpp
+foleys_MidiDrumpadComponent.cpp
+foleys_MidiDrumpadComponent.h
+
+
 foleys_gui_magic
 ===============
 

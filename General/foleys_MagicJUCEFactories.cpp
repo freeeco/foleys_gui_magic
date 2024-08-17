@@ -913,11 +913,31 @@ const juce::String      KeyboardItem::pKeyWidth             {"key-width"};
 //==============================================================================
 
 class DrumpadItem : public GuiItem
+                  , private juce::Timer
 {
 public:
     static const juce::Identifier  pColumns;
     static const juce::Identifier  pRows;
     static const juce::Identifier  pRootNote;
+    static const juce::Identifier  pDownValue_1;
+    static const juce::Identifier  pDownValue_2;
+    static const juce::Identifier  pDownValue_3;
+    static const juce::Identifier  pDownValue_4;
+    static const juce::Identifier  pDownValue_5;
+    static const juce::Identifier  pDownValue_6;
+    static const juce::Identifier  pDownValue_7;
+    static const juce::Identifier  pDownValue_8;
+    static const juce::Identifier  pDownValue_9;
+    static const juce::Identifier  pDownValue_10;
+    static const juce::Identifier  pDownValue_11;
+    static const juce::Identifier  pDownValue_12;
+    static const juce::Identifier  pDownValue_13;
+    static const juce::Identifier  pDownValue_14;
+    static const juce::Identifier  pDownValue_15;
+    static const juce::Identifier  pDownValue_16;
+    static const juce::Identifier  pLastPadValue;
+    static const juce::Identifier  pFollowsClicked;
+    static const juce::Identifier  pFollowsPlayed;
 
     FOLEYS_DECLARE_GUI_FACTORY (DrumpadItem)
 
@@ -951,6 +971,42 @@ public:
         auto rootNote = getProperty (pRootNote);
         if (!rootNote.isVoid())
             drumpad.setRootNote (rootNote);
+        
+        auto valueID = configNode.getProperty (pDownValue_1, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_1.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_2, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_2.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_3, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_3.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_4, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_4.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        
+        
+        valueID = configNode.getProperty (pLastPadValue, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            lastPadValue.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pFollowsClicked, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            followsClickedValue.referTo (getMagicState().getPropertyAsValue (valueID));
+        else
+            followsClickedValue = 1;
+        
+        valueID = configNode.getProperty (pFollowsPlayed, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            followsPlayedValue.referTo (getMagicState().getPropertyAsValue (valueID));
+        else
+            followsPlayedValue = 0;
+        
+        startTimerHz(60);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -959,6 +1015,26 @@ public:
         props.push_back ({ configNode, pColumns,  SettableProperty::Number,  3, {}});
         props.push_back ({ configNode, pRows,     SettableProperty::Number,  3, {}});
         props.push_back ({ configNode, pRootNote, SettableProperty::Number, 64, {}});
+        props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_6, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_7, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_8, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_9, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_10, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_11, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_12, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_13, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_14, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_15, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue_16, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        
         return props;
     }
 
@@ -969,12 +1045,59 @@ public:
 
 private:
     MidiDrumpadComponent drumpad;
+    juce::Value downValue_1, downValue_2, downValue_3, downValue_4, downValue_5, downValue_6, downValue_7, downValue_8, downValue_9, downValue_10, downValue_11, downValue_12, downValue_13, downValue_14, downValue_15, downValue_16, lastPadValue, followsClickedValue, followsPlayedValue;
+    
+    void timerCallback() final
+    {
+        if (followsClickedValue.getValue() && drumpad.getClickedFlag())
+            lastPadValue = drumpad.getLastClicked();
+        
+        if (followsPlayedValue.getValue() && drumpad.getPlayedFlag())
+            lastPadValue = drumpad.getLastPlayed();
+        
+        downValue_1 = drumpad.getPadDownStatus(0);
+        downValue_2 = drumpad.getPadDownStatus(1);
+        downValue_3 = drumpad.getPadDownStatus(2);
+        downValue_4 = drumpad.getPadDownStatus(3);
+        downValue_5 = drumpad.getPadDownStatus(4);
+        downValue_6 = drumpad.getPadDownStatus(5);
+        downValue_7 = drumpad.getPadDownStatus(6);
+        downValue_8 = drumpad.getPadDownStatus(7);
+        downValue_9 = drumpad.getPadDownStatus(8);
+        downValue_10 = drumpad.getPadDownStatus(9);
+        downValue_11 = drumpad.getPadDownStatus(10);
+        downValue_12 = drumpad.getPadDownStatus(11);
+        downValue_13 = drumpad.getPadDownStatus(12);
+        downValue_14 = drumpad.getPadDownStatus(13);
+        downValue_15 = drumpad.getPadDownStatus(14);
+        downValue_16 = drumpad.getPadDownStatus(15);
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumpadItem)
 };
-const juce::Identifier  DrumpadItem::pColumns  { "pad-columns" };
-const juce::Identifier  DrumpadItem::pRows     { "pad-rows" };
-const juce::Identifier  DrumpadItem::pRootNote { "pad-root-note" };
+const juce::Identifier  DrumpadItem::pColumns       { "pad-columns" };
+const juce::Identifier  DrumpadItem::pRows          { "pad-rows" };
+const juce::Identifier  DrumpadItem::pRootNote      { "pad-root-note" };
+const juce::Identifier  DrumpadItem::pDownValue_1   { "value-1" };
+const juce::Identifier  DrumpadItem::pDownValue_2   { "value-2" };
+const juce::Identifier  DrumpadItem::pDownValue_3   { "value-3" };
+const juce::Identifier  DrumpadItem::pDownValue_4   { "value-4" };
+const juce::Identifier  DrumpadItem::pDownValue_5   { "value-5" };
+const juce::Identifier  DrumpadItem::pDownValue_6   { "value-6" };
+const juce::Identifier  DrumpadItem::pDownValue_7   { "value-7" };
+const juce::Identifier  DrumpadItem::pDownValue_8   { "value-8" };
+const juce::Identifier  DrumpadItem::pDownValue_9   { "value-9" };
+const juce::Identifier  DrumpadItem::pDownValue_10   { "value-10" };
+const juce::Identifier  DrumpadItem::pDownValue_11   { "value-11" };
+const juce::Identifier  DrumpadItem::pDownValue_12   { "value-12" };
+const juce::Identifier  DrumpadItem::pDownValue_13   { "value-13" };
+const juce::Identifier  DrumpadItem::pDownValue_14   { "value-14" };
+const juce::Identifier  DrumpadItem::pDownValue_15   { "value-15" };
+const juce::Identifier  DrumpadItem::pDownValue_16   { "value-16" };
+const juce::Identifier  DrumpadItem::pLastPadValue   { "last-pad-value" };
+const juce::Identifier  DrumpadItem::pFollowsClicked   { "follows-clicked-value" };
+const juce::Identifier  DrumpadItem::pFollowsPlayed   { "follows-played-value" };
+
 
 //==============================================================================
 
