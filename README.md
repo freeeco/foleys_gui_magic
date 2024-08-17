@@ -307,8 +307,8 @@ added single image and SVGs to slider GUI Item in foleys_MagicJUCEFactories
 
 
 
-Added parameter property to 'View'
-----------------------------------
+Added parameter property to change tabs in 'View'
+-------------------------------------------------
 Added to Container::updateLayout in foleys_Container.cpp
 
 +
