@@ -98,6 +98,7 @@ private:
     juce::Colour        tabColour;
 
     juce::Image                 backgroundImage;
+    std::unique_ptr<juce::Drawable> backgroundImageSvg;
     float                       backgroundAlpha = 1.0f;
     juce::RectanglePlacement    backgroundPlacement = juce::RectanglePlacement::centred;
     GradientBackground          backgroundGradient;

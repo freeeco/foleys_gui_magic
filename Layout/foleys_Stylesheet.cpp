@@ -279,10 +279,19 @@ juce::StringArray Stylesheet::getLookAndFeelNames() const
 juce::Image Stylesheet::getBackgroundImage (const juce::ValueTree& node) const
 {
     auto name = getStyleProperty (IDs::backgroundImage, node);
-    if (name.isVoid())
+    if (name.isVoid() || name.toString().endsWithIgnoreCase("_svg"))
         return {};
 
     return Resources::getImage (name.toString());
+}
+
+juce::String Stylesheet::getBackgroundImageSvg  (const juce::ValueTree& node) const
+{
+    auto name = getStyleProperty (IDs::backgroundImage, node);
+    if (name.isVoid() || !name.toString().endsWithIgnoreCase("_svg"))
+        return {};
+
+    return name.toString();
 }
 
 juce::ValueTree Stylesheet::getCurrentStyle() const

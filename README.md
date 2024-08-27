@@ -333,6 +333,48 @@ foleys_MidiDrumpadComponent.cpp
 foleys_MidiDrumpadComponent.h
 
 
+
+Added svg support to decorator background images
+---------------------------------------
+Added backgroundImageSvg -->
+
+```
+    if (backgroundImageSvg)
+    {
+        juce::Graphics::ScopedSaveState save (g);
+        g.setOpacity (backgroundAlpha);
+        backgroundImageSvg->drawWithin(g, boundsf, backgroundPlacement ,1.0f);
+    }
+    
+    
+    if (backgroundImage.isNull()){
+    auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
+    if (backgroundImageSvgName.isNotEmpty()){
+        int dataSize = 0;
+        const char* data = BinaryData::getNamedResource (backgroundImageSvgName.toRawUTF8(), dataSize);
+        if (data != nullptr){
+            backgroundImageSvg = juce::Drawable::createFromImageData (data, dataSize);
+        }
+    }
+```
+
+to -->
+
+foleys_Decorator.cpp
+foleys_Decorator.h
+
+And added -->
+
+```
+juce::String getBackgroundImageSvg (const juce::ValueTree& node) const; 
+```
+
+to -->
+
+foleys_Stylesheet.cpp
+foleys_Stylesheet.h
+
+
 foleys_gui_magic
 ===============
 

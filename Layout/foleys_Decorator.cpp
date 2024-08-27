@@ -71,6 +71,13 @@ void Decorator::drawDecorator (juce::Graphics& g, juce::Rectangle<int> bounds)
         g.setOpacity (backgroundAlpha);
         g.drawImage (backgroundImage, boundsf, backgroundPlacement);
     }
+    
+    if (backgroundImageSvg)
+    {
+        juce::Graphics::ScopedSaveState save (g);
+        g.setOpacity (backgroundAlpha);
+        backgroundImageSvg->drawWithin(g, boundsf, backgroundPlacement ,1.0f);
+    }
 
     if (border > 0.0f)
     {
@@ -195,6 +202,17 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000 && IMAGES_SOFTWARE_IMAGE_TYPE
     backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
 #endif
+    if (backgroundImage.isNull()){
+        auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
+        if (backgroundImageSvgName.isNotEmpty()){
+            int dataSize = 0;
+            const char* data = BinaryData::getNamedResource (backgroundImageSvgName.toRawUTF8(), dataSize);
+            if (data != nullptr){
+                backgroundImageSvg = juce::Drawable::createFromImageData (data, dataSize);
+            }
+        }
+    }
+
     backgroundGradient.setup (builder.getStyleProperty (IDs::backgroundGradient, node).toString(), stylesheet);
 
     auto alphaVar = builder.getStyleProperty (IDs::backgroundAlpha, node);

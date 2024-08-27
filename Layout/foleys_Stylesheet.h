@@ -117,6 +117,15 @@ public:
      @param node is the node in the GUI DOM
      */
     juce::Image getBackgroundImage (const juce::ValueTree& node) const;
+    
+    /**
+     Finds a background image for the given node. Note that this will only return anything
+     useful, if you have added any actual images into the BinaryData and have enabled the
+     FOLEYS_ENABLE_BINARY_DATA setting in the module page.
+
+     @param node is the node in the GUI DOM
+     */
+    juce::String getBackgroundImageSvg (const juce::ValueTree& node) const;
 
     /**
      This is a slightly more intelligent colour lookup than the JUCE one, as it allows to
