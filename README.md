@@ -335,7 +335,7 @@ foleys_MidiDrumpadComponent.h
 
 
 Added svg support to decorator background images
----------------------------------------
+------------------------------------------------
 Added backgroundImageSvg -->
 
 ```
@@ -373,6 +373,8 @@ to -->
 
 foleys_Stylesheet.cpp
 foleys_Stylesheet.h
+
+
 
 
 foleys_gui_magic
