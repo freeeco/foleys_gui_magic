@@ -346,7 +346,6 @@ Added backgroundImageSvg -->
         backgroundImageSvg->drawWithin(g, boundsf, backgroundPlacement ,1.0f);
     }
     
-    
     if (backgroundImage.isNull()){
     auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
     if (backgroundImageSvgName.isNotEmpty()){
