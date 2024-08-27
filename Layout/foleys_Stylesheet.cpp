@@ -288,10 +288,10 @@ juce::Image Stylesheet::getBackgroundImage (const juce::ValueTree& node) const
 juce::String Stylesheet::getBackgroundImageSvg  (const juce::ValueTree& node) const
 {
     auto name = getStyleProperty (IDs::backgroundImage, node);
-    if (name.isVoid() || !name.toString().endsWithIgnoreCase("_svg"))
+    if (name.toString().endsWithIgnoreCase("_svg"))
+        return name.toString();
+    else
         return {};
-
-    return name.toString();
 }
 
 juce::ValueTree Stylesheet::getCurrentStyle() const
