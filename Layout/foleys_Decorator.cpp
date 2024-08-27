@@ -202,6 +202,7 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000 && IMAGES_SOFTWARE_IMAGE_TYPE
     backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
 #endif
+    
     if (backgroundImage.isNull()){
         auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
         if (backgroundImageSvgName.isNotEmpty()){
