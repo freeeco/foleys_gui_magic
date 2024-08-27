@@ -347,14 +347,14 @@ Added backgroundImageSvg -->
     }
     
     if (backgroundImage.isNull()){
-    auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
-    if (backgroundImageSvgName.isNotEmpty()){
-        int dataSize = 0;
-        const char* data = BinaryData::getNamedResource (backgroundImageSvgName.toRawUTF8(), dataSize);
-        if (data != nullptr){
-            backgroundImageSvg = juce::Drawable::createFromImageData (data, dataSize);
+        auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
+        if (backgroundImageSvgName.isNotEmpty()){
+            int dataSize = 0;
+            const char* data = BinaryData::getNamedResource (backgroundImageSvgName.toRawUTF8(), dataSize);
+            if (data != nullptr){
+                backgroundImageSvg = juce::Drawable::createFromImageData (data, dataSize);
+            }
         }
-    }
 ```
 
 to -->
