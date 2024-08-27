@@ -157,6 +157,17 @@ is removed to avoid extra recursion that was slowing down refresing of the GUI
     }
 ```
 
+Also the comment out the last 2 lines of Container::updateLayout() in foleys_Container.cpp at line 324, doing this speeds up opening and resising window and doesn't seem to break anything
+
+```
+//    for (auto& child : children)
+//        child->updateLayout();
+```
+
+createSubComponents() parses the tree and calls createGuiItem() for each child node, which in turn calls createSubComponents() if the child is a view, therefor it seems that the gui is built up recursively like this.
+
+createSubComponents() also calls updateLayout() so removing the lines above avoids unnecessary additional recursion.
+
 Velocity Mode For Sliders
 -------------------------
 

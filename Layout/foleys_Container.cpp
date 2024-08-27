@@ -321,8 +321,8 @@ void Container::updateLayout()
         }
     }
     
-    for (auto& child : children)
-        child->updateLayout();
+    //    for (auto& child : children)
+    //        child->updateLayout();
 }
 
 void Container::updateColours()
