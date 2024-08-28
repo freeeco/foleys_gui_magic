@@ -409,24 +409,182 @@ with
 
 
 
-Add 'Duplicate' (cmd+D) key-command
------------------------------------
+Added more key-commands
+-----------------------
 
-At line 372 add this to foleys_ToolBox.cpp -->
+ToolBox::keyPressed At line 328 in foleys_ToolBox.cpp change to -->
 
 ```
-    if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
+bool ToolBox::keyPressed (const juce::KeyPress& key)
+{
+    if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && !key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+        {
+            auto p = selected.getParent();
+            if (p.isValid())
+                p.removeChild (selected, &undo);
+        }
+
+        return true;
+    }
+    
+    if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+        {
+            selected.removeAllChildren (&undo);
+        }
+
+        return true;
+    }
+
+    if (key.isKeyCode ('Z') && key.getModifiers().isCommandDown())
+    {
+        if (key.getModifiers().isShiftDown())
+            undo.redo();
+        else
+            undo.undo();
+
+        return true;
+    }
+
+    if (key.isKeyCode ('X') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+        {
+            juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+            auto p = selected.getParent();
+            if (p.isValid())
+                p.removeChild (selected, &undo);
+        }
+        
+        return true;
+    }
+
+    if (key.isKeyCode ('C') && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
         if (selected.isValid())
             juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+
+        return true;
+    }
+
+    if (key.isKeyCode ('V') && key.getModifiers().isCommandDown())
+    {
         auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+        auto selected = builder.getSelectedNode();
+        if (paste.isValid() && selected.isValid())
+            builder.draggedItemOnto (paste, selected);
+
+        return true;
+    }
+    
+    if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        auto paste = juce::ValueTree::fromXml (selected.toXmlString());
         if (paste.isValid() && selected.isValid())
             builder.draggedItemOnto (paste, selected.getParent(), selected.getParent().indexOf (selected) + 1);
 
         return true;
     }
+     
+    if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+            builder.draggedItemOnto (selected, selected.getParent(), selected.getParent().indexOf (selected) - 1);
+
+        return true;
+    }
+         
+    if (key.isKeyCode ('=') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+            builder.draggedItemOnto (selected, selected.getParent(), selected.getParent().indexOf (selected) + 1);
+
+        return true;
+    }
+    
+   if (key.isKeyCode (juce::KeyPress::leftKey))
+   {
+       auto selected = builder.getSelectedNode();
+       auto item = builder.findGuiItem(selected);
+       if (item){
+           item->nudgeLeft();
+           return true;
+       }
+       else{
+           return false;
+       }
+   }
+    
+    if (key.isKeyCode (juce::KeyPress::rightKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeRight();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+             
+    if (key.isKeyCode (juce::KeyPress::upKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeUp();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+             
+    if (key.isKeyCode (juce::KeyPress::downKey))
+    {
+        auto selected = builder.getSelectedNode();
+        auto item = builder.findGuiItem(selected);
+        if (item){
+            item->nudgeDown();
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    return false;
+}
 ```
+
+
+All Keyboard-Commands
+---------------------
+
+Cut = cmd+X
+Copy - cmd+C
+Paste - cmd+V
+Duplicate - cmd+D
+Delete = delete key
+Delete Children = cmd+delete key
+Move Up Layer - cmd+'='
+Move Down Layer' - cmd+'-'
+Nudge - shift+arrow keys
+Coarse Nudge control+arrow keys
+Constrain Vertical - hold shift and drag
+Constrain Horizontal - hold control and drag
+
 
 
 foleys_gui_magic
