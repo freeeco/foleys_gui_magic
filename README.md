@@ -595,10 +595,10 @@ in Layout/foleys_GuiItem.h add this at line 263 -->
     bool hasVisibilityProperty = false;
 ``` 
     
-in Layout/foleys_GuiItem.cpp add this at line 153 -->
+in Layout/foleys_GuiItem.cpp change this at line 153 -->
 
 ```
-        if (! visibilityNode.isVoid()){
+    if (! visibilityNode.isVoid()){
         visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
         hasVisibilityProperty = true;
     } else {
