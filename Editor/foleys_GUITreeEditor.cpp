@@ -219,7 +219,11 @@ void GUITreeEditor::GuiTreeItem::itemDropped (const juce::DragAndDropTarget::Sou
     if (text == IDs::dragSelected)
     {
         auto selectedNode = builder.getSelectedNode();
-        builder.draggedItemOnto (selectedNode, itemNode, index);
+        if (selectedNode.getParent() == itemNode && selectedNode.getParent().indexOf (selectedNode) < index) {
+                builder.draggedItemOnto (selectedNode, itemNode, index - 1);
+        } else {
+            builder.draggedItemOnto (selectedNode, itemNode, index);
+        }
         return;
     }
 

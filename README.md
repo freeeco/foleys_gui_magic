@@ -386,6 +386,48 @@ foleys_Stylesheet.h
 
 
 
+Fixed bug when re-ordering items in the GUI Tree browser
+--------------------------------------------------------
+
+Items would end up being 1 index to high when reordering by dragging items downwards, fix -->
+
+At line 222 in foleys_GUITreeEditor.cpp replace -->
+
+```
+        builder.draggedItemOnto (selectedNode, itemNode, index);
+```
+
+with
+
+```
+        if (selectedNode.getParent() == itemNode && selectedNode.getParent().indexOf (selectedNode) < index) {
+                builder.draggedItemOnto (selectedNode, itemNode, index - 1);
+        } else {
+            builder.draggedItemOnto (selectedNode, itemNode, index);
+        }
+```
+
+
+
+Add 'Duplicate' (cmd+D) key-command
+-----------------------------------
+
+At line 372 add this to foleys_ToolBox.cpp -->
+
+```
+    if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+            juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+        auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+        if (paste.isValid() && selected.isValid())
+            builder.draggedItemOnto (paste, selected.getParent(), selected.getParent().indexOf (selected) + 1);
+
+        return true;
+    }
+```
+
 
 foleys_gui_magic
 ===============

@@ -369,6 +369,18 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         return true;
     }
     
+    if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
+    {
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+            juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+        auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+        if (paste.isValid() && selected.isValid())
+            builder.draggedItemOnto (paste, selected.getParent(), selected.getParent().indexOf (selected) + 1);
+
+        return true;
+    }
+    
    if (key.isKeyCode (juce::KeyPress::leftKey))
    {
        auto selected = builder.getSelectedNode();
