@@ -647,7 +647,6 @@ to
 Alphabetical Sorting of parameter and resource menus
 ----------------------------------------------------
 
-
 In MagicProcessorState::createParameterMenu -->
 
 change
