@@ -613,6 +613,37 @@ if (hasVisibilityProperty)
         setVisible (visibility.getValue());
 ``` 
 
+Added 'auto-saved' folder to keep files auto-saved files organised
+------------------------------------------------------------------
+
+in /Users/davidalexander/Documents/GitHub/foleys_gui_magic/Editor/foleys_ToolBox.cpp
+
+changed line 530 -->
+
+``` 
+ autoSaveFile = lastLocation.getParentDirectory()
+                               .getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
+``` 
+
+to
+
+``` 
+    auto autoSaveFileDirectory = lastLocation.getParentDirectory()
+            .getChildFile ("auto-saved");
+        i
+        if (!autoSaveFileDirectory.exists()) {
+            const auto result = autoSaveFileDirectory.createDirectory();
+            if (result.failed()) {
+                DBG("Could not create auto-saved file directory: " + result.getErrorMessage());
+                jassertfalse;
+            }
+        }
+        
+        autoSaveFile = autoSaveFileDirectory.getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
+``` 
+
+
+
 
 
 foleys_gui_magic

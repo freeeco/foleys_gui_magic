@@ -527,8 +527,18 @@ void ToolBox::setLastLocation(juce::File file)
     lastLocation = file;
 
     autoSaveFile.deleteFile();
-    autoSaveFile = lastLocation.getParentDirectory()
-                               .getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
+    auto autoSaveFileDirectory = lastLocation.getParentDirectory()
+            .getChildFile ("auto-saved");
+        i
+        if (!autoSaveFileDirectory.exists()) {
+            const auto result = autoSaveFileDirectory.createDirectory();
+            if (result.failed()) {
+                DBG("Could not create auto-saved file directory: " + result.getErrorMessage());
+                jassertfalse;
+            }
+        }
+        
+        autoSaveFile = autoSaveFileDirectory.getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
     
 #if defined AUTO_SAVE_MINUTES
     startTimer (Timers::AutoSave, 6000*AUTO_SAVE_MINUTES);
