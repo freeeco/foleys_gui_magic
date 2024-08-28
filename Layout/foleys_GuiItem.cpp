@@ -150,8 +150,12 @@ void GuiItem::configureComponent()
     component->setExplicitFocusOrder (magicBuilder.getStyleProperty (IDs::accessibilityFocusOrder, configNode));
 
     auto  visibilityNode = magicBuilder.getStyleProperty (IDs::visibility, configNode);
-    if (! visibilityNode.isVoid())
+    if (! visibilityNode.isVoid()){
         visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
+    }
 }
 
 void GuiItem::configureFlexBoxItem (const juce::ValueTree& node)
@@ -264,6 +268,8 @@ void GuiItem::resized()
         component->setVisible (b.getWidth() > 2 && b.getHeight() > 2);
         component->setBounds (b);
     }
+    if (hasVisibilityProperty)
+        setVisible (visibility.getValue());
 }
 
 void GuiItem::updateLayout()

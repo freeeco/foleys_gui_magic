@@ -586,6 +586,34 @@ Constrain Vertical - hold shift and drag
 Constrain Horizontal - hold control and drag
 
 
+Fixed visibility property so it is preserved after resizing or closing the GUI
+------------------------------------------------------------------------------
+
+in Layout/foleys_GuiItem.h add this at line 263 -->
+
+```
+    bool hasVisibilityProperty = false;
+``` 
+    
+in Layout/foleys_GuiItem.cpp add this at line 153 -->
+
+```
+        if (! visibilityNode.isVoid()){
+        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
+    }
+``` 
+
+and this at line 271 at the last line of GuiItem::configureFlexBoxItem -->
+
+``` 
+if (hasVisibilityProperty)
+        setVisible (visibility.getValue());
+``` 
+
+
 
 foleys_gui_magic
 ===============

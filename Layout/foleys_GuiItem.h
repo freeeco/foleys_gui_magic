@@ -260,7 +260,9 @@ private:
     void configureComponent();
 
     juce::Value     visibility { true };
-
+    
+    bool hasVisibilityProperty = false;
+    
     juce::String    highlight;
 
     struct Position
