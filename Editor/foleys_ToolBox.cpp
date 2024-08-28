@@ -529,7 +529,7 @@ void ToolBox::setLastLocation(juce::File file)
     autoSaveFile.deleteFile();
     auto autoSaveFileDirectory = lastLocation.getParentDirectory()
             .getChildFile ("auto-saved");
-        i
+        
         if (!autoSaveFileDirectory.exists()) {
             const auto result = autoSaveFileDirectory.createDirectory();
             if (result.failed()) {

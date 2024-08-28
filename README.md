@@ -644,6 +644,95 @@ to
 
 
 
+Alphabetical Sorting of parameter and resource menus
+----------------------------------------------------
+
+
+In MagicProcessorState::createParameterMenu -->
+
+change
+
+``` 
+juce::PopupMenu MagicProcessorState::createParameterMenu() const
+{
+    juce::PopupMenu menu;
+    int index = 0;
+    addParametersToMenu (processor.getParameterTree(), menu, index);
+    
+    return menu;
+}
+``` 
+
+to
+
+``` 
+juce::PopupMenu MagicProcessorState::createParameterMenu() const
+{
+    juce::PopupMenu menu;
+//    int index = 0;
+//    addParametersToMenu (processor.getParameterTree(), menu, index);
+    
+    juce::StringArray names;
+    for (const auto& node : processor.getParameterTree())
+    {
+        if (const auto* parameter = node->getParameter())
+        {
+            if (const auto* withID = dynamic_cast<const juce::AudioProcessorParameterWithID*>(parameter))
+                names.add (withID->paramID);
+        }
+    }
+    names.sortNatural();
+    
+    int i = 1;
+    for (auto name : names){
+        menu.addItem(i, name);
+        i++;
+    }
+    
+    return menu;
+}
+``` 
+
+
+Add this to General/foleys_Resources.cpp -->
+
+```
+juce::StringArray Resources::getResourceImageFileNames()
+{
+    juce::StringArray names;
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i){
+        juce::String filename = juce::String::fromUTF8 (BinaryData::namedResourceList [i]);
+        if (filename.endsWithIgnoreCase("_png") || filename.endsWithIgnoreCase("_jpg") || filename.endsWithIgnoreCase("_svg")){
+            names.add (juce::String::fromUTF8 (BinaryData::namedResourceList [i]));
+        }
+    }
+    names.sortNatural();
+    
+    return names;
+}
+
+juce::StringArray Resources::getResourceFileNamesWithExtension(juce::String extension)
+{
+    juce::StringArray names;
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i){
+        juce::String filename = juce::String::fromUTF8 (BinaryData::namedResourceList [i]);
+        if (filename.endsWithIgnoreCase("_" + extension)){
+            names.add (juce::String::fromUTF8 (BinaryData::namedResourceList [i]));
+        }
+    }
+    names.sortNatural();
+    
+    return names;
+}
+```
+
+
+Add
+
+```
+    names.sortNatural();
+```
+To various methods that return a list of names
 
 
 foleys_gui_magic

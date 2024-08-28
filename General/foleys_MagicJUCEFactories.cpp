@@ -214,9 +214,9 @@ public:
         props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
         props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} });
-        props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
+        props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) });
         props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
-        props.push_back ({ configNode, pImage, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceFileNames()) });
+        props.push_back ({ configNode, pImage, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) });
         props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) });
         props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });

@@ -52,8 +52,26 @@ juce::StringArray MagicProcessorState::getParameterNames() const
 juce::PopupMenu MagicProcessorState::createParameterMenu() const
 {
     juce::PopupMenu menu;
-    int index = 0;
-    addParametersToMenu (processor.getParameterTree(), menu, index);
+//    int index = 0;
+//    addParametersToMenu (processor.getParameterTree(), menu, index);
+    
+    juce::StringArray names;
+    for (const auto& node : processor.getParameterTree())
+    {
+        if (const auto* parameter = node->getParameter())
+        {
+            if (const auto* withID = dynamic_cast<const juce::AudioProcessorParameterWithID*>(parameter))
+                names.add (withID->paramID);
+        }
+    }
+    names.sortNatural();
+    
+    int i = 1;
+    for (auto name : names){
+        menu.addItem(i, name);
+        i++;
+    }
+    
     return menu;
 }
 

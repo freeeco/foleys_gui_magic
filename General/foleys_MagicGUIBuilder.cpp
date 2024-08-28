@@ -248,7 +248,8 @@ juce::StringArray MagicGUIBuilder::getFactoryNames() const
     names.ensureStorageAllocated (int (factories.size()));
     for (const auto& f : factories)
         names.add (f.first.toString());
-
+    
+    names.sortNatural();
     return names;
 }
 
