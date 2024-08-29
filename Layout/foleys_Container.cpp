@@ -45,6 +45,7 @@ Container::Container (MagicGUIBuilder& builder, juce::ValueTree node)
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&containerBox, false);
     currentTab.addListener (this);
+    visibility.addListener (this);
 }
 
 Container::~Container()
@@ -104,6 +105,14 @@ void Container::update()
             scrollMode = ScrollMode::ScrollBoth;
 
         updateLayout();
+    }
+    
+    auto  visibilityNode = magicBuilder.getStyleProperty (IDs::visibility, configNode);
+    if (! visibilityNode.isVoid()){
+        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
     }
 }
 
@@ -182,6 +191,9 @@ LayoutType Container::getLayoutMode() const
 void Container::resized()
 {
     updateLayout();
+    
+    if (hasVisibilityProperty)
+        setVisible (visibility.getValue());
 }
 
 void Container::updateLayout()
@@ -441,6 +453,9 @@ void Container::valueChanged (juce::Value& source)
 {
     if (source == currentTab)
       updateSelectedTab();
+    
+    if (source == visibility)
+        setVisible (visibility.getValue());
 }
 
 void Container::updateSelectedTab()

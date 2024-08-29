@@ -167,6 +167,10 @@ private:
     LayoutType    layout = LayoutType::FlexBox;
     juce::FlexBox flexBox;
     ScrollMode    scrollMode = ScrollMode::NoScroll;
+    
+    juce::Value     visibility { true };
+    
+    bool hasVisibilityProperty = false;
 
     juce::Component                         containerBox;
     Scroller                                viewport { *this };

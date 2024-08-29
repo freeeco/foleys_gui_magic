@@ -613,6 +613,53 @@ if (hasVisibilityProperty)
         setVisible (visibility.getValue());
 ``` 
 
+
+Fixed visibility property so it applies to views also
+-----------------------------------------------------
+
+In Layout/foleys_Container.cpp -->
+
+In the constructor at line 48 add:
+
+``` 
+visibility.addListener (this);
+``` 
+
+
+In Container::update() at line 109 add:
+
+``` 
+    auto  visibilityNode = magicBuilder.getStyleProperty (IDs::visibility, configNode);
+    if (! visibilityNode.isVoid()){
+        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
+    }
+``` 
+
+In Container::resized() at line 194 add:
+
+``` 
+    if (hasVisibilityProperty)
+        setVisible (visibility.getValue());
+``` 
+
+In Container::valueChanged() at line 456 add:
+
+``` 
+    if (source == visibility)
+        setVisible (visibility.getValue());
+``` 
+
+
+In Layout/foleys_Container.h add to private -->
+
+``` 
+    bool hasVisibilityProperty = false;
+``` 
+
+
 Added 'auto-saved' folder to keep files auto-saved files organised
 ------------------------------------------------------------------
 
