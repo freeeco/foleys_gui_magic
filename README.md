@@ -46,10 +46,32 @@ Modified foleys_AutoOrientationSlider.h so that filmstrips maintains thier aspec
 Use preprocessor definitions SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED and SLIDER_FILMSTRIP_VERTICALLY_CENTERED to set horizontal and vertical centered justification.
 Also added high resampling quality to slider component drawing
 
-GuiItem Opacity Setting
------------------------
+Opacity Setting
+---------------
 
-Added an opacity setting to the GuiItems in foleys_MagicJUCEFactories.cpp
+Added an opacity setting to the GuiItems and views (in the decorator tab) -->
+
+added to Layout/foleys_Container.cpp -->
+```
+if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
+        setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
+```
+
+added to Layout/foleys_GuiItem.cpp -->
+```
+    if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
+        component->setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
+```
+
+in Editor/foleys_PropertiesEditor.cpp -->
+```
+array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
+```
+
+in General/foleys_StringDefinitions.h -->
+```
+static juce::Identifier opacity             { "opacity" };
+```
 
 Fixed aspect ratio for 'View' items
 -----------------------------------

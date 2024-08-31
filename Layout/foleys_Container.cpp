@@ -333,6 +333,9 @@ void Container::updateLayout()
         }
     }
     
+    if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
+        setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
+    
     //    for (auto& child : children)
     //        child->updateLayout();
 }

@@ -156,6 +156,9 @@ void GuiItem::configureComponent()
     } else {
         hasVisibilityProperty = false;
     }
+    
+    if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
+        component->setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
 }
 
 void GuiItem::configureFlexBoxItem (const juce::ValueTree& node)

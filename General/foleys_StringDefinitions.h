@@ -150,6 +150,8 @@ namespace IDs
 
     static juce::Identifier backgroundGradient  { "background-gradient" };
 
+    static juce::Identifier opacity             { "opacity" };
+
     static juce::Identifier flexDirection       { "flex-direction" };
     static juce::String     flexDirRow          { "row" };
     static juce::String     flexDirRowReverse   { "row-reverse" };

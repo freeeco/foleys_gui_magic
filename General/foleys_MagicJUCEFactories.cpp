@@ -75,7 +75,6 @@ public:
     static const juce::StringArray pImageModes;
     static const juce::Identifier  pStartAngle;
     static const juce::Identifier  pDisableScrollWheel;
-    static const juce::Identifier  pOpacity;
     static const juce::Identifier  pPassMouseClicks;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
@@ -190,8 +189,6 @@ public:
         else
             slider.setMouseDragSensitivity(300);
         
-        if (float opacity = getProperty (pOpacity)) slider.setAlpha(opacity);
-        
         slider.setWantsKeyboardFocus(false);
         slider.setMouseClickGrabsKeyboardFocus(false);
         slider.setVelocityModeParameters(4, 1, 0, true, juce::ModifierKeys::shiftModifier);
@@ -220,7 +217,6 @@ public:
         props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) });
         props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} });
 
         return props;
@@ -271,7 +267,6 @@ const juce::Identifier  SliderItem::pImageMode          { "image-mode" };
 const juce::StringArray SliderItem::pImageModes         { "rotary", "horizontal", "vertical" };
 const juce::Identifier  SliderItem::pStartAngle         { "start-angle" };
 const juce::Identifier  SliderItem::pDisableScrollWheel { "disable-scroll-wheel" };
-const juce::Identifier SliderItem::pOpacity             { "opacity" };
 const juce::Identifier SliderItem::pPassMouseClicks     { "pass-mouse-clicks" };
 
 
@@ -627,7 +622,6 @@ public:
     static const juce::String      pLineWidth;
     static const juce::Identifier  pRoundedCorners;
     static const juce::Identifier  pGradient;
-    static const juce::Identifier  pOpacity;
     static const juce::Identifier  pScaled;
     static const juce::Identifier  pAlwaysPlot;
     static const juce::Identifier  pAlwaysPlotHz;
@@ -663,7 +657,6 @@ public:
         }
 
         auto gradient = configNode.getProperty (pGradient, juce::String()).toString();
-        if (float opacity = getProperty (pOpacity)) plot.setAlpha(opacity);
         plot.setGradientFromString (gradient, magicBuilder.getStylesheet());
         
         // continuously draw the plot?
@@ -699,7 +692,6 @@ public:
         props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pRoundedCorners, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pGradient,       SettableProperty::Gradient, {}, {} });
-        props.push_back ({ configNode, pOpacity,        SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
@@ -721,7 +713,6 @@ const juce::Identifier  PlotItem::pDecay                 {"plot-decay"};
 const juce::String      PlotItem::pLineWidth             {"line-width"};
 const juce::Identifier  PlotItem::pRoundedCorners        { "rounded-corners" };
 const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
-const juce::Identifier  PlotItem::pOpacity               { "opacity" };
 const juce::Identifier  PlotItem::pScaled                { "scaled" };
 const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };
 const juce::Identifier  PlotItem::pAlwaysPlotHz          { "always-plot-Hz" };
@@ -740,7 +731,6 @@ public:
     static const juce::Identifier  pContextParameter;
     static const juce::Identifier  pSenseFactor;
     static const juce::Identifier  pJumpToClick;
-    static const juce::Identifier  pOpacity;
 
     XYDraggerItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node)
@@ -801,9 +791,6 @@ public:
         auto jumpToClick = getProperty (pJumpToClick);
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
-        
-        if (float opacity = getProperty (pOpacity))
-            dragger.setAlpha(opacity);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -818,7 +805,6 @@ public:
         props.push_back ({ configNode, pRadius, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pSenseFactor, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pJumpToClick, SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
 
         return props;
     }
@@ -840,7 +826,6 @@ const juce::Identifier  XYDraggerItem::pWheelParameter  { "wheel-parameter" };
 const juce::Identifier  XYDraggerItem::pContextParameter { "right-click" };
 const juce::Identifier  XYDraggerItem::pSenseFactor     { "xy-sense-factor" };
 const juce::Identifier  XYDraggerItem::pJumpToClick     { "xy-jump-to-click" };
-const juce::Identifier  XYDraggerItem::pOpacity         { "opacity" };
 
 //==============================================================================
 
@@ -1106,7 +1091,6 @@ class LevelMeterItem : public GuiItem
 public:
     FOLEYS_DECLARE_GUI_FACTORY (LevelMeterItem)
     
-    static const juce::Identifier  pOpacity;
     static const juce::Identifier  pBarCorner;
     static const juce::Identifier  pPeakLineThickness;
     static const juce::Identifier  pHorizontalFlip;
@@ -1131,10 +1115,6 @@ public:
         auto sourceID = configNode.getProperty (IDs::source, juce::String()).toString();
         if (sourceID.isNotEmpty())
             meter.setLevelSource (getMagicState().getObjectWithType<MagicLevelSource>(sourceID));
-        if (float opacity = getProperty (pOpacity))
-            meter.setAlpha(opacity);
-        else
-            meter.setAlpha(1);
         
         if (float corner = getProperty (pBarCorner))
             meter.setBarCorner(corner);
@@ -1163,7 +1143,6 @@ public:
     {
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicLevelSource>() });
-        props.push_back ({ configNode, pOpacity, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pBarCorner, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pHorizontalFlip, foleys::SettableProperty::Toggle, {}, {}});
@@ -1181,7 +1160,6 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeterItem)
 };
-const juce::Identifier  LevelMeterItem::pOpacity           { "opacity" };
 const juce::Identifier  LevelMeterItem::pBarCorner         { "bar-corner" };
 const juce::Identifier  LevelMeterItem::pPeakLineThickness { "peak-line-thickness" };
 const juce::Identifier  LevelMeterItem::pHorizontalFlip    { "horizontal-flip" };
