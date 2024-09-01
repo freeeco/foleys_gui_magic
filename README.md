@@ -803,6 +803,17 @@ Add
 To various methods that return a list of names
 
 
+Added Z parameter and value outputs to XYDraggerItem
+----------------------------------------------------
+
+Stuff in General/foleys_MagicJUCEFactories.cpp, Widgets/foleys_XYDragComponent.cpp and Widgets/foleys_XYDragComponent.h and this in General/foleys_StringDefinitions.h -->
+
+```
+static juce::Identifier parameterZ   { "parameter-z" };
+```
+
+
+
 foleys_gui_magic
 ===============
 

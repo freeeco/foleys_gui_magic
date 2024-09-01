@@ -69,6 +69,7 @@ public:
 
     void setParameterX (juce::RangedAudioParameter* parameter);
     void setParameterY (juce::RangedAudioParameter* parameter);
+    void setParameterZ (juce::RangedAudioParameter* parameter);
     void setWheelParameter (juce::RangedAudioParameter* parameter);
 
     void setRightClickParameter (juce::RangedAudioParameter* parameter);
@@ -76,6 +77,9 @@ public:
     void setRadius (float radius);
     void setSenseFactor (float factor);
     void setJumpToClick (bool shouldJumpToClick);
+    void referValueX (juce::Value &value);
+    void referValueY (juce::Value &value);
+    void referValueZ (juce::Value &value);
 
     bool hitTest (int x, int y) override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -102,6 +106,7 @@ private:
 
     ParameterAttachment<float> xAttachment;
     ParameterAttachment<float> yAttachment;
+    ParameterAttachment<float> zAttachment;
 
     juce::RangedAudioParameter* wheelParameter = nullptr;
     juce::RangedAudioParameter* contextMenuParameter = nullptr;
@@ -109,6 +114,10 @@ private:
     bool  jumpToClick = false;
     float radius      = 4.0f;
     float senseFactor = 2.0f;
+    
+    juce::Value valueX;
+    juce::Value valueY;
+    juce::Value valueZ;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDragComponent)
 };

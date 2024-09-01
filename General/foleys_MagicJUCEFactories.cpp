@@ -719,11 +719,18 @@ const juce::Identifier  PlotItem::pAlwaysPlotHz          { "always-plot-Hz" };
 
 //==============================================================================
 
-class XYDraggerItem : public GuiItem
+class XYDraggerItem : public GuiItem,
+                      private juce::ChangeListener
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (XYDraggerItem)
-
+    
+    static const juce::Identifier  pOutputValueX;
+    static const juce::Identifier  pOutputValueXInverted;
+    static const juce::Identifier  pOutputValueY;
+    static const juce::Identifier  pOutputValueYInverted;
+    static const juce::Identifier  pOutputValueZ;
+    static const juce::Identifier  pOutputValueZInverted;
     static const juce::Identifier  pCrosshair;
     static const juce::StringArray pCrosshairTypes;
     static const juce::Identifier  pRadius;
@@ -746,6 +753,9 @@ public:
         });
 
         addAndMakeVisible (dragger);
+        valueX.addListener (this);
+        valueY.addListener (this);
+        valueZ.addListener (this);
     }
 
     void update() override
@@ -761,6 +771,12 @@ public:
             dragger.setParameterY (dynamic_cast<juce::RangedAudioParameter*>(getMagicState().getParameter (yParamID)));
         else
             dragger.setParameterY (nullptr);
+
+        auto zParamID = configNode.getProperty (IDs::parameterZ, juce::String()).toString();
+        if (zParamID.isNotEmpty())
+            dragger.setParameterZ (dynamic_cast<juce::RangedAudioParameter*>(getMagicState().getParameter (zParamID)));
+        else
+            dragger.setParameterZ (nullptr);
 
         auto rightParamID = configNode.getProperty (pContextParameter, juce::String()).toString();
         if (rightParamID.isNotEmpty())
@@ -791,6 +807,10 @@ public:
         auto jumpToClick = getProperty (pJumpToClick);
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
+        
+        dragger.referValueX (valueX);
+        dragger.referValueY (valueY);
+        dragger.referValueZ (valueZ);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -799,6 +819,13 @@ public:
 
         props.push_back ({ configNode, IDs::parameterX, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, IDs::parameterY, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
+        props.push_back ({ configNode, IDs::parameterZ, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
+        props.push_back ({ configNode, pOutputValueX, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pOutputValueXInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pOutputValueY, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, pCrosshair, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pCrosshairTypes) });
@@ -816,9 +843,62 @@ public:
 
 private:
     XYDragComponent dragger;
+    juce::Value valueX;
+    juce::Value valueY;
+    juce::Value valueZ;
+    
+    void valueChanged (juce::Value& source) override
+    {
+        if (source == valueX){
+            auto outputValueID = getProperty (pOutputValueX).toString();
+            float value = source.getValue();
+            value = juce::jlimit (0.0f, 1.0f, value);
+            if (outputValueID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueID).setValue (value);
+            
+            auto outputValueInvertedID = getProperty (pOutputValueXInverted).toString();
+            if (outputValueInvertedID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueInvertedID).setValue (1.0f - value);
+        }
+        
+        if (source == valueY){
+            auto outputValueID = getProperty (pOutputValueY).toString();
+            float value = source.getValue();
+            value = juce::jlimit (0.0f, 1.0f, value);
+            if (outputValueID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueID).setValue (value);
+            
+            auto outputValueInvertedID = getProperty (pOutputValueYInverted).toString();
+            if (outputValueInvertedID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueInvertedID).setValue (1.0f - value);
+        }
+        
+        if (source == valueZ){
+            auto outputValueID = getProperty (pOutputValueZ).toString();
+            float value = source.getValue();
+            value = juce::jlimit (0.0f, 1.0f, value);
+            if (outputValueID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueID).setValue (value);
+            
+            auto outputValueInvertedID = getProperty (pOutputValueZInverted).toString();
+            if (outputValueInvertedID.isNotEmpty())
+                getMagicState().getPropertyAsValue (outputValueInvertedID).setValue (1.0f - value);
+        }
+    }
+    
+    void changeListenerCallback (juce::ChangeBroadcaster*) override
+    {
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDraggerItem)
 };
+
+const juce::Identifier  XYDraggerItem::pOutputValueX     { "output-value-x" };
+const juce::Identifier  XYDraggerItem::pOutputValueXInverted  { "output-value-inverted-x" };
+const juce::Identifier  XYDraggerItem::pOutputValueY     { "output-value-y" };
+const juce::Identifier  XYDraggerItem::pOutputValueYInverted  { "output-value-inverted-y" };
+const juce::Identifier  XYDraggerItem::pOutputValueZ     { "output-value-z" };
+const juce::Identifier  XYDraggerItem::pOutputValueZInverted  { "output-value-inverted-z" };
 const juce::Identifier  XYDraggerItem::pCrosshair       { "xy-crosshair" };
 const juce::StringArray XYDraggerItem::pCrosshairTypes  { "no-crosshair", "vertical", "horizontal", "crosshair" };
 const juce::Identifier  XYDraggerItem::pRadius          { "xy-radius" };

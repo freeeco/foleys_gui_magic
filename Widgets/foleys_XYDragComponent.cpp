@@ -52,6 +52,7 @@ XYDragComponent::XYDragComponent()
 
     xAttachment.onParameterChangedAsync = [&] { repaint(); };
     yAttachment.onParameterChangedAsync = [&] { repaint(); };
+    zAttachment.onParameterChangedAsync = [&] { repaint(); };
 }
 
 /**
@@ -106,6 +107,11 @@ void XYDragComponent::setParameterY (juce::RangedAudioParameter* parameter)
     yAttachment.attachToParameter (parameter);
 }
 
+void XYDragComponent::setParameterZ (juce::RangedAudioParameter* parameter)
+{
+    zAttachment.attachToParameter (parameter);
+}
+
 void XYDragComponent::setWheelParameter (juce::RangedAudioParameter* parameter)
 {
     wheelParameter = parameter;
@@ -132,11 +138,26 @@ void XYDragComponent::setJumpToClick (bool shouldJumpToClick)
     jumpToClick = shouldJumpToClick;
 }
 
+void XYDragComponent::referValueX (juce::Value &value)
+{
+    valueX.referTo(value);
+}
+
+void XYDragComponent::referValueY (juce::Value &value)
+{
+    valueY.referTo(value);
+}
+
+void XYDragComponent::referValueZ (juce::Value &value)
+{
+    valueZ.referTo(value);
+}
+
 void XYDragComponent::updateWhichToDrag (juce::Point<float> pos)
 {
     const auto centre = juce::Point<int> (getXposition(), getYposition()).toFloat();
 
-    mouseOverDot = (centre.getDistanceFrom (pos) < radius * senseFactor);
+    mouseOverDot = (centre.getDistanceFrom (pos) < radius + senseFactor);
     mouseOverX = (wantsHorizontalDrag && std::abs (pos.getX() - centre.getX()) < senseFactor + 1.0f);
     mouseOverY =  (wantsVerticalDrag && std::abs (pos.getY() - centre.getY()) < senseFactor + 1.0f);
 
@@ -151,7 +172,7 @@ bool XYDragComponent::hitTest (int x, int y)
     const auto click = juce::Point<int> (x, y).toFloat ();
     const auto centre = juce::Point<int> (getXposition (), getYposition ()).toFloat ();
 
-    if (centre.getDistanceFrom (click) < radius * senseFactor)
+    if (centre.getDistanceFrom (click) < radius + senseFactor)
         return true;
 
     if (wantsHorizontalDrag && std::abs (click.getX() - centre.getX()) < senseFactor + 1.0f)
@@ -203,6 +224,13 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 
         yAttachment.beginGesture();
         yAttachment.setNormalisedValue (1.0f - event.position.getY() / float (getHeight()));
+        
+        valueX = (event.position.getX() / float (getWidth()));
+        valueY = (1.0f - event.position.getY() / float (getHeight()));
+        
+        zAttachment.beginGesture();
+        zAttachment.setNormalisedValue (1.0f);
+        valueZ = 1.0f;
 
         repaint();
         return;
@@ -210,11 +238,19 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 
     updateWhichToDrag (event.position);
 
-    if (mouseOverX || mouseOverDot)
+    if (mouseOverX || mouseOverDot){
         xAttachment.beginGesture();
+    }
 
-    if (mouseOverY || mouseOverDot)
+    if (mouseOverY || mouseOverDot){
         yAttachment.beginGesture();
+    }
+    
+    if (mouseOverX || mouseOverY || mouseOverDot){
+        zAttachment.beginGesture();
+        zAttachment.setNormalisedValue (1.0f);
+        valueZ = 1.0f;
+    }
 }
 
 void XYDragComponent::mouseMove (const juce::MouseEvent& event)
@@ -224,11 +260,15 @@ void XYDragComponent::mouseMove (const juce::MouseEvent& event)
 
 void XYDragComponent::mouseDrag (const juce::MouseEvent& event)
 {
-    if (mouseOverX || mouseOverDot)
+    if (mouseOverX || mouseOverDot){
         xAttachment.setNormalisedValue (event.position.getX() / float (getWidth()));
+        valueX = (event.position.getX() / float (getWidth()));
+    }
 
-    if (mouseOverY || mouseOverDot)
+    if (mouseOverY || mouseOverDot){
         yAttachment.setNormalisedValue (1.0f - event.position.getY() / float (getHeight()));
+        valueY = (1.0f - event.position.getY() / float (getHeight()));
+    }
 }
 
 void XYDragComponent::mouseUp (const juce::MouseEvent& event)
@@ -241,6 +281,12 @@ void XYDragComponent::mouseUp (const juce::MouseEvent& event)
 
     if (mouseOverY || mouseOverDot)
         yAttachment.endGesture();
+    
+    if (mouseOverX || mouseOverY || mouseOverDot){
+        zAttachment.setNormalisedValue (0.0f);
+        zAttachment.endGesture();
+        valueZ = 0.0f;
+    }
 }
 
 void XYDragComponent::mouseWheelMove (const juce::MouseEvent& event, const juce::MouseWheelDetails& details)
