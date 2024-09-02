@@ -49,6 +49,8 @@ Also added high resampling quality to slider component drawing
 Opacity Setting
 ---------------
 
+(Added this to decorator tab now, so this has since been removed)
+
 Added an opacity setting to the GuiItems and views (in the decorator tab) -->
 
 added to Layout/foleys_Container.cpp -->
@@ -262,8 +264,8 @@ and in constructor -->
 ```
 
 
-Turn Off OpenGL on Mac / iOS (as native renderer is better)
-----------------------------------------------------------
+Turned Off OpenGL on Mac / iOS (as native renderer is better)
+-------------------------------------------------------------
 
 in foleys_MagicPluginEditor.cpp
 
@@ -811,6 +813,51 @@ Stuff in General/foleys_MagicJUCEFactories.cpp, Widgets/foleys_XYDragComponent.c
 ```
 static juce::Identifier parameterZ   { "parameter-z" };
 ```
+
+
+Changed angle paramter to also work in radial gradient mode
+-----------------------------------------------------------
+
+Stuff in Layout/foleys_GradientBackground.cpp-->
+
+```
+     if (type == radial){
+         vec = juce::Point<float>().getPointOnCircumference (diag, 0.0f);
+         float offsetX = juce::jmap (juce::radiansToDegrees (angle) / 360.0f, -1.0f, 1.0f);
+         float offsetY = juce::jmap (juce::radiansToDegrees (angle) / 360.0f, -1.0f, 1.0f);
+         p1 = juce::Point(bounds.toFloat().getCentreX() + (bounds.getWidth() * offsetX), bounds.toFloat().getCentreY() + (bounds.getHeight() * offsetY));
+         p2 = bounds.getCentre() - vec;
+     }
+    
+    if (gradient.point1 != p1 || gradient.point2 != p2 || gradient.getNumColours() != int (colours.size()))
+    {
+        gradient.clearColours();
+
+
+@@ -104,6 +109,12 @@ void GradientBackground::setup (juce::String text, const Stylesheet& stylesheet)
+        angle = juce::degreesToRadians (values [0].getFloatValue());
+        values.remove (0);
+    }
+    
+    if (type == radial)
+    {
+        angle = juce::degreesToRadians (values [0].getFloatValue());
+        values.remove (0);
+    }
+
+    auto step = 1.0f / (values.size() - 1.0f);
+    auto stop = 0.0f;
+
+@@ -124,6 +135,9 @@ juce::String GradientBackground::toString() const
+
+    if (type == linear)
+        colourNames += juce::String (juce::roundToInt (juce::radiansToDegrees (angle))) + ",";
+    
+    if (type == radial)
+        colourNames += juce::String (juce::roundToInt (juce::radiansToDegrees (angle))) + ",";
+```
+
+
 
 
 
