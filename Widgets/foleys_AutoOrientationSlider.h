@@ -269,7 +269,8 @@ public:
 
     void setStartAngle (float angle)
     {
-        startAngle = angle;
+        angle = angle + juce::MathConstants<float>::pi;
+        startAngle = juce::jmap(angle, 0.0f, juce::MathConstants<float>::pi, 0.0f, 0.5f);
     }
 
 

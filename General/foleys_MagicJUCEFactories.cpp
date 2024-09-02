@@ -176,7 +176,12 @@ public:
             slider.setImageMode(1);
         if (mode == "vertical")
             slider.setImageMode(2);
-        slider.setStartAngle(getProperty (pStartAngle));
+        
+        if (getProperty (pStartAngle).toString().isNotEmpty()){
+            slider.setStartAngle(getProperty (pStartAngle));
+        } else {
+            slider.setStartAngle(-2.25);
+        }
 
         if (getProperty (pDisableScrollWheel))
             slider.setScrollWheelEnabled(false);
@@ -808,6 +813,34 @@ public:
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
         
+        // register the properties
+        
+        juce::String propertyID;
+        
+        propertyID = getProperty (pOutputValueX).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
+        propertyID = getProperty (pOutputValueXInverted).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
+        propertyID = getProperty (pOutputValueY).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
+        propertyID = getProperty (pOutputValueYInverted).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
+        propertyID = getProperty (pOutputValueZ).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
+        propertyID = getProperty (pOutputValueZInverted).toString();
+        if (propertyID.isNotEmpty())
+            getMagicState().getPropertyAsValue (propertyID);
+        
         dragger.referValueX (valueX);
         dragger.referValueY (valueY);
         dragger.referValueZ (valueZ);
@@ -1037,7 +1070,9 @@ public:
         if (!rootNote.isVoid())
             drumpad.setRootNote (rootNote);
         
-        auto valueID = configNode.getProperty (pDownValue_1, juce::String()).toString();
+        juce::String valueID;
+        
+        valueID = configNode.getProperty (pDownValue_1, juce::String()).toString();
         if (valueID.isNotEmpty())
             downValue_1.referTo (getMagicState().getPropertyAsValue (valueID));
         
@@ -1052,6 +1087,54 @@ public:
         valueID = configNode.getProperty (pDownValue_4, juce::String()).toString();
         if (valueID.isNotEmpty())
             downValue_4.referTo (getMagicState().getPropertyAsValue (valueID));
+                
+        valueID = configNode.getProperty (pDownValue_5, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_5.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_6, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_6.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_7, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_7.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_8, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_8.referTo (getMagicState().getPropertyAsValue (valueID));
+                
+        valueID = configNode.getProperty (pDownValue_9, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_9.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_10, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_10.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_11, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_11.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_12, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_12.referTo (getMagicState().getPropertyAsValue (valueID));
+                
+        valueID = configNode.getProperty (pDownValue_13, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_13.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_14, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_14.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_15, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_15.referTo (getMagicState().getPropertyAsValue (valueID));
+        
+        valueID = configNode.getProperty (pDownValue_16, juce::String()).toString();
+        if (valueID.isNotEmpty())
+            downValue_16.referTo (getMagicState().getPropertyAsValue (valueID));
         
         
         
