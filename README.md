@@ -859,6 +859,71 @@ Stuff in Layout/foleys_GradientBackground.cpp-->
 
 
 
+Added 'Favourites' to Gui Items pallete
+---------------------------------------
+
+Stuff in Editor/foleys_Palette.cpp-->
+
+```
+         if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+        g.setColour (EditorColours::outline);
+        g.drawRoundedRectangle (b, r, 1);
+    }
+
+    const auto box = juce::Rectangle<int> (juce::roundToInt (r), 0, juce::roundToInt (width - 2 * r), height);
+    g.setColour (EditorColours::text);
+    
+    if (factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))
+        g.setColour (EditorColours::disabledText);
+    else
+        g.setColour (EditorColours::text);
+    
+    g.drawFittedText (factoryNames [rowNumber], box, juce::Justification::left, 1);
+    g.setColour (EditorColours::disabledText);
+    g.drawFittedText (TRANS ("drag me"), box, juce::Justification::right, 1);
+        
+    if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+        g.setColour (EditorColours::disabledText);
+        g.drawFittedText (TRANS ("drag me"), box, juce::Justification::right, 1);
+    }
+}
+```
+
+Stuff in General/foleys_MagicGUIBuilder.cpp-->
+
+```
+    juce::StringArray names {
+        "Favourites:",
+        IDs::view.toString(),
+        IDs::slider.toString(),
+        "ImageButton",
+        "PopupMenu",
+        "ParameterLabel",
+        "Image",
+        "ImageMeter",
+        "Text",
+        "Rectangle",
+        "Evaluate",
+        "Trigger",
+        "GuiProperty",
+        "Gui Items:"
+    };
+
+    names.ensureStorageAllocated (int (factories.size()));
+    juce::StringArray restOfNames { IDs::view.toString() };
+    
+    restOfNames.ensureStorageAllocated (int (factories.size()));
+    for (const auto& f : factories)
+        names.add (f.first.toString());
+        restOfNames.add (f.first.toString());
+
+    restOfNames.sortNatural();
+    names.mergeArray(restOfNames);
+```
+
+
+
+
 
 
 foleys_gui_magic

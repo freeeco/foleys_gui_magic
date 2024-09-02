@@ -243,13 +243,32 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<Gu
 
 juce::StringArray MagicGUIBuilder::getFactoryNames() const
 {
-    juce::StringArray names { IDs::view.toString() };
+    juce::StringArray names {
+        "Favourites:",
+        IDs::view.toString(),
+        IDs::slider.toString(),
+        "ImageButton",
+        "PopupMenu",
+        "ParameterLabel",
+        "Image",
+        "ImageMeter",
+        "Text",
+        "Rectangle",
+        "Evaluate",
+        "Trigger",
+        "GuiProperty",
+        "Gui Items:"
+    };
 
-    names.ensureStorageAllocated (int (factories.size()));
-    for (const auto& f : factories)
-        names.add (f.first.toString());
+    juce::StringArray restOfNames { IDs::view.toString() };
     
-    names.sortNatural();
+    restOfNames.ensureStorageAllocated (int (factories.size()));
+    for (const auto& f : factories)
+        restOfNames.add (f.first.toString());
+
+    restOfNames.sortNatural();
+    names.mergeArray(restOfNames);
+    
     return names;
 }
 

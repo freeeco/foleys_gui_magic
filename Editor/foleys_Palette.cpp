@@ -90,15 +90,24 @@ void Palette::PaletteListModel::paintListBoxItem (int rowNumber, juce::Graphics 
         g.setColour (EditorColours::selectedBackground.withAlpha (0.5f));
         g.fillRoundedRectangle (b, r);
     }
-
-    g.setColour (EditorColours::outline);
-    g.drawRoundedRectangle (b, r, 1);
+    if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+        g.setColour (EditorColours::outline);
+        g.drawRoundedRectangle (b, r, 1);
+    }
 
     const auto box = juce::Rectangle<int> (juce::roundToInt (r), 0, juce::roundToInt (width - 2 * r), height);
-    g.setColour (EditorColours::text);
+    
+    if (factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))
+        g.setColour (EditorColours::disabledText);
+    else
+        g.setColour (EditorColours::text);
+    
     g.drawFittedText (factoryNames [rowNumber], box, juce::Justification::left, 1);
-    g.setColour (EditorColours::disabledText);
-    g.drawFittedText (TRANS ("drag me"), box, juce::Justification::right, 1);
+        
+    if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+        g.setColour (EditorColours::disabledText);
+        g.drawFittedText (TRANS ("drag me"), box, juce::Justification::right, 1);
+    }
 }
 
 juce::var Palette::PaletteListModel::getDragSourceDescription (const juce::SparseSet<int> &rowsToDescribe)
