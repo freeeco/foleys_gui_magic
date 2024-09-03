@@ -213,7 +213,7 @@ Added url property to WebBrowserItem in foleys_MagicJUCEFactories.cpp
 Direct2D renderer selection
 ----------------------------
 
-Added to timer callback --> 'windows needs updating' in foleys_MagicPluginEditor.cpp
+Added to parentHierarchyChanged in foleys_MagicPluginEditor.cpp
 
 
 Default margin, padding, radius and background colour
@@ -1195,6 +1195,21 @@ In Editor/foleys_PropertiesEditor.cpp -->
 ```
 
 
+
+added 'playhead:timeInBars'
+---------------------------
+
+in State/foleys_MagicProcessorState.cpp and State/foleys_MagicProcessorState.h -->
+
+```
+getPropertyAsValue ("playhead:timeInBars").setValue (timeInBars.load());
+
+
++
+
+
+std::atomic<double> timeInBars;
+```
 
 
 foleys_gui_magic

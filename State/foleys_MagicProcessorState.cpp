@@ -226,6 +226,9 @@ void MagicProcessorState::updatePlayheadInformation (juce::AudioPlayHead* playhe
     {
         if (auto seconds = position->getTimeInSeconds())
             timeInSeconds.store (*seconds);
+        
+        if (auto ppqPosition = position->getPpqPosition())
+            timeInBars.store (*ppqPosition / 4);
 
         if (auto currentBpm = position->getBpm())
             bpm.store (*currentBpm);
@@ -275,6 +278,7 @@ void MagicProcessorState::timerCallback()
 {
     getPropertyAsValue ("playhead:bpm").setValue (bpm.load());
     getPropertyAsValue ("playhead:timeInSeconds").setValue (timeInSeconds.load());
+    getPropertyAsValue ("playhead:timeInBars").setValue (timeInBars.load());
     getPropertyAsValue ("playhead:timeSigNumerator").setValue (timeSigNumerator.load());
     getPropertyAsValue ("playhead:timeSigDenominator").setValue (timeSigDenominator.load());
     getPropertyAsValue ("playhead:isPlaying").setValue (isPlaying.load());

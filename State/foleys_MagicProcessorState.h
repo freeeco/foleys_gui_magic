@@ -165,6 +165,7 @@ private:
     std::atomic<int>    timeSigNumerator;
     std::atomic<int>    timeSigDenominator;
     std::atomic<double> timeInSeconds;
+    std::atomic<double> timeInBars;
     std::atomic<bool>   isPlaying;
     std::atomic<bool>   isRecording;
 
