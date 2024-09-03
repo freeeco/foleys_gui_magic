@@ -724,8 +724,7 @@ const juce::Identifier  PlotItem::pAlwaysPlotHz          { "always-plot-Hz" };
 
 //==============================================================================
 
-class XYDraggerItem : public GuiItem,
-                      private juce::ChangeListener
+class XYDraggerItem : public GuiItem
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (XYDraggerItem)
@@ -917,10 +916,6 @@ private:
             if (outputValueInvertedID.isNotEmpty())
                 getMagicState().getPropertyAsValue (outputValueInvertedID).setValue (1.0f - value);
         }
-    }
-    
-    void changeListenerCallback (juce::ChangeBroadcaster*) override
-    {
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDraggerItem)

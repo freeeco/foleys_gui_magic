@@ -151,8 +151,6 @@ namespace IDs
 
     static juce::Identifier backgroundGradient  { "background-gradient" };
 
-    static juce::Identifier opacity             { "opacity" };
-
     static juce::Identifier flexDirection       { "flex-direction" };
     static juce::String     flexDirRow          { "row" };
     static juce::String     flexDirRowReverse   { "row-reverse" };
@@ -186,6 +184,20 @@ namespace IDs
     static juce::Identifier maxWidth    { "max-width" };
     static juce::Identifier minHeight   { "min-height" };
     static juce::Identifier maxHeight   { "max-height" };
+    static juce::Identifier scale       { "scale" };
+    static juce::Identifier widthScale  { "width-scale" };
+    static juce::Identifier heightScale { "height-scale" };
+    static juce::Identifier horizontal  { "horizontal-position" };
+    static juce::Identifier vertical    { "vertical-position" };
+    static juce::Identifier rotate      { "rotate" };
+    static juce::Identifier opacity     { "opacity" };
+    static juce::Identifier scaleValue       { "scale-value" };
+    static juce::Identifier widthScaleValue  { "width-scale-value" };
+    static juce::Identifier heightScaleValue { "height-scale-value" };
+    static juce::Identifier horizontalValue  { "horizontal-position-value" };
+    static juce::Identifier verticalValue    { "vertical-position-value" };
+    static juce::Identifier rotateValue      { "rotate-value" };
+    static juce::Identifier opacityValue     { "opacity-value" };
     static juce::Identifier width       { "width" };
     static juce::Identifier height      { "height" };
     static juce::Identifier aspect      { "aspect" };

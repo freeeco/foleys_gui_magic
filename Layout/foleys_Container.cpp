@@ -336,6 +336,9 @@ void Container::updateLayout()
     if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
         setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
     
+    referValues();
+    componentTransform();
+    
     //    for (auto& child : children)
     //        child->updateLayout();
 }
@@ -454,11 +457,13 @@ void Container::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void Container::valueChanged (juce::Value& source)
 {
-    if (source == currentTab)
+    if (source.refersToSameSourceAs(currentTab))
       updateSelectedTab();
     
-    if (source == visibility)
+    if (source.refersToSameSourceAs(visibility))
         setVisible (visibility.getValue());
+    
+    handleValueChanged (source);
 }
 
 void Container::updateSelectedTab()

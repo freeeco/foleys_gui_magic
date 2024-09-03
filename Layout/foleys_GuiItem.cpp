@@ -47,6 +47,14 @@ GuiItem::GuiItem (MagicGUIBuilder& builder, juce::ValueTree node)
     setInterceptsMouseClicks (false, true);
 
     visibility.addListener (this);
+    scaleValue.addListener (this);
+    widthScaleValue.addListener (this);
+    heightScaleValue.addListener (this);
+    horizontalValue.addListener (this);
+    verticalValue.addListener (this);
+    rotateValue.addListener (this);
+    opacityValue.addListener (this);
+    
     configNode.addListener (this);
     magicBuilder.getStylesheet().addListener (this);
 }
@@ -149,16 +157,11 @@ void GuiItem::configureComponent()
     component->setHelpText (magicBuilder.getStyleProperty (IDs::accessibilityHelpText, configNode).toString());
     component->setExplicitFocusOrder (magicBuilder.getStyleProperty (IDs::accessibilityFocusOrder, configNode));
 
-    auto  visibilityNode = magicBuilder.getStyleProperty (IDs::visibility, configNode);
-    if (! visibilityNode.isVoid()){
-        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
-        hasVisibilityProperty = true;
-    } else {
-        hasVisibilityProperty = false;
-    }
-    
     if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
         component->setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
+    
+    referValues();
+    componentTransform();
 }
 
 void GuiItem::configureFlexBoxItem (const juce::ValueTree& node)
@@ -248,6 +251,86 @@ juce::Rectangle<int> GuiItem::resolvePosition (juce::Rectangle<int> parent)
     );
 }
 
+void GuiItem::componentTransform()
+{
+    float scale = magicBuilder.getStyleProperty (IDs::scale, configNode);
+    float widthScale = magicBuilder.getStyleProperty (IDs::widthScale, configNode);
+    float heightScale = magicBuilder.getStyleProperty (IDs::heightScale, configNode);
+    float horizontal = magicBuilder.getStyleProperty (IDs::horizontal, configNode);
+    float vertical = magicBuilder.getStyleProperty (IDs::vertical, configNode);
+    float rotate = magicBuilder.getStyleProperty (IDs::rotate, configNode);
+    
+    if (scale == 0.0f)
+        scale = 1.0f;
+    
+    if (widthScale == 0.0f)
+        widthScale = 1.0f;
+    
+    if (heightScale == 0.0f)
+        heightScale = 1.0f;
+    
+    scale = scale * static_cast<float>(scaleValue.getValue());
+    widthScale = widthScale * static_cast<float>(widthScaleValue.getValue());
+    heightScale = heightScale * static_cast<float>(heightScaleValue.getValue());
+    horizontal = horizontal + static_cast<float>(horizontalValue.getValue());
+    vertical = vertical + static_cast<float>(verticalValue.getValue());
+    rotate = rotate + static_cast<float>(rotateValue.getValue());
+
+    if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f){
+        
+        scale = juce::jmax (scale, 0.00001f);
+        widthScale = juce::jmax (widthScale, 0.00001f);
+        heightScale = juce::jmax (heightScale, 0.00001f);
+
+        transform = juce::AffineTransform::rotation((juce::MathConstants<float>::pi * 2.0f) * (rotate), getBounds().getCentreX(), getBounds().getCentreY());
+        transform = transform.scaled (scale * widthScale, scale * heightScale, getBounds().getCentreX(), getBounds().getCentreY());
+        transform = transform.translated (horizontal * getWidth(), vertical * getHeight());
+        
+        setTransform(transform);
+    }
+}
+
+void GuiItem::referValues()
+{
+    juce::String propertyID;
+
+    propertyID = magicBuilder.getStyleProperty (IDs::visibility, configNode).toString();
+    if (propertyID.isNotEmpty()){
+        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (propertyID));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
+    }
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::scaleValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        scaleValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::widthScaleValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        widthScaleValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::heightScaleValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        heightScaleValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::horizontalValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        horizontalValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::verticalValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        verticalValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::rotateValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        rotateValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+    
+    propertyID = magicBuilder.getStyleProperty (IDs::opacityValue, configNode).toString();
+    if (propertyID.isNotEmpty())
+        opacityValue.referTo (getMagicState().getPropertyAsValue (propertyID));
+}
+
 void GuiItem::paint (juce::Graphics& g)
 {
     decorator.drawDecorator (g, getLocalBounds());
@@ -273,6 +356,8 @@ void GuiItem::resized()
     }
     if (hasVisibilityProperty)
         setVisible (visibility.getValue());
+    
+    componentTransform();
 }
 
 void GuiItem::updateLayout()
@@ -298,10 +383,25 @@ juce::Colour GuiItem::getTabColour() const
     return decorator.getTabColour();
 }
 
+void GuiItem::handleValueChanged (juce::Value& source)
+{
+    if (source.refersToSameSourceAs(visibility))
+        setVisible (source.getValue());
+    
+    if (source.refersToSameSourceAs(scaleValue) || source.refersToSameSourceAs(widthScaleValue) || source.refersToSameSourceAs(heightScaleValue) || source.refersToSameSourceAs(horizontalValue) || source.refersToSameSourceAs(verticalValue) || source.refersToSameSourceAs(rotateValue)){
+        componentTransform();
+        repaint();
+    }
+
+    if (source.refersToSameSourceAs(opacityValue)){
+        getWrappedComponent()->setAlpha (source.getValue());
+        repaint();
+    }
+}
+
 void GuiItem::valueChanged (juce::Value& source)
 {
-    if (source == visibility)
-        setVisible (visibility.getValue());
+    handleValueChanged (source);
 }
 
 void GuiItem::valueTreePropertyChanged (juce::ValueTree& treeThatChanged, const juce::Identifier&)

@@ -58,6 +58,7 @@ class GuiItem   : public juce::Component,
                   public juce::Value::Listener,
                   private juce::ValueTree::Listener,
                   public juce::DragAndDropTarget
+
 {
 public:
     GuiItem (MagicGUIBuilder& builder, juce::ValueTree node);
@@ -149,6 +150,10 @@ public:
      Calculates the position according to the parent area
      */
     juce::Rectangle<int> resolvePosition (juce::Rectangle<int> parent);
+    
+    void componentTransform();
+    
+    void referValues();
 
     /**
      Returns the bounds of the wrapped Component. This is the GuiItems bounds
@@ -158,6 +163,8 @@ public:
 
     juce::String getTabCaption (const juce::String& defaultName) const;
     juce::Colour getTabColour() const;
+    
+    void handleValueChanged (juce::Value& source);
 
     juce::FlexItem& getFlexItem() { return flexItem; }
 
@@ -240,6 +247,20 @@ private:
     };
     std::unique_ptr<BorderDragger>          borderDragger;
     std::unique_ptr<juce::ComponentDragger> componentDragger;
+    
+    juce::Value     visibility { true };
+    juce::Value     scaleValue { 1.0f };
+    juce::Value     widthScaleValue { 1.0f };
+    juce::Value     heightScaleValue { 1.0f };
+    juce::Value     horizontalValue { 0.0f };
+    juce::Value     verticalValue { 0.0f };
+    juce::Value     rotateValue { 0.0f };
+    juce::Value     opacityValue { 1.0f };
+    juce::AffineTransform transform;
+    
+    bool hasVisibilityProperty = false;
+
+    juce::String    highlight;
 
     void valueChanged (juce::Value& source) override;
 
@@ -258,12 +279,6 @@ private:
      of nodes if needed, to set specific properties for the wrapped component.
      */
     void configureComponent();
-
-    juce::Value     visibility { true };
-    
-    bool hasVisibilityProperty = false;
-    
-    juce::String    highlight;
 
     struct Position
     {

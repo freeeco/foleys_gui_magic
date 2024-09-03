@@ -171,6 +171,8 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
         nodeSelect.setText (TRANS ("Editing node"), juce::dontSendNotification);
 
     properties.restoreOpennessState (*openness);
+    properties.setSectionOpen (3,true);
+    properties.setSectionOpen (4,true);
 }
 
 juce::ValueTree& PropertiesEditor::getNodeToEdit()
@@ -300,7 +302,6 @@ void PropertiesEditor::addDecoratorProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::imagePlacement, styleItem, { IDs::imageCentred, IDs::imageFill, IDs::imageStretch }));
     array.add (new StyleTextPropertyComponent (builder, IDs::backgroundAlpha, styleItem));
     array.add (new StyleGradientPropertyComponent (builder, IDs::backgroundGradient, styleItem));
-    array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
 
     properties.addSection ("Decorator", array, false);
 }
@@ -344,6 +345,20 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::minHeight, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::maxWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::maxHeight, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::scale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::widthScale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::heightScale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::horizontal, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::vertical, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::rotate, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::scaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::widthScaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::heightScaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::horizontalValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::verticalValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::rotateValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexGrow, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexShrink, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexOrder, styleItem));
