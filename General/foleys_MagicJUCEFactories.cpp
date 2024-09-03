@@ -916,6 +916,8 @@ private:
             if (outputValueInvertedID.isNotEmpty())
                 getMagicState().getPropertyAsValue (outputValueInvertedID).setValue (1.0f - value);
         }
+        
+        handleValueChanged (source);
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDraggerItem)
