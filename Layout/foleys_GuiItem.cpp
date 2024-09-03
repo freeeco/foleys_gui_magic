@@ -156,9 +156,6 @@ void GuiItem::configureComponent()
     component->setDescription (magicBuilder.getStyleProperty (IDs::accessibilityDescription, configNode).toString());
     component->setHelpText (magicBuilder.getStyleProperty (IDs::accessibilityHelpText, configNode).toString());
     component->setExplicitFocusOrder (magicBuilder.getStyleProperty (IDs::accessibilityFocusOrder, configNode));
-
-    if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isNotEmpty())
-        component->setAlpha (magicBuilder.getStyleProperty (IDs::opacity, configNode));
     
     referValues();
     componentTransform();
@@ -259,6 +256,7 @@ void GuiItem::componentTransform()
     float horizontal = magicBuilder.getStyleProperty (IDs::horizontal, configNode);
     float vertical = magicBuilder.getStyleProperty (IDs::vertical, configNode);
     float rotate = magicBuilder.getStyleProperty (IDs::rotate, configNode);
+    float opacity = magicBuilder.getStyleProperty (IDs::opacity, configNode);
     
     if (scale == 0.0f)
         scale = 1.0f;
@@ -269,12 +267,16 @@ void GuiItem::componentTransform()
     if (heightScale == 0.0f)
         heightScale = 1.0f;
     
+    if (magicBuilder.getStyleProperty (IDs::opacity, configNode).toString().isEmpty())
+        opacity = 1.0f;
+    
     scale = scale * static_cast<float>(scaleValue.getValue());
     widthScale = widthScale * static_cast<float>(widthScaleValue.getValue());
     heightScale = heightScale * static_cast<float>(heightScaleValue.getValue());
     horizontal = horizontal + static_cast<float>(horizontalValue.getValue());
     vertical = vertical + static_cast<float>(verticalValue.getValue());
     rotate = rotate + static_cast<float>(rotateValue.getValue());
+    opacity = opacity * static_cast<float>(opacityValue.getValue());
 
     if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f){
         
@@ -288,6 +290,8 @@ void GuiItem::componentTransform()
         
         setTransform(transform);
     }
+    
+    setAlpha (opacity);
 }
 
 void GuiItem::referValues()
@@ -388,13 +392,8 @@ void GuiItem::handleValueChanged (juce::Value& source)
     if (source.refersToSameSourceAs(visibility))
         setVisible (source.getValue());
     
-    if (source.refersToSameSourceAs(scaleValue) || source.refersToSameSourceAs(widthScaleValue) || source.refersToSameSourceAs(heightScaleValue) || source.refersToSameSourceAs(horizontalValue) || source.refersToSameSourceAs(verticalValue) || source.refersToSameSourceAs(rotateValue)){
+    if (source.refersToSameSourceAs(scaleValue) || source.refersToSameSourceAs(widthScaleValue) || source.refersToSameSourceAs(heightScaleValue) || source.refersToSameSourceAs(horizontalValue) || source.refersToSameSourceAs(verticalValue) || source.refersToSameSourceAs(rotateValue) || source.refersToSameSourceAs(opacityValue)){
         componentTransform();
-        repaint();
-    }
-
-    if (source.refersToSameSourceAs(opacityValue)){
-        getWrappedComponent()->setAlpha (source.getValue());
         repaint();
     }
 }
