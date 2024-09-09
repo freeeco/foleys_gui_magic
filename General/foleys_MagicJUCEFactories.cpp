@@ -131,6 +131,8 @@ public:
         double interval = getProperty (pInterval);
         if (maxValue > minValue)
             slider.setRange (minValue, maxValue, interval);
+        else
+            slider.setRange (0.0f, 1.0f, 0.0f);
 
         auto suffix = getProperty (pSuffix).toString();
         slider.setTextValueSuffix (suffix);
