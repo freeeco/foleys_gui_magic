@@ -104,12 +104,12 @@ void MagicLevelMeter::paint (juce::Graphics& g)
             g.drawRect (bar, 1.0f);
             bar.reduce (1, 1);
             g.setColour (barFillColour);
-            g.fillRoundedRectangle (bar.withTop (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getBottom(), bar.getY())),bar.getWidth()*0.5f*barCorner);
+            g.fillRoundedRectangle (bar.withTop (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getBottom(), bar.getY())),bar.getWidth() * 0.5f * barCorner);
             
             // draw peak-hold line
             g.setColour (tickmarkColour);
             if ((juce::Decibels::gainToDecibels (source->getMaxValue (i)))> -80.0f){
-                g.fillRoundedRectangle (juce::Rectangle(static_cast<float>(bar.getX ()), juce::jmap (juce::Decibels::gainToDecibels (source->getMaxValue (i), infinity),infinity, 0.0f, bar.getBottom (), bar.getY ()),  static_cast<float>(bar.getWidth ()),(static_cast<float>((bounds.getHeight()/100.0f))))*peakLineThickness, 0.0f);
+                g.fillRoundedRectangle (juce::Rectangle(static_cast<float>(bar.getX ()), juce::jmap (juce::Decibels::gainToDecibels (source->getMaxValue (i), infinity),infinity, 0.0f, bar.getBottom (), bar.getY ()), static_cast<float>(bar.getWidth ()),(static_cast<float>((bounds.getHeight() / 100.0f))))*peakLineThickness, 0.0f);
             }
         }
     }

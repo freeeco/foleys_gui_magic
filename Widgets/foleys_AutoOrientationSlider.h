@@ -73,20 +73,20 @@ public:
                     float areaAspect = areaH / areaW;
                     
 #if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
-                    auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+                    float xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect)) / 2.0f);
 #else
-                    auto xOffset = 0;
+                    float xOffset = 0.0f;
 #endif
                     
 #if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
-                    auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+                    float yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect)) / 2.0f);
 #else
-                    auto yOffset = 0;
+                    float yOffset = 0.0f;
 #endif
                     
-                    auto originalBounds = singleImage.getBounds();
+                    auto originalBounds = singleImage.getBounds().toFloat();
                     
-                    auto rotation = startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2));
+                    float rotation = startAngle + (valueToProportionOfLength (getValue()) * (1.0f - startAngle * 2.0f));
                     
                     juce::AffineTransform transform = juce::AffineTransform::rotation(juce::MathConstants<float>::pi * 2.0f * rotation, originalBounds.getCentreX(), originalBounds.getCentreY());
                     
@@ -96,18 +96,18 @@ public:
                     
                     if (aspect > areaAspect){
                         g.drawImage (rotatedImage, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
-                                     0, 0, singleImage.getWidth(), h);
+                                     0.0f, 0.0f, singleImage.getWidth(), h);
                     }
                     else{
                         g.drawImage (rotatedImage, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
-                                     0, 0, singleImage.getWidth(), h);
+                                     0.0f, 0.0f, singleImage.getWidth(), h);
                     }
                 }
                 else if (imageMode == 1){
                     auto originalBounds = singleImage.getBounds().toFloat();
                     float scaleFactor = (getHeight() / originalBounds.getHeight());
                     juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
-                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1 - startAngle) * valueToProportionOfLength (getValue());
+                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1.0f - startAngle) * valueToProportionOfLength (getValue());
                     transform = transform.translated(position, 0.0f);
                     g.drawImageTransformed(singleImage, transform);
                 }
@@ -115,7 +115,7 @@ public:
                     auto originalBounds = singleImage.getBounds().toFloat();
                     float scaleFactor = (getWidth() / originalBounds.getWidth());
                     juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
-                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1 - startAngle) * (1 - valueToProportionOfLength (getValue()));
+                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1.0f - startAngle) * (1.0f - valueToProportionOfLength (getValue()));
                     transform = transform.translated(0.0f, position);
                     g.drawImageTransformed(singleImage, transform);
                 }
@@ -136,7 +136,7 @@ public:
                     float scaleFactor = (getHeight() / originalBounds.getHeight());
                     juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
                     svg->setDrawableTransform(transform);
-                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1 - startAngle) * valueToProportionOfLength (getValue());
+                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1.0f - startAngle) * valueToProportionOfLength (getValue());
                     svg->drawAt(g, position, 0.0f, 1.0f);
                 }
                 else{ // imageMode == 2
@@ -144,7 +144,7 @@ public:
                     float scaleFactor = (getWidth() / originalBounds.getWidth());
                     juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
                     svg->setDrawableTransform(transform);
-                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1 - startAngle) * (1.0f - valueToProportionOfLength (getValue()));
+                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1.0f - startAngle) * (1.0f - valueToProportionOfLength (getValue()));
                     svg->drawAt(g, 0.0f, position, 1.0f);
                 }
             }
@@ -170,24 +170,24 @@ public:
                 float aspect = h / w;
                 
 #if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
-                auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+                float xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect)) / 2.0f);
 #else
-                auto xOffset = 0;
+                float xOffset = 0.0f;
 #endif
                 
 #if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
-                auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+                float yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect)) / 2.0f);
 #else
-                auto yOffset = 0;
+                float yOffset = 0.0f;
 #endif
 
                 if (aspect > areaAspect){
-                    g.drawImage (filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
-                                 index * w, 0, w, filmStrip.getHeight());
+                    drawImage (g, filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 index * w, 0.0f, w, filmStrip.getHeight());
                 }
                 else{
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
-                                 index * w, 0, w, filmStrip.getHeight());
+                    drawImage (g, filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 index * w, 0.0f, w, filmStrip.getHeight());
                 }
             }
             else
@@ -197,27 +197,33 @@ public:
                 float aspect = h / w;
                 
 #if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
-                auto xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect))/2);
+                float xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect)) / 2.0f);
 #else
-                auto xOffset = 0;
+                float xOffset = 0.0f;
 #endif
                 
 #if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
-                auto yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect))/2);
+                float yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect)) / 2.0f);
 #else
-                auto yOffset = 0;
+                float yOffset = 0.0f;
 #endif
                 
                 if (aspect > areaAspect){
-                    g.drawImage (filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
-                                 0, index * h, filmStrip.getWidth(), h);
+                    drawImage (g, filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 0.0f, index * h, filmStrip.getWidth(), h);
                 }
                 else{
-                    g.drawImage (filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
-                                 0, index * h, filmStrip.getWidth(), h);
+                    drawImage (g, filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 0.0f, index * h, filmStrip.getWidth(), h);
                 }
             }
         }
+    }
+    
+    void drawImage (juce::Graphics& g, const juce::Image& imageToDraw, float dx, float dy, float dw, float dh, float sx, float sy, float sw, float sh) const
+    {
+        g.drawImageTransformed (imageToDraw.getClippedImage (juce::Rectangle<int> (sx, sy, sw, sh)),
+                              juce::AffineTransform::scale (dw / sw, dh / sh).translated (dx, dy), false);
     }
 
     void resized() override
