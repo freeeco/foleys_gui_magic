@@ -198,6 +198,7 @@ namespace IDs
     static juce::Identifier verticalValue    { "vertical-position-value" };
     static juce::Identifier rotateValue      { "rotate-value" };
     static juce::Identifier opacityValue     { "opacity-value" };
+    static juce::Identifier dontSnapToPixels     { "dont-snap-to-pixels" };
     static juce::Identifier width       { "width" };
     static juce::Identifier height      { "height" };
     static juce::Identifier aspect      { "aspect" };

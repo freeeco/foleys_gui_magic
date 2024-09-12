@@ -338,7 +338,6 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::posY, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posHeight, styleItem));
-
     array.add (new StyleTextPropertyComponent (builder, IDs::width, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::height, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::minWidth, styleItem));
@@ -359,6 +358,7 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::verticalValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::rotateValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::dontSnapToPixels, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexGrow, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexShrink, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexOrder, styleItem));

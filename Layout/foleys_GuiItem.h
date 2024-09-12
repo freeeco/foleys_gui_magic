@@ -248,6 +248,11 @@ private:
     std::unique_ptr<BorderDragger>          borderDragger;
     std::unique_ptr<juce::ComponentDragger> componentDragger;
     
+    double diffX;
+    double diffY;
+    double diffWidth;
+    double diffHeight;
+    
     juce::Value     visibility { true };
     juce::Value     scaleValue { 1.0f };
     juce::Value     widthScaleValue { 1.0f };

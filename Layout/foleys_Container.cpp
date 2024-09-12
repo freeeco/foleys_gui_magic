@@ -298,8 +298,10 @@ void Container::updateLayout()
     {
         containerBox.setBounds (clientBounds);
 
-        for (auto& child : children)
+        for (auto& child : children){
             child->setBounds (child->resolvePosition (clientBounds));
+            child->componentTransform();
+        }
     }
 
     if (magicBuilder.getStyleProperty (IDs::passMouseClicks, configNode)){
@@ -334,7 +336,7 @@ void Container::updateLayout()
     }
     
     referValues();
-    componentTransform();
+//    componentTransform();
     
     //    for (auto& child : children)
     //        child->updateLayout();

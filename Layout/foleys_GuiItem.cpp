@@ -239,13 +239,30 @@ void GuiItem::configurePosition (const juce::var& v, Position& p, double d)
 
 juce::Rectangle<int> GuiItem::resolvePosition (juce::Rectangle<int> parent)
 {
-    return juce::Rectangle<int>
-    (
-        parent.getX() + juce::roundToInt (posX.absolute ? posX.value : posX.value * parent.getWidth() * 0.01),
-        parent.getY() + juce::roundToInt (posY.absolute ? posY.value : posY.value * parent.getHeight() * 0.01),
-        juce::roundToInt (posWidth.absolute ? posWidth.value : posWidth.value * parent.getWidth() * 0.01),
-        juce::roundToInt (posHeight.absolute ? posHeight.value : posHeight.value * parent.getHeight() * 0.01)
-    );
+    juce::Rectangle<int> intBounds = juce::Rectangle(
+                                          parent.getX() + juce::roundToInt (posX.absolute ? posX.value : posX.value * parent.getWidth() * 0.01),
+                                          parent.getY() + juce::roundToInt (posY.absolute ? posY.value : posY.value * parent.getHeight() * 0.01),
+                                          juce::roundToInt (posWidth.absolute ? posWidth.value : posWidth.value * parent.getWidth() * 0.01),
+                                          juce::roundToInt (posHeight.absolute ? posHeight.value : posHeight.value * parent.getHeight() * 0.01)
+                                      );
+    
+    bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
+    
+    if (dontSnap){
+        juce::Rectangle<double> doubleBounds = juce::Rectangle(
+                                              static_cast<float>(parent.getX()) + (posX.absolute ? posX.value : posX.value * static_cast<float>(parent.getWidth()) * 0.01f),
+                                              static_cast<float>(parent.getY()) + (posY.absolute ? posY.value : posY.value * static_cast<float>(parent.getHeight()) * 0.01f),
+                                              (posWidth.absolute ? posWidth.value : posWidth.value * static_cast<float>(parent.getWidth()) * 0.01f),
+                                              (posHeight.absolute ? posHeight.value : posHeight.value * static_cast<float>(parent.getHeight()) * 0.01f)
+                                          );
+        
+        diffX = doubleBounds.toFloat().getX() - intBounds.getX();
+        diffY = doubleBounds.toFloat().getY() - intBounds.getY();
+        diffWidth = doubleBounds.toFloat().getWidth() - intBounds.getWidth();
+        diffHeight = doubleBounds.toFloat().getHeight() - intBounds.getHeight();
+    }
+    
+    return intBounds;
 }
 
 void GuiItem::componentTransform()
@@ -257,6 +274,7 @@ void GuiItem::componentTransform()
     float vertical = magicBuilder.getStyleProperty (IDs::vertical, configNode);
     float rotate = magicBuilder.getStyleProperty (IDs::rotate, configNode);
     float opacity = magicBuilder.getStyleProperty (IDs::opacity, configNode);
+    bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
     
     if (scale == 0.0f)
         scale = 1.0f;
@@ -277,18 +295,26 @@ void GuiItem::componentTransform()
     vertical = vertical + static_cast<float>(verticalValue.getValue());
     rotate = rotate + static_cast<float>(rotateValue.getValue());
     opacity = opacity * static_cast<float>(opacityValue.getValue());
+    
+    juce::AffineTransform transform;
+        
+    if (dontSnap){
+        transform = transform.scaled ((getBounds().toFloat().getWidth() + diffWidth) / getBounds().toFloat().getWidth(), (getBounds().toFloat().getHeight() + diffHeight) / getBounds().toFloat().getHeight(), getBounds().getX(), getBounds().getY());
+        transform = transform.translated (diffX, diffY);
+    }
 
     if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f){
-        
         scale = juce::jmax (scale, 0.00001f);
         widthScale = juce::jmax (widthScale, 0.00001f);
         heightScale = juce::jmax (heightScale, 0.00001f);
 
-        transform = juce::AffineTransform::rotation((juce::MathConstants<float>::pi * 2.0f) * (rotate), getBounds().getCentreX(), getBounds().getCentreY());
+        transform = transform.rotated((juce::MathConstants<float>::pi * 2.0f) * (rotate), getBounds().getCentreX(), getBounds().getCentreY());
         transform = transform.scaled (scale * widthScale, scale * heightScale, getBounds().getCentreX(), getBounds().getCentreY());
         transform = transform.translated (horizontal * getWidth(), vertical * getHeight());
-        
-        setTransform(transform);
+    }
+    
+    if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f || dontSnap){
+        setTransform (transform);
     }
     
     setAlpha (opacity);
