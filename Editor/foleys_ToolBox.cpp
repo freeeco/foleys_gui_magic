@@ -403,6 +403,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
+        
+    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown())
+    {
+        saveDialog();
+
+        return true;
+    }
      
     if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
     {

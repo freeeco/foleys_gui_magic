@@ -689,6 +689,11 @@ public:
             plot.setCornerRadius (1.0f);
         else
             plot.setCornerRadius (0.0f);
+        
+        if (getProperty (IDs::bufferToImage))
+            plot.setBufferedToImage (true);
+        else
+            plot.setBufferedToImage (false);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -702,6 +707,7 @@ public:
         props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
+        props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}});
         
         return props;
     }

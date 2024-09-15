@@ -1345,6 +1345,32 @@ void GuiItem::componentTransform()
 ```
 
 
+Added bufferToImage option to 'Plot'
+--------------------------------------
+
+in -->
+
+General/foleys_MagicJUCEFactories.cpp --> 
+
+``` 
+        
+        if (getProperty (IDs::bufferToImage))
+            plot.setBufferedToImage (true);
+        else
+            plot.setBufferedToImage (false);
+    }
+
+    std::vector<SettableProperty> getSettableProperties() const override
+
+@@ -702,6 +707,7 @@ public:
+        props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
+        props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}});
+``` 
+
+
+
 foleys_gui_magic
 ===============
 
