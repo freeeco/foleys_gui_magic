@@ -294,7 +294,7 @@ void GuiItem::componentTransform()
     horizontal = horizontal + static_cast<float>(horizontalValue.getValue());
     vertical = vertical + static_cast<float>(verticalValue.getValue());
     rotate = rotate + static_cast<float>(rotateValue.getValue());
-    opacity = opacity * static_cast<float>(opacityValue.getValue());
+    opacity = opacity + static_cast<float>(opacityValue.getValue());
     
     juce::AffineTransform transform;
         
@@ -315,6 +315,9 @@ void GuiItem::componentTransform()
     
     if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f || dontSnap){
         setTransform (transform);
+    } else {
+        juce::AffineTransform noTransform;
+        setTransform (noTransform);
     }
     
     setAlpha (opacity);

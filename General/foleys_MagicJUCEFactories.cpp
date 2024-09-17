@@ -158,17 +158,10 @@ public:
         auto imageName = getProperty (pImage).toString();
         if (imageName.isNotEmpty())
         {
-            if (imageName.endsWithIgnoreCase("_svg")){
-                int dataSize = 0;
-                const char* data = BinaryData::getNamedResource (imageName.toRawUTF8(), dataSize);
-                if (data != nullptr){
-                    slider.createImage (data, dataSize);
-                }
-            }
-            else{
-                auto image = Resources::getImage (imageName);
-                slider.setImage (image);
-            }
+            int dataSize = 0;
+            const char* data = BinaryData::getNamedResource (imageName.toRawUTF8(), dataSize);
+            if (data != nullptr)
+                slider.createImage (data, dataSize);
         }
         
         auto mode = getProperty (pImageMode).toString();

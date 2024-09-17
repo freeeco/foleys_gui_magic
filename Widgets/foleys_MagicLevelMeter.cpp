@@ -99,10 +99,10 @@ void MagicLevelMeter::paint (juce::Graphics& g)
         {
             auto bar = bounds.removeFromLeft (width).reduced (1);
             g.setColour (barBackgroundColour);
-            g.fillRect (bar);
+            g.fillRoundedRectangle (bar, bar.getWidth() * 0.5f * barCorner);
             g.setColour (outlineColour);
-            g.drawRect (bar, 1.0f);
-            bar.reduce (1, 1);
+            g.drawRoundedRectangle (bar, bar.getWidth() * 0.5f * barCorner, 0.8f);
+            bar.reduce (0.8f, 0.8f);
             g.setColour (barFillColour);
             g.fillRoundedRectangle (bar.withTop (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getBottom(), bar.getY())),bar.getWidth() * 0.5f * barCorner);
             
@@ -121,12 +121,12 @@ void MagicLevelMeter::paint (juce::Graphics& g)
         {
             auto bar = bounds.removeFromTop (height).reduced (1);
             g.setColour (barBackgroundColour);
-            g.fillRect (bar);
+            g.fillRoundedRectangle (bar, bar.getHeight() * 0.5f * barCorner);
             g.setColour (outlineColour);
-            g.drawRect (bar, 1.0f);
-            bar.reduce (1, 1);
+            g.drawRoundedRectangle (bar, bar.getHeight() * 0.5f * barCorner, 0.8f);
+            bar.reduce (0.8f, 0.8f);
             g.setColour (barFillColour);
-            g.fillRoundedRectangle (bar.withWidth (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getX (), bar.getRight ())), bar.getHeight()*0.5f*barCorner);
+            g.fillRoundedRectangle (bar.withWidth (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getX (), bar.getRight ())), bar.getHeight() * 0.5f * barCorner);
             
             // draw peak-hold line
             g.setColour (tickmarkColour);

@@ -338,12 +338,17 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::posY, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posHeight, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::dontSnapToPixels, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::width, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::height, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::minWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::minHeight, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::maxWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::maxHeight, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::flexGrow, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::flexShrink, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::flexOrder, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::flexAlignSelf, styleItem, { IDs::flexStretch, IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexAuto }));
     array.add (new StyleTextPropertyComponent (builder, IDs::scale, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::widthScale, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::heightScale, styleItem));
@@ -358,11 +363,6 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::verticalValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::rotateValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue, styleItem, builder.createPropertiesMenuLambda()));
-    array.add (new StyleBoolPropertyComponent (builder, IDs::dontSnapToPixels, styleItem));
-    array.add (new StyleTextPropertyComponent (builder, IDs::flexGrow, styleItem));
-    array.add (new StyleTextPropertyComponent (builder, IDs::flexShrink, styleItem));
-    array.add (new StyleTextPropertyComponent (builder, IDs::flexOrder, styleItem));
-    array.add (new StyleChoicePropertyComponent (builder, IDs::flexAlignSelf, styleItem, { IDs::flexStretch, IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexAuto }));
 
     properties.addSection ("Item", array, false);
 }

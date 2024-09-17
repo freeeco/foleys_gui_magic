@@ -260,7 +260,8 @@ private:
     juce::Value     horizontalValue { 0.0f };
     juce::Value     verticalValue { 0.0f };
     juce::Value     rotateValue { 0.0f };
-    juce::Value     opacityValue { 1.0f };
+    juce::Value     opacityValue { 0.0f };
+    
     juce::AffineTransform transform;
     
     bool hasVisibilityProperty = false;

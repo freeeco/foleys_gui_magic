@@ -410,6 +410,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
+          
+    if (key.isKeyCode ('O') && key.getModifiers().isCommandDown())
+    {
+        loadDialog();
+
+        return true;
+    }
      
     if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
     {
