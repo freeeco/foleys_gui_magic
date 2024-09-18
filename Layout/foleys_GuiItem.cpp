@@ -249,17 +249,17 @@ juce::Rectangle<int> GuiItem::resolvePosition (juce::Rectangle<int> parent)
     bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
     
     if (dontSnap){
-        juce::Rectangle<double> doubleBounds = juce::Rectangle(
+        juce::Rectangle<float> floatBounds = juce::Rectangle<float>(
                                               static_cast<float>(parent.getX()) + (posX.absolute ? posX.value : posX.value * static_cast<float>(parent.getWidth()) * 0.01f),
                                               static_cast<float>(parent.getY()) + (posY.absolute ? posY.value : posY.value * static_cast<float>(parent.getHeight()) * 0.01f),
                                               (posWidth.absolute ? posWidth.value : posWidth.value * static_cast<float>(parent.getWidth()) * 0.01f),
                                               (posHeight.absolute ? posHeight.value : posHeight.value * static_cast<float>(parent.getHeight()) * 0.01f)
                                           );
         
-        diffX = doubleBounds.toFloat().getX() - intBounds.getX();
-        diffY = doubleBounds.toFloat().getY() - intBounds.getY();
-        diffWidth = doubleBounds.toFloat().getWidth() - intBounds.getWidth();
-        diffHeight = doubleBounds.toFloat().getHeight() - intBounds.getHeight();
+        diffX = floatBounds.toFloat().getX() - intBounds.getX();
+        diffY = floatBounds.toFloat().getY() - intBounds.getY();
+        diffWidth = floatBounds.toFloat().getWidth() - intBounds.getWidth();
+        diffHeight = floatBounds.toFloat().getHeight() - intBounds.getHeight();
     }
     
     return intBounds;
@@ -267,6 +267,9 @@ juce::Rectangle<int> GuiItem::resolvePosition (juce::Rectangle<int> parent)
 
 void GuiItem::componentTransform()
 {
+    if (getBounds().toFloat().getWidth() == 0.0f || getBounds().toFloat().getHeight() == 0.0f)
+        return;
+    
     float scale = magicBuilder.getStyleProperty (IDs::scale, configNode);
     float widthScale = magicBuilder.getStyleProperty (IDs::widthScale, configNode);
     float heightScale = magicBuilder.getStyleProperty (IDs::heightScale, configNode);
@@ -299,7 +302,10 @@ void GuiItem::componentTransform()
     juce::AffineTransform transform;
         
     if (dontSnap){
-        transform = transform.scaled ((getBounds().toFloat().getWidth() + diffWidth) / getBounds().toFloat().getWidth(), (getBounds().toFloat().getHeight() + diffHeight) / getBounds().toFloat().getHeight(), getBounds().getX(), getBounds().getY());
+        float scaleX = (getBounds().toFloat().getWidth() + diffWidth) / getBounds().toFloat().getWidth();
+        float scaleY = (getBounds().toFloat().getHeight() + diffHeight) / getBounds().toFloat().getHeight();
+        
+        transform = transform.scaled (scaleX, scaleY, getBounds().getX(), getBounds().getY());
         transform = transform.translated (diffX, diffY);
     }
 
