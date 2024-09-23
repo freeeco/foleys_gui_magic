@@ -246,6 +246,24 @@ juce::Rectangle<int> GuiItem::resolvePosition (juce::Rectangle<int> parent)
                                           juce::roundToInt (posHeight.absolute ? posHeight.value : posHeight.value * parent.getHeight() * 0.01)
                                       );
     
+    
+    int minWidth = magicBuilder.getStyleProperty (IDs::minWidth, configNode);
+    int minHeight = magicBuilder.getStyleProperty (IDs::minHeight, configNode);
+    int maxWidth = magicBuilder.getStyleProperty (IDs::maxWidth, configNode);
+    int maxHeight = magicBuilder.getStyleProperty (IDs::maxHeight, configNode);
+
+    if (minWidth > 0.0)
+        intBounds.setWidth(juce::jmax (intBounds.getWidth(), minWidth));
+    
+    if (minHeight > 0.0)
+        intBounds.setHeight(juce::jmax (intBounds.getHeight(), minHeight));
+    
+    if (maxWidth > 0.0)
+        intBounds.setWidth(juce::jmin (intBounds.getWidth(), maxWidth));
+    
+    if (maxHeight > 0.0)
+        intBounds.setHeight(juce::jmin (intBounds.getHeight(), maxHeight));
+    
     bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
     
     if (dontSnap){
@@ -300,15 +318,16 @@ void GuiItem::componentTransform()
     opacity = opacity + static_cast<float>(opacityValue.getValue());
     
     juce::AffineTransform transform;
-        
-    if (dontSnap){
-        float scaleX = (getBounds().toFloat().getWidth() + diffWidth) / getBounds().toFloat().getWidth();
-        float scaleY = (getBounds().toFloat().getHeight() + diffHeight) / getBounds().toFloat().getHeight();
-        
-        transform = transform.scaled (scaleX, scaleY, getBounds().getX(), getBounds().getY());
-        transform = transform.translated (diffX, diffY);
-    }
 
+    if (dontSnap){
+        float diffScaleX = (getBounds().toFloat().getWidth() + diffWidth) / getBounds().toFloat().getWidth();
+        float diffScaleY = (getBounds().toFloat().getHeight() + diffHeight) / getBounds().toFloat().getHeight();
+        if ((diffScaleX != 1.0f || diffScaleY != 1.0 || diffX != 0.0 || diffY != 0.0) && diffScaleX != 0.0f && diffScaleY != 0.0f){
+            transform = transform.scaled (diffScaleX, diffScaleY, getBounds().getX(), getBounds().getY());
+            transform = transform.translated (diffX, diffY);
+        }
+    }
+    
     if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f){
         scale = juce::jmax (scale, 0.00001f);
         widthScale = juce::jmax (widthScale, 0.00001f);
