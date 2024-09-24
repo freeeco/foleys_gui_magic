@@ -417,6 +417,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
+               
+    if (key.isKeyCode ('E') && key.getModifiers().isCommandDown())
+    {
+        editSwitch.triggerClick();
+
+        return true;
+    }
      
     if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
     {
