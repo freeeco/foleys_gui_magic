@@ -100,6 +100,14 @@ std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& 
     return {};
 }
 
+std::unique_ptr<RootItem> MagicGUIBuilder::createRootItem (const juce::ValueTree& node)
+{
+    std::unique_ptr<RootItem> item = std::make_unique<RootItem>(*this, node);
+    item->updateInternal();
+    item->createSubComponents();
+    return item;
+}
+
 void MagicGUIBuilder::updateStylesheet()
 {
     auto stylesNode = getConfigTree().getOrCreateChildWithName (IDs::styles, &undo);
@@ -165,7 +173,7 @@ void MagicGUIBuilder::updateComponents()
 
     updateStylesheet();
 
-    root = createGuiItem (getGuiRootNode());
+    root = createRootItem (getGuiRootNode());
     parent->addAndMakeVisible (root.get());
 
     root->setBounds (parent->getLocalBounds());
@@ -405,12 +413,10 @@ juce::UndoManager& MagicGUIBuilder::getUndoManager()
 
 juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
 {
-    return toolTipWindow;
-}
-
-void MagicGUIBuilder::setTooltipWindow (juce::TooltipWindow* window)
-{
-    toolTipWindow = window;
+    if (root)
+        return root->getTooltipWindow();
+    else
+        return nullptr;
 }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE

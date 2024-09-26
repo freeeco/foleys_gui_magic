@@ -60,8 +60,6 @@ void RootItem::updateColours()
     
 //    for (const auto& child : *this)
 //        child->updateColours();
-    
-    magicBuilder.setTooltipWindow(&tooltip);
 }
 
 

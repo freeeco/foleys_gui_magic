@@ -65,6 +65,11 @@ public:
      */
     std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node);
 
+     /**
+     Create a root item
+     */
+    std::unique_ptr<RootItem> createRootItem (const juce::ValueTree& node);
+
     /**
      This triggers the rebuild of the GUI with setting the parent component
      */
@@ -216,8 +221,6 @@ public:
     juce::UndoManager& getUndoManager();
     
     juce::TooltipWindow*  getTooltipWindow();
-    
-    void setTooltipWindow (juce::TooltipWindow* _toolTipWindow);
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void attachToolboxToWindow (juce::Component& window);
@@ -249,7 +252,7 @@ private:
 
     RadioButtonManager radioButtonManager;
 
-    std::unique_ptr<GuiItem> root;
+    std::unique_ptr<RootItem> root;
 
     std::unique_ptr<juce::Component> overlayDialog;
 

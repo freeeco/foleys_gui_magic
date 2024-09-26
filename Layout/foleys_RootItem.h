@@ -49,6 +49,7 @@ public:
     RootItem (MagicGUIBuilder& builder, juce::ValueTree node);
 
     void updateColours() override;
+    juce::TooltipWindow* getTooltipWindow() { return &tooltip; };
 
 private:
     
