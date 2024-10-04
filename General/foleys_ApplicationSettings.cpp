@@ -58,7 +58,8 @@ void ApplicationSettings::setFileName (juce::File file)
         return;
 
     settingsFile = file;
-    startTimerHz (1);
+    load();
+//    startTimerHz (1);
 }
 
 juce::File ApplicationSettings::getFileName ()
