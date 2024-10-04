@@ -63,6 +63,7 @@ public:
     static const juce::Identifier  pSliderTextBox;
     static const juce::StringArray pTextBoxPositions;
     static const juce::Identifier  pValue;
+    static const juce::Identifier  pNormalized;
     static const juce::Identifier  pMinValue;
     static const juce::Identifier  pMaxValue;
     static const juce::Identifier  pInterval;
@@ -138,9 +139,21 @@ public:
         slider.setTextValueSuffix (suffix);
 
         auto valueID = configNode.getProperty (pValue, juce::String()).toString();
-        if (valueID.isNotEmpty())
-            slider.getValueObject().referTo (getMagicState().getPropertyAsValue (valueID));
-
+        
+        if (valueID.isNotEmpty()){
+            if (getProperty (pNormalized)){
+                
+                auto propertyID = getProperty (pValue).toString();
+                if (propertyID.isNotEmpty())
+                    getMagicState().getPropertyAsValue (propertyID);
+                
+                slider.getValueObject().referTo (parameterValue);
+                parameterValue.addListener (this);
+            } else {
+                slider.getValueObject().referTo (getMagicState().getPropertyAsValue (valueID));
+            }
+        }
+        
         auto paramID = getControlledParameterID ({});
         if (paramID.isNotEmpty())
             attachment = getMagicState().createAttachment (paramID, slider);
@@ -206,6 +219,7 @@ public:
         props.push_back ({ configNode, pSliderType, SettableProperty::Choice, pSliderTypes [0], magicBuilder.createChoicesMenuLambda (pSliderTypes) });
         props.push_back ({ configNode, pSliderTextBox, SettableProperty::Choice, pTextBoxPositions [2], magicBuilder.createChoicesMenuLambda (pTextBoxPositions) });
         props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} });
         props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
@@ -235,6 +249,7 @@ public:
 private:
     AutoOrientationSlider slider;
     std::unique_ptr<juce::SliderParameterAttachment> attachment;
+    juce::Value parameterValue;
     
     void timerCallback() final
     {
@@ -247,6 +262,18 @@ private:
             slider.setVelocityBasedMode(false);
         }
     }
+    
+    void valueChanged (juce::Value& source) override
+    {
+        if (source.refersToSameSourceAs(parameterValue)){
+            auto propertyID = getProperty (pValue).toString();
+            if (propertyID.isNotEmpty()){
+                getMagicState().getPropertyAsValue (propertyID).setValue(slider.valueToProportionOfLength(slider.getValue()));
+            }
+        }
+        
+        handleValueChanged (source);
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SliderItem)
 };
@@ -255,6 +282,7 @@ const juce::StringArray SliderItem::pSliderTypes        { "auto", "linear-horizo
 const juce::Identifier  SliderItem::pSliderTextBox      { "slider-textbox" };
 const juce::StringArray SliderItem::pTextBoxPositions   { "no-textbox", "textbox-above", "textbox-below", "textbox-left", "textbox-right" };
 const juce::Identifier  SliderItem::pValue              { "value" };
+const juce::Identifier  SliderItem::pNormalized         { "normalized" };
 const juce::Identifier  SliderItem::pMinValue           { "min-value" };
 const juce::Identifier  SliderItem::pMaxValue           { "max-value" };
 const juce::Identifier  SliderItem::pInterval           { "interval" };

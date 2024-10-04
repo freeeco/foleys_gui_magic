@@ -62,11 +62,11 @@ public:
         {
             if (sliderImage){
                 if (imageMode == 0){
-                    auto rotation = startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2));
+                    auto rotation = (startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2)) + 0.5f);
                     auto placement (juce::RectanglePlacement::centred);
                     auto originalBounds = sliderImage->getDrawableBounds();
                     if (rotation == 0.0f)
-                        rotation = 1.0f; // Strange bug with drawable transform which doesn't seem to like angle of 0.0f
+                        rotation = 1.0f; // transform doesn't like angle of 0.0f
                     juce::AffineTransform transform = juce::AffineTransform::rotation(juce::MathConstants<float>::pi * 2.0f * rotation, originalBounds.getCentreX(), originalBounds.getCentreY());
                     sliderImage->setDrawableTransform(transform);
                     sliderImage->drawWithin(g, getBounds().toFloat(), placement ,1.0f);
