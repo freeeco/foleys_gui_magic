@@ -58,7 +58,11 @@ void ApplicationSettings::setFileName (juce::File file)
         return;
 
     settingsFile = file;
-    load();
+    if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+        load();
+    else
+        juce::MessageManager::callAsync ( [=]() { load(); });
+
 //    startTimerHz (1);
 }
 
