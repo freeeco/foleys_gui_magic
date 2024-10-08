@@ -107,11 +107,7 @@ private:
 #endif
     
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
-#if DEFAULT_RENDERER_DIRECT2D
     int renderer = 1;
-#else
-    int renderer = 0;
-#endif
 #endif
 
     MagicProcessorState& processorState;
