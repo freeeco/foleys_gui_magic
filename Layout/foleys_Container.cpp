@@ -82,8 +82,12 @@ void Container::update()
     tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
 
     const auto tabProperty = magicBuilder.getStyleProperty (IDs::selectedTab, configNode).toString();
-    if (tabProperty.isNotEmpty())
+    if (tabProperty.isNotEmpty()){
         currentTab.referTo(getMagicState().getPropertyAsValue(tabProperty));
+        
+        if (!currentTab.getValue().isInt())
+            currentTab = static_cast<int>(currentTab.getValue());
+    }
 
     auto repaintHz = magicBuilder.getStyleProperty (IDs::repaintHz, configNode).toString();
     if (repaintHz.isNotEmpty())
