@@ -313,7 +313,7 @@ void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juc
     array.addArray (additional);
 
     juce::ValueTree node (type);
-    if (auto item = builder.createGuiItem (node))
+    if (auto item = builder.createGuiItem (node, true))
     {
         for (auto& p : item->getSettableProperties())
         {

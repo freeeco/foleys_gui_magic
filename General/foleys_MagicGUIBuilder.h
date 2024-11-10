@@ -63,7 +63,7 @@ public:
     /**
      Create a node from the description
      */
-    std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node);
+    std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node, bool dontUpdate = false);
 
      /**
      Create a root item

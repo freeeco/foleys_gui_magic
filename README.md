@@ -1346,7 +1346,7 @@ void GuiItem::componentTransform()
 
 
 Added bufferToImage option to 'Plot'
---------------------------------------
+------------------------------------
 
 in -->
 
@@ -1367,6 +1367,34 @@ General/foleys_MagicJUCEFactories.cpp -->
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}});
+``` 
+
+
+
+Fixed GUI Items updating incorrectly when selecting items in properties editor
+------------------------------------------------------------------------------
+
+In General/foleys_MagicGUIBuilder.cpp added optional 'dontUpdate' flag 
+
+``` 
+std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& node, bool dontUpdate)
+
+
+        if (!dontUpdate)
+            item->updateInternal();
+
+``` 
+
+Defined in General/foleys_MagicGUIBuilder.h -->
+``` 
+std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node, bool dontUpdate = false);
+
+``` 
+
+In Editor/foleys_PropertiesEditor.cpp use the flag in PropertiesEditor::addTypeProperties
+
+``` 
+if (auto item = builder.createGuiItem (node, true))
 ``` 
 
 

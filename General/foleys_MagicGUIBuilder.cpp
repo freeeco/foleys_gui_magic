@@ -77,7 +77,7 @@ juce::ValueTree MagicGUIBuilder::getGuiRootNode()
     return getConfigTree().getOrCreateChildWithName (IDs::view, &undo);
 }
 
-std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& node)
+std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& node, bool dontUpdate)
 {
     if (node.getType() == IDs::view)
     {
@@ -92,7 +92,9 @@ std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& 
     if (factory != factories.end())
     {
         auto item = factory->second (*this, node);
-        item->updateInternal();
+        if (!dontUpdate)
+            item->updateInternal();
+        
         return item;
     }
 
