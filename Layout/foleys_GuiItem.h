@@ -264,8 +264,6 @@ private:
     
     juce::AffineTransform transform;
     
-    bool hasVisibilityProperty = false;
-
     juce::String    highlight;
 
     void valueChanged (juce::Value& source) override;

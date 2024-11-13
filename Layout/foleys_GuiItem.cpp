@@ -346,6 +346,10 @@ void GuiItem::componentTransform()
     }
     
     setAlpha (opacity);
+    
+    auto propertyID = magicBuilder.getStyleProperty (IDs::visibility, configNode).toString();
+    if (propertyID.isNotEmpty())
+        setVisible (magicBuilder.getMagicState().getPropertyAsValue (propertyID).getValue());
 }
 
 void GuiItem::referValues()
@@ -353,12 +357,8 @@ void GuiItem::referValues()
     juce::String propertyID;
 
     propertyID = magicBuilder.getStyleProperty (IDs::visibility, configNode).toString();
-    if (propertyID.isNotEmpty()){
+    if (propertyID.isNotEmpty())
         visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (propertyID));
-        hasVisibilityProperty = true;
-    } else {
-        hasVisibilityProperty = false;
-    }
     
     propertyID = magicBuilder.getStyleProperty (IDs::scaleValue, configNode).toString();
     if (propertyID.isNotEmpty())
@@ -412,7 +412,7 @@ void GuiItem::resized()
         component->setVisible (b.getWidth() > 2 && b.getHeight() > 2);
         component->setBounds (b);
     }
-    if (hasVisibilityProperty)
+    if (magicBuilder.getStyleProperty (IDs::visibility, configNode).toString().isNotEmpty())
         setVisible (visibility.getValue());
     
     componentTransform();
