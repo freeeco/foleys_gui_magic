@@ -128,18 +128,14 @@ public:
         else
             slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, slider.getTextBoxWidth(), slider.getTextBoxHeight());
 
-        double minValue = getProperty (pMinValue);
-        double maxValue = getProperty (pMaxValue);
-        double interval = getProperty (pInterval);
-        if (maxValue > minValue)
-            slider.setRange (minValue, maxValue, interval);
-        else
-            slider.setRange (0.0f, 1.0f, 0.0f);
-
         auto suffix = getProperty (pSuffix).toString();
         slider.setTextValueSuffix (suffix);
 
         auto valueID = configNode.getProperty (pValue, juce::String()).toString();
+        
+        auto paramID = getControlledParameterID ({});
+        if (paramID.isNotEmpty())
+            attachment = getMagicState().createAttachment (paramID, slider);
         
         if (valueID.isNotEmpty()){
             if (getProperty (pValueSetsParameter)){
@@ -148,20 +144,16 @@ public:
             } else {
                 if (getProperty (pNormalized)){
                     auto propertyID = getProperty (pValue).toString();
+                    parameterValue.addListener (this);
                     if (propertyID.isNotEmpty())
                         getMagicState().getPropertyAsValue (propertyID);
                     
-                    slider.getValueObject().referTo (parameterValue);
-                    parameterValue.addListener (this);
+                    parameterValue.referTo (slider.getValueObject());
                 } else {
                     slider.getValueObject().referTo (getMagicState().getPropertyAsValue (valueID));
                 }
             }
         }
-        
-        auto paramID = getControlledParameterID ({});
-        if (paramID.isNotEmpty())
-            attachment = getMagicState().createAttachment (paramID, slider);
 
         auto filmStripName = getProperty (pFilmStrip).toString();
         if (filmStripName.isNotEmpty())
@@ -211,9 +203,14 @@ public:
         slider.setMouseClickGrabsKeyboardFocus(false);
         slider.setVelocityModeParameters(4, 1, 0, true, juce::ModifierKeys::shiftModifier);
         
-        if (getProperty (pPassMouseClicks)){
+        if (getProperty (pPassMouseClicks))
             slider.setInterceptsMouseClicks(false, false);
-        }
+
+        double minValue = getProperty (pMinValue);
+        double maxValue = getProperty (pMaxValue);
+        double interval = getProperty (pInterval);
+        if (maxValue > minValue)
+            slider.setRange (minValue, maxValue, interval);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -224,8 +221,8 @@ public:
         props.push_back ({ configNode, pSliderType, SettableProperty::Choice, pSliderTypes [0], magicBuilder.createChoicesMenuLambda (pSliderTypes) });
         props.push_back ({ configNode, pSliderTextBox, SettableProperty::Choice, pTextBoxPositions [2], magicBuilder.createChoicesMenuLambda (pTextBoxPositions) });
         props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pValueSetsParameter, SettableProperty::Toggle, {}, {} });
+        props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} });
         props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
@@ -256,6 +253,7 @@ private:
     AutoOrientationSlider slider;
     std::unique_ptr<juce::SliderParameterAttachment> attachment;
     juce::Value parameterValue;
+    bool shiftFlag = false;
     
     void timerCallback() final
     {
@@ -266,6 +264,25 @@ private:
         }
         else{
             slider.setVelocityBasedMode(false);
+        }
+        
+        // Holding the shift key bypasses the interval if it's set
+        if (getProperty (pInterval).toString().isNotEmpty()){
+            if (juce::ModifierKeys::getCurrentModifiers().isShiftDown() && !shiftFlag){
+                shiftFlag = true;
+                double minValue = getProperty (pMinValue);
+                double maxValue = getProperty (pMaxValue);
+                if (maxValue > minValue)
+                    slider.setRange (minValue, maxValue, 0.0f);
+            }
+            if (!juce::ModifierKeys::getCurrentModifiers().isShiftDown() && shiftFlag){
+                shiftFlag = false;
+                double minValue = getProperty (pMinValue);
+                double maxValue = getProperty (pMaxValue);
+                double interval = getProperty (pInterval);
+                if (maxValue > minValue)
+                    slider.setRange (minValue, maxValue, interval);
+            }
         }
     }
     
@@ -1082,6 +1099,7 @@ public:
     static const juce::Identifier  pLastPadValue;
     static const juce::Identifier  pFollowsClicked;
     static const juce::Identifier  pFollowsPlayed;
+    static const juce::Identifier  pMPCStylePads; // When enabled MIDI Notes are ordered starting from the lowest row of pads
 
     FOLEYS_DECLARE_GUI_FACTORY (DrumpadItem)
 
@@ -1109,7 +1127,12 @@ public:
 
         auto rows = rowsVar.isVoid() ? 3 : int (rowsVar);
         auto columns = columnsVar.isVoid() ? 3 : int (columnsVar);
-
+        
+        if (getProperty (pMPCStylePads))
+            drumpad.setMPCStylePads(true);
+        else
+            drumpad.setMPCStylePads(false);
+        
         drumpad.setMatrix (rows, columns);
 
         auto rootNote = getProperty (pRootNote);
@@ -1199,7 +1222,7 @@ public:
             followsPlayedValue.referTo (getMagicState().getPropertyAsValue (valueID));
         else
             followsPlayedValue = 0;
-        
+
         startTimerHz(60);
     }
 
@@ -1228,6 +1251,7 @@ public:
         props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}});
         
         return props;
     }
@@ -1289,8 +1313,9 @@ const juce::Identifier  DrumpadItem::pDownValue_14   { "value-14" };
 const juce::Identifier  DrumpadItem::pDownValue_15   { "value-15" };
 const juce::Identifier  DrumpadItem::pDownValue_16   { "value-16" };
 const juce::Identifier  DrumpadItem::pLastPadValue   { "last-pad-value" };
-const juce::Identifier  DrumpadItem::pFollowsClicked   { "follows-clicked-value" };
-const juce::Identifier  DrumpadItem::pFollowsPlayed   { "follows-played-value" };
+const juce::Identifier  DrumpadItem::pFollowsClicked    { "follows-clicked-value" };
+const juce::Identifier  DrumpadItem::pFollowsPlayed     { "follows-played-value" };
+const juce::Identifier  DrumpadItem::pMPCStylePads      { "mpc-style-pads" };
 
 
 //==============================================================================

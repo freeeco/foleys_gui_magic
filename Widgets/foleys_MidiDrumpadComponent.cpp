@@ -78,8 +78,17 @@ void MidiDrumpadComponent::updateButtons()
     pads.clear();
 
     for (int i = 0; i < numRows * numColumns; ++i){
-        pads.push_back (std::make_unique<Pad>(*this, rootNote + i));
-        pads[i]->setIndex (i);
+        int noteNum;
+        int idx = i;
+        if(mpcStylePads){
+            int padH = i % numColumns;
+            int rowNum = floor (i / numColumns);
+            int invRow = (numRows - 1) - rowNum;
+            idx = (invRow * numColumns) + padH;
+        }
+        noteNum = rootNote + idx;
+        pads.push_back (std::make_unique<Pad>(*this, noteNum));
+        pads[i]->setIndex (idx);
     }
 
     for (auto& pad : pads)

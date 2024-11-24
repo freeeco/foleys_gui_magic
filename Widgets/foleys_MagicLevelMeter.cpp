@@ -48,7 +48,7 @@ MagicLevelMeter::MagicLevelMeter()
     setColour (outlineColourId, juce::Colours::silver);
     setColour (tickmarkColourId, juce::Colours::silver);
 
-    startTimerHz (30);
+    startTimerHz (60);
 }
 
 void MagicLevelMeter::paint (juce::Graphics& g)
