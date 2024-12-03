@@ -213,7 +213,12 @@ public:
         angle = angle + juce::MathConstants<float>::pi;
         startAngle = juce::jmap(angle, 0.0f, juce::MathConstants<float>::pi, 0.0f, 0.5f);
     }
-
+    
+    void setUseInterval (bool value) { useInterval = value; }
+    void setModifierSnap (bool value) { modifierSnap = value; }
+    void setInterval (float value) { interval = value; }
+    void setMinValue (float value) { minValue = value; }
+    void setMaxValue (float value) { maxValue = value; }
 
 private:
 
@@ -225,7 +230,45 @@ private:
     float       startAngle;
     std::unique_ptr<juce::Drawable> sliderImage;
     bool        horizontalFilmStrip = false;
+    bool useInterval = false;
+    bool modifierSnap = false;
+    float interval = 0.0f;
+    float minValue = 0.0f;
+    float maxValue = 1.0f;
 
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        // Holding the shift key bypasses the interval if it's set
+        if (useInterval){
+            if (modifierSnap){
+                if (juce::ModifierKeys::getCurrentModifiers().isCtrlDown()){
+                    setRange (minValue, maxValue, interval);
+                } else {
+                    setRange (minValue, maxValue, 0.0f);
+                }
+            } else {
+                if (juce::ModifierKeys::getCurrentModifiers().isShiftDown()){
+                    setRange (minValue, maxValue, 0.0f);
+                } else {
+                    setRange (minValue, maxValue, interval);
+                }
+            }
+        }
+        juce::Slider::mouseDrag (e);
+    }
+    
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (useInterval){
+            if (modifierSnap){
+                setRange (minValue, maxValue, 0.0f);
+            } else {
+                setRange (minValue, maxValue, interval);
+            }
+        }
+        juce::Slider::mouseDown (e);
+    }
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoOrientationSlider)
 };
 

@@ -338,7 +338,6 @@ void Container::updateLayout()
     }
     
     referValues();
-//    componentTransform();
     
     //    for (auto& child : children)
     //        child->updateLayout();

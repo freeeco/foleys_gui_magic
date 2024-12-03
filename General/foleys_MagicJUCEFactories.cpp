@@ -68,6 +68,7 @@ public:
     static const juce::Identifier  pMinValue;
     static const juce::Identifier  pMaxValue;
     static const juce::Identifier  pInterval;
+    static const juce::Identifier  pModifierSnap;
     static const juce::Identifier  pSuffix;
     static const juce::Identifier  pSensitivity;
     static const juce::Identifier  pFilmStrip;
@@ -209,8 +210,16 @@ public:
         double minValue = getProperty (pMinValue);
         double maxValue = getProperty (pMaxValue);
         double interval = getProperty (pInterval);
-        if (maxValue > minValue)
+        if (maxValue > minValue && !getProperty (pModifierSnap))
             slider.setRange (minValue, maxValue, interval);
+        
+        if (getProperty (pMaxValue).toString().isNotEmpty()){
+            slider.setUseInterval (true);
+            slider.setModifierSnap (getProperty (pModifierSnap));
+            slider.setInterval (interval);
+            slider.setMinValue (minValue);
+            slider.setMaxValue (maxValue);   
+        }
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -226,6 +235,7 @@ public:
         props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} });
         props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} });
         props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
+        props.push_back ({ configNode, pModifierSnap, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
         props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} });
         props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) });
@@ -253,8 +263,7 @@ private:
     AutoOrientationSlider slider;
     std::unique_ptr<juce::SliderParameterAttachment> attachment;
     juce::Value parameterValue;
-    bool shiftFlag = false;
-    
+
     void timerCallback() final
     {
         auto tooltipNode = getMagicState().getSettings().getChildWithName ("controls");
@@ -264,25 +273,6 @@ private:
         }
         else{
             slider.setVelocityBasedMode(false);
-        }
-        
-        // Holding the shift key bypasses the interval if it's set
-        if (getProperty (pInterval).toString().isNotEmpty()){
-            if (juce::ModifierKeys::getCurrentModifiers().isShiftDown() && !shiftFlag){
-                shiftFlag = true;
-                double minValue = getProperty (pMinValue);
-                double maxValue = getProperty (pMaxValue);
-                if (maxValue > minValue)
-                    slider.setRange (minValue, maxValue, 0.0f);
-            }
-            if (!juce::ModifierKeys::getCurrentModifiers().isShiftDown() && shiftFlag){
-                shiftFlag = false;
-                double minValue = getProperty (pMinValue);
-                double maxValue = getProperty (pMaxValue);
-                double interval = getProperty (pInterval);
-                if (maxValue > minValue)
-                    slider.setRange (minValue, maxValue, interval);
-            }
         }
     }
     
@@ -323,6 +313,7 @@ const juce::Identifier  SliderItem::pValueSetsParameter { "value-sets-parameter"
 const juce::Identifier  SliderItem::pMinValue           { "min-value" };
 const juce::Identifier  SliderItem::pMaxValue           { "max-value" };
 const juce::Identifier  SliderItem::pInterval           { "interval" };
+const juce::Identifier  SliderItem::pModifierSnap       { "modifier-snap" };
 const juce::Identifier  SliderItem::pSuffix             { "suffix" };
 const juce::Identifier  SliderItem::pSensitivity        { "sensitivity" };
 const juce::Identifier  SliderItem::pFilmStrip          { "filmstrip" };
