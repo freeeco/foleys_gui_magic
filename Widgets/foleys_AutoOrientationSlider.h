@@ -266,7 +266,7 @@ private:
                 setRange (minValue, maxValue, interval);
             }
         }
-        juce::Slider::mouseDown (e);
+        juce::Slider::mouseUp (e);
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoOrientationSlider)

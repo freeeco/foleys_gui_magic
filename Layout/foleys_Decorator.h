@@ -74,6 +74,7 @@ public:
     juce::Colour getTabColour() const;
 
     juce::Colour getBackgroundColour() const;
+    juce::Image getBackgroundImage() const;
 
 private:
 

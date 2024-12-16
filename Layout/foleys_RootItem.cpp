@@ -62,6 +62,28 @@ void RootItem::updateColours()
 //        child->updateColours();
 }
 
+bool RootItem::keyPressed(const juce::KeyPress& key)
+{
+    if ((key.getKeyCode() == 'Z'
+         && key.getModifiers().isCommandDown()) && !key.getModifiers().isShiftDown())
+    {
+        auto trigger = magicBuilder.getMagicState().getTrigger ("Undo");
+        if (trigger != nullptr){
+            trigger();
+            return true;
+        }
+    } else if ((key.getKeyCode() == 'Z'
+                && key.getModifiers().isCommandDown()) && key.getModifiers().isShiftDown())
+    {
+        auto trigger = magicBuilder.getMagicState().getTrigger ("Redo");
+        if (trigger != nullptr){
+            trigger();
+            return true;
+        }
+    }
+    return false;
+}
+
 
 
 } // namespace foleys

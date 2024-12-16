@@ -99,7 +99,9 @@ void MidiDrumpadComponent::updateButtons()
 
 void MidiDrumpadComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (findColour (MidiDrumpadComponent::background));
+    if (!invisible){
+        g.fillAll (findColour (MidiDrumpadComponent::background));
+    }
 }
 
 void MidiDrumpadComponent::resized()
@@ -120,7 +122,9 @@ void MidiDrumpadComponent::timerCallback()
     if (needsPaint)
     {
         needsPaint = false;
-        repaint();
+        if (!invisible){
+            repaint();
+        }
     }
 }
 
@@ -140,17 +144,19 @@ MidiDrumpadComponent::Pad::~Pad()
 
 void MidiDrumpadComponent::Pad::paint (juce::Graphics& g)
 {
-    g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownFill : MidiDrumpadComponent::padFill));
-    g.fillRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f);
-
-    g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownOutline : MidiDrumpadComponent::padOutline));
-    g.drawRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f, 1.0f);
-
-    if (isDown)
-    {
-        auto radius = pressure * 20.0f;
-        g.setColour (owner.findColour (MidiDrumpadComponent::touch));
-        g.fillEllipse (juce::Rectangle<float>(lastPos.x - 0.5f * radius, lastPos.y - 0.5f * radius, radius, radius));
+    if (!owner.invisible){
+        g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownFill : MidiDrumpadComponent::padFill));
+        g.fillRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f);
+        
+        g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownOutline : MidiDrumpadComponent::padOutline));
+        g.drawRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f, 1.0f);
+        
+        if (isDown)
+        {
+            auto radius = pressure * 20.0f;
+            g.setColour (owner.findColour (MidiDrumpadComponent::touch));
+            g.fillEllipse (juce::Rectangle<float>(lastPos.x - 0.5f * radius, lastPos.y - 0.5f * radius, radius, radius));
+        }
     }
 }
 

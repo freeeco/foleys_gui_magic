@@ -720,7 +720,7 @@ public:
         if (getProperty (pAlwaysPlotHz))
             plot.setAlwaysPlotHz (getProperty (pAlwaysPlotHz));
         else
-            plot.setAlwaysPlot (30);
+            plot.setAlwaysPlotHz (30);
         
         if (getProperty (pAlwaysPlot))
             plot.setAlwaysPlot (true);
@@ -1091,6 +1091,7 @@ public:
     static const juce::Identifier  pFollowsClicked;
     static const juce::Identifier  pFollowsPlayed;
     static const juce::Identifier  pMPCStylePads; // When enabled MIDI Notes are ordered starting from the lowest row of pads
+    static const juce::Identifier  pInvisible; // When enabled MIDI Notes are ordered starting from the lowest row of pads
 
     FOLEYS_DECLARE_GUI_FACTORY (DrumpadItem)
 
@@ -1123,6 +1124,11 @@ public:
             drumpad.setMPCStylePads(true);
         else
             drumpad.setMPCStylePads(false);
+           
+        if (getProperty (pInvisible))
+            drumpad.setInvisible(true);
+        else
+            drumpad.setInvisible(false);
         
         drumpad.setMatrix (rows, columns);
 
@@ -1243,6 +1249,7 @@ public:
         props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pInvisible, foleys::SettableProperty::Toggle, {}, {}});
         
         return props;
     }
@@ -1307,6 +1314,7 @@ const juce::Identifier  DrumpadItem::pLastPadValue   { "last-pad-value" };
 const juce::Identifier  DrumpadItem::pFollowsClicked    { "follows-clicked-value" };
 const juce::Identifier  DrumpadItem::pFollowsPlayed     { "follows-played-value" };
 const juce::Identifier  DrumpadItem::pMPCStylePads      { "mpc-style-pads" };
+const juce::Identifier  DrumpadItem::pInvisible         { "invisible" };
 
 
 //==============================================================================
@@ -1320,6 +1328,7 @@ public:
     static const juce::Identifier  pPeakLineThickness;
     static const juce::Identifier  pHorizontalFlip;
     static const juce::Identifier  pVerticalFlip;
+    static const juce::Identifier  pRefreshRateHz;
 
     LevelMeterItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -1361,6 +1370,11 @@ public:
         else
             meter.setVerticalFlip(false);
         
+        if (getProperty (pRefreshRateHz).toString().isNotEmpty())
+            meter.setRefreshRateHz (getProperty (pRefreshRateHz));
+        else
+            meter.setRefreshRateHz (60);
+        
         meter.setInterceptsMouseClicks(false, false);
     }
 
@@ -1372,6 +1386,7 @@ public:
         props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pHorizontalFlip, foleys::SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pVerticalFlip, foleys::SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pRefreshRateHz,   SettableProperty::Number, {}, {}});
         return props;
     }
 
@@ -1389,6 +1404,7 @@ const juce::Identifier  LevelMeterItem::pBarCorner         { "bar-corner" };
 const juce::Identifier  LevelMeterItem::pPeakLineThickness { "peak-line-thickness" };
 const juce::Identifier  LevelMeterItem::pHorizontalFlip    { "horizontal-flip" };
 const juce::Identifier  LevelMeterItem::pVerticalFlip      { "vertical-flip" };
+const juce::Identifier  LevelMeterItem::pRefreshRateHz     { "refresh-rate-Hz" };
 
 //==============================================================================
 

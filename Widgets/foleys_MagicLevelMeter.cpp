@@ -48,7 +48,9 @@ MagicLevelMeter::MagicLevelMeter()
     setColour (outlineColourId, juce::Colours::silver);
     setColour (tickmarkColourId, juce::Colours::silver);
 
-    startTimerHz (60);
+    setPaintingIsUnclipped (true);
+    
+    startTimerHz (refreshRateHz);
 }
 
 void MagicLevelMeter::paint (juce::Graphics& g)
@@ -160,6 +162,12 @@ void MagicLevelMeter::setHorizontalFlip (bool flip)
 void MagicLevelMeter::setVerticalFlip (bool flip)
 {
     verticalFlip = flip;
+}
+
+void MagicLevelMeter::setRefreshRateHz (int rate)
+{
+    refreshRateHz = rate;
+    startTimerHz (refreshRateHz);
 }
 
 void MagicLevelMeter::timerCallback()

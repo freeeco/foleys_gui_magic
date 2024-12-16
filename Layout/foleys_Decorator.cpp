@@ -117,6 +117,11 @@ juce::Colour Decorator::getBackgroundColour() const
     return backgroundColour;
 }
 
+juce::Image Decorator::getBackgroundImage() const
+{
+    return backgroundImage;
+}
+
 void Decorator::updateColours (MagicGUIBuilder& builder, const juce::ValueTree& node)
 {
     auto& stylesheet = builder.getStylesheet();

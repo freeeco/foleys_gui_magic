@@ -104,6 +104,8 @@ private:
     
 #if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     juce::OpenGLContext oglContext;
+//    oglContext.setImageCacheSize (64);
+//    oglContext.setSwapInterval (0);
 #endif
     
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000

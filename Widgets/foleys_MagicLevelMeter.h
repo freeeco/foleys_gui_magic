@@ -81,6 +81,8 @@ public:
     void setHorizontalFlip (bool flip);
     
     void setVerticalFlip (bool flip);
+    
+    void setRefreshRateHz (int rate);
 
 private:
     juce::WeakReference<MagicLevelSource> source;
@@ -88,6 +90,7 @@ private:
     float peakLineThickness = 1;
     bool horizontalFlip = false;
     bool verticalFlip = false;
+    int refreshRateHz = 60;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicLevelMeter)
 };

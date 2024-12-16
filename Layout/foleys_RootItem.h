@@ -50,10 +50,12 @@ public:
 
     void updateColours() override;
     juce::TooltipWindow* getTooltipWindow() { return &tooltip; };
-
+    bool keyPressed(const juce::KeyPress& key) override;
+    
 private:
     
     juce::TooltipWindow tooltip { this };
+//    foleys::MagicGUIBuilder& builder;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RootItem)
     

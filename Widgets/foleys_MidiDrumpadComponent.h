@@ -108,6 +108,8 @@ public:
     void setPlayedFlag (bool flag){ playedFlag = flag; };
     
     void setMPCStylePads (bool value){ mpcStylePads = value; };
+    
+    void setInvisible (bool value){ invisible = value; };
 
     class Pad : public juce::Component,
                 public juce::MidiKeyboardState::Listener
@@ -159,6 +161,7 @@ private:
     bool clickedFlag = false;
     bool playedFlag = false;
     bool mpcStylePads = false;
+    bool invisible = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiDrumpadComponent)
 };

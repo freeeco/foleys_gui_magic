@@ -43,7 +43,7 @@ GuiItem::GuiItem (MagicGUIBuilder& builder, juce::ValueTree node)
   : magicBuilder (builder),
     configNode (node)
 {
-    setOpaque (false);
+//    setOpaque (false);
     setInterceptsMouseClicks (false, true);
 
     visibility.addListener (this);
@@ -116,6 +116,8 @@ void GuiItem::updateInternal()
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     setEditMode (magicBuilder.isEditModeOn());
 #endif
+    
+    setOpaque (decorator.getBackgroundColour().isOpaque() || decorator.getBackgroundImage().isValid());
 
     repaint();
 }

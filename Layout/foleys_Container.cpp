@@ -310,9 +310,11 @@ void Container::updateLayout()
         containerBox.setInterceptsMouseClicks(false, true);
     }
     
+#if !JUCE_WINDOWS || !DONT_BUFFER_TO_IMAGE_ON_WINDOWS
     if (magicBuilder.getStyleProperty (IDs::bufferToImage, configNode)){
         containerBox.setBufferedToImage(true);
     }
+#endif
     
     if (!magicBuilder.getStyleProperty (IDs::parameter, configNode).toString().equalsIgnoreCase("")){
         auto parameterName = magicBuilder.getStyleProperty (IDs::parameter, configNode).toString();
