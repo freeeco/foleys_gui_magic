@@ -75,7 +75,8 @@ public:
     void setAlwaysPlot (bool flag);
     void setAlwaysPlotHz (int Hz);
     void setScaled (bool flag);
-    void setCornerRadius(bool radius);
+    void setCornerRadius (bool radius);
+    void setFillStyle(MagicPlotSource::FillStyle val);
 
 private:
     void drawPlot (juce::Graphics& g);

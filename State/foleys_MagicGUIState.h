@@ -168,7 +168,7 @@ public:
         if (present != advertisedObjects.cend())
         {
             // You tried to add two MagicPlotSources with the same sourceID
-            jassertfalse;
+//            jassertfalse;
             return nullptr;
         }
 

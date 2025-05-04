@@ -378,6 +378,7 @@ void PropertiesEditor::addContainerProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::scrollMode, styleItem, { IDs::noScroll, IDs::scrollHorizontal, IDs::scrollVertical, IDs::scrollBoth }));
     array.add (new StyleTextPropertyComponent (builder, IDs::tabHeight, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::selectedTab, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::parameter, styleItem, builder.createParameterMenuLambda()));
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexDirection, styleItem, { IDs::flexDirRow, IDs::flexDirRowReverse, IDs::flexDirColumn, IDs::flexDirColumnReverse }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexWrap, styleItem, { IDs::flexNoWrap, IDs::flexWrapNormal, IDs::flexWrapReverse }));
@@ -386,7 +387,6 @@ void PropertiesEditor::addContainerProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexJustifyContent, styleItem, { IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexSpaceAround, IDs::flexSpaceBetween }));
     array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
     array.add (new StyleBoolPropertyComponent (builder, IDs::bufferToImage, styleItem));
-    array.add (new StyleChoicePropertyComponent (builder, IDs::parameter, styleItem, builder.createParameterMenuLambda()));
     
     array.add (new StyleChoicePropertyComponent (builder, IDs::focusContainerType, styleItem, { IDs::focusNone, IDs::focusContainer, IDs::focusKeyContainer }));
 

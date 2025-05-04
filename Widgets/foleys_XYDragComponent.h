@@ -75,14 +75,19 @@ public:
     void setRightClickParameter (juce::RangedAudioParameter* parameter);
 
     void setRadius (float radius);
+    void setMenuItemHeight (int height);
     void setSenseFactor (float factor);
     void setJumpToClick (bool shouldJumpToClick);
+    void setDoubleClickResets (bool shouldReset);
     void referValueX (juce::Value &value);
     void referValueY (juce::Value &value);
     void referValueZ (juce::Value &value);
+    void referTouched (juce::Value &value);
+    void setTouchedIndex (int index) {touchedIndex = index; };
 
     bool hitTest (int x, int y) override;
     void mouseDown (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -112,12 +117,22 @@ private:
     juce::RangedAudioParameter* contextMenuParameter = nullptr;
 
     bool  jumpToClick = false;
+    bool  doubleClickResets = false;
     float radius      = 4.0f;
     float senseFactor = 2.0f;
+    int menuItemHeight = 25;
+    int touchedIndex = 0;
     
     juce::Value valueX;
     juce::Value valueY;
     juce::Value valueZ;
+    juce::Value valueTouched;
+    
+    float xDefault = 0;
+    float yDefault = 0;
+    float zDefault = 0;
+    float wheelDefault = 0;
+    float menuDefault = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDragComponent)
 };

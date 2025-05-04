@@ -219,6 +219,7 @@ public:
     void setInterval (float value) { interval = value; }
     void setMinValue (float value) { minValue = value; }
     void setMaxValue (float value) { maxValue = value; }
+    void setAltKeyHides (float value) { altKeyHides = value; }
 
 private:
 
@@ -235,6 +236,7 @@ private:
     float interval = 0.0f;
     float minValue = 0.0f;
     float maxValue = 1.0f;
+    bool altKeyHides = true;
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
@@ -257,6 +259,8 @@ private:
         juce::Slider::mouseDrag (e);
     }
     
+    
+    
     void mouseUp (const juce::MouseEvent& e) override
     {
         if (useInterval){
@@ -267,6 +271,33 @@ private:
             }
         }
         juce::Slider::mouseUp (e);
+    }
+        
+    void mouseEnter (const juce::MouseEvent& e) override
+    {
+        if (altKeyHides){
+            const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+            if (modifiers.isAltDown()){
+                if (isVisible())
+                    setVisible(false);
+            } else {
+                if (!isVisible())
+                    setVisible(true);
+            }
+        }
+        juce::Slider::mouseEnter (e);
+    }
+
+    void modifierKeysChanged (const juce::ModifierKeys& modifiers) override
+    {
+        if (altKeyHides){
+            if (modifiers.isAltDown()){
+                setVisible(false);
+            } else {
+                setVisible(true);
+            }
+        }
+        juce::Slider::modifierKeysChanged (modifiers);
     }
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoOrientationSlider)

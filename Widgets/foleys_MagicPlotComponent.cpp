@@ -209,6 +209,11 @@ void MagicPlotComponent::setCornerRadius(bool radius)
     cornerRadius = radius;
 }
 
+void MagicPlotComponent::setFillStyle(MagicPlotSource::FillStyle val)
+{
+    plotSource->setFillStyle(val);
+}
+
 void MagicPlotComponent::timerCallback()
 {
     repaint();

@@ -66,7 +66,8 @@ namespace Conversions
                 if (value > FloatType (1000))
                     return juce::jlimit (start, end, FloatType (10) * juce::roundToInt (value / FloatType (10)));
 
-                return juce::jlimit (start, end, FloatType (juce::roundToInt (value)));
+//                return juce::jlimit (start, end, FloatType (juce::roundToInt (value)));
+                return juce::jlimit (start, end, value);
             });
     }
 

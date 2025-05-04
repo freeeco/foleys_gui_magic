@@ -81,6 +81,25 @@ bool RootItem::keyPressed(const juce::KeyPress& key)
             return true;
         }
     }
+    else if (key.getKeyCode() == 'C'
+    && key.getModifiers().isCommandDown() && getMagicState().getTrigger ("Keyboard Command-C") != nullptr)
+    {
+        auto trigger = getMagicState().getTrigger ("Keyboard Command-C");
+        if (trigger != nullptr)
+            trigger();
+        
+        return true;
+    }
+        
+    else if (key.getKeyCode() == 'V'
+    && key.getModifiers().isCommandDown() && getMagicState().getTrigger ("Keyboard Command-V") != nullptr)
+    {
+        auto trigger = getMagicState().getTrigger ("Keyboard Command-V");
+        if (trigger != nullptr)
+            trigger();
+        
+        return true;
+    }
     return false;
 }
 

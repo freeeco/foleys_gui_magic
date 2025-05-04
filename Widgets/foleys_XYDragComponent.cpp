@@ -100,32 +100,47 @@ void XYDragComponent::paint (juce::Graphics& g)
 void XYDragComponent::setParameterX (juce::RangedAudioParameter* parameter)
 {
     xAttachment.attachToParameter (parameter);
+    if (parameter)
+        xDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setParameterY (juce::RangedAudioParameter* parameter)
 {
     yAttachment.attachToParameter (parameter);
+    if (parameter)
+        yDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setParameterZ (juce::RangedAudioParameter* parameter)
 {
     zAttachment.attachToParameter (parameter);
+    if (parameter)
+        zDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setWheelParameter (juce::RangedAudioParameter* parameter)
 {
     wheelParameter = parameter;
+    if (parameter)
+        wheelDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setRightClickParameter (juce::RangedAudioParameter* parameter)
 {
     contextMenuParameter = parameter;
+    if (parameter)
+        menuDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setRadius (float radiusToUse)
 {
     radius = radiusToUse;
     repaint();
+}
+
+void XYDragComponent::setMenuItemHeight (int height)
+{
+    menuItemHeight = height;
 }
 
 void XYDragComponent::setSenseFactor (float factor)
@@ -136,6 +151,11 @@ void XYDragComponent::setSenseFactor (float factor)
 void XYDragComponent::setJumpToClick (bool shouldJumpToClick)
 {
     jumpToClick = shouldJumpToClick;
+}
+
+void XYDragComponent::setDoubleClickResets (bool shouldReset)
+{
+    doubleClickResets = shouldReset;
 }
 
 void XYDragComponent::referValueX (juce::Value &value)
@@ -151,6 +171,11 @@ void XYDragComponent::referValueY (juce::Value &value)
 void XYDragComponent::referValueZ (juce::Value &value)
 {
     valueZ.referTo(value);
+}
+
+void XYDragComponent::referTouched (juce::Value &value)
+{
+    valueTouched.referTo(value);
 }
 
 void XYDragComponent::updateWhichToDrag (juce::Point<float> pos)
@@ -186,6 +211,8 @@ bool XYDragComponent::hitTest (int x, int y)
 
 void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 {
+    valueTouched = touchedIndex;
+    
     if (contextMenuParameter && (event.mods.isPopupMenu()))
     {
         juce::PopupMenu menu;
@@ -195,9 +222,13 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
         for (const auto& item : contextMenuParameter->getAllValueStrings())
             menu.addItem (++id, item, true, item == current);
 
+        auto& lf = getParentComponent()->getLookAndFeel();
+        menu.setLookAndFeel (&lf);
+        
         menu.showMenuAsync (juce::PopupMenu::Options()
                             .withTargetComponent (this)
-                            .withTargetScreenArea ({event.getScreenX(), event.getScreenY(), 1, 1}),
+                            .withTargetScreenArea ({event.getScreenX(), event.getScreenY(), 1, 1})
+                            .withStandardItemHeight(menuItemHeight),
                             [=](int selected)
         {
             if (selected <= 0)
@@ -209,7 +240,7 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
             contextMenuParameter->setValueNotifyingHost (contextMenuParameter->convertTo0to1 (value));
             contextMenuParameter->endChangeGesture();
         });
-
+        
         return;
     }
 
@@ -286,6 +317,19 @@ void XYDragComponent::mouseUp (const juce::MouseEvent& event)
         zAttachment.setNormalisedValue (0.0f);
         zAttachment.endGesture();
         valueZ = 0.0f;
+    }
+}
+
+void XYDragComponent::mouseDoubleClick (const juce::MouseEvent& event)
+{
+    if (mouseOverDot && doubleClickResets){
+        xAttachment.setNormalisedValue(xDefault);
+        yAttachment.setNormalisedValue(yDefault);
+        zAttachment.setNormalisedValue(zDefault);
+        if (wheelParameter)
+            wheelParameter->setValueNotifyingHost(wheelDefault);
+        if (contextMenuParameter)
+            contextMenuParameter->setValueNotifyingHost(menuDefault);
     }
 }
 

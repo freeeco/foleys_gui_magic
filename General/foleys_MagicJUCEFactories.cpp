@@ -79,6 +79,7 @@ public:
     static const juce::Identifier  pStartAngle;
     static const juce::Identifier  pDisableScrollWheel;
     static const juce::Identifier  pPassMouseClicks;
+    static const juce::Identifier  pAltKeyHides;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -207,6 +208,14 @@ public:
         if (getProperty (pPassMouseClicks))
             slider.setInterceptsMouseClicks(false, false);
 
+        if (getProperty (pAltKeyHides)){
+            slider.setAltKeyHides (true);
+            altKeyHides = true;
+        } else {
+            slider.setAltKeyHides (false);
+            altKeyHides = false;
+        }
+
         double minValue = getProperty (pMinValue);
         double maxValue = getProperty (pMaxValue);
         double interval = getProperty (pInterval);
@@ -244,6 +253,7 @@ public:
         props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) });
         props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} });
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
+        props.push_back ({ configNode, pAltKeyHides, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} });
 
         return props;
@@ -263,6 +273,7 @@ private:
     AutoOrientationSlider slider;
     std::unique_ptr<juce::SliderParameterAttachment> attachment;
     juce::Value parameterValue;
+    bool altKeyHides = false;
 
     void timerCallback() final
     {
@@ -273,6 +284,17 @@ private:
         }
         else{
             slider.setVelocityBasedMode(false);
+        }
+
+        if (altKeyHides){
+            const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+            if (modifiers.isAltDown()){
+                if (slider.isVisible())
+                    slider.setVisible(false);
+            } else {
+                if (!slider.isVisible())
+                    slider.setVisible(true);
+            }
         }
     }
     
@@ -323,7 +345,8 @@ const juce::Identifier  SliderItem::pImageMode          { "image-mode" };
 const juce::StringArray SliderItem::pImageModes         { "rotary", "horizontal", "vertical" };
 const juce::Identifier  SliderItem::pStartAngle         { "start-angle" };
 const juce::Identifier  SliderItem::pDisableScrollWheel { "disable-scroll-wheel" };
-const juce::Identifier SliderItem::pPassMouseClicks     { "pass-mouse-clicks" };
+const juce::Identifier  SliderItem::pAltKeyHides        { "alt-key-hides" };
+const juce::Identifier  SliderItem::pPassMouseClicks    { "pass-mouse-clicks" };
 
 
 //==============================================================================
@@ -681,6 +704,9 @@ public:
     static const juce::Identifier  pScaled;
     static const juce::Identifier  pAlwaysPlot;
     static const juce::Identifier  pAlwaysPlotHz;
+    static const juce::Identifier  pFillUpwards;
+    static const juce::Identifier  pFillStyle;
+    static const juce::StringArray pFillStyleTypes;
 
     PlotItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -743,6 +769,14 @@ public:
             plot.setBufferedToImage (true);
         else
             plot.setBufferedToImage (false);
+        
+        auto fillStyle = getProperty (pFillStyle).toString();
+        if (fillStyle == "downwards")
+            plot.setFillStyle(MagicPlotSource::FillStyle::downwards);
+        if (fillStyle == "upwards")
+            plot.setFillStyle(MagicPlotSource::FillStyle::upwards);
+        if (fillStyle == "centre")
+            plot.setFillStyle(MagicPlotSource::FillStyle::centre);
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -757,6 +791,8 @@ public:
         props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
         props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pFillUpwards,   SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pFillStyle, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pFillStyleTypes) });
         
         return props;
     }
@@ -778,6 +814,9 @@ const juce::Identifier  PlotItem::pGradient              {"plot-gradient"};
 const juce::Identifier  PlotItem::pScaled                { "scaled" };
 const juce::Identifier  PlotItem::pAlwaysPlot            { "always-plot" };
 const juce::Identifier  PlotItem::pAlwaysPlotHz          { "always-plot-Hz" };
+const juce::Identifier  PlotItem::pFillUpwards           { "fill-upwards" };
+const juce::Identifier  PlotItem::pFillStyle              { "fill-type" };
+const juce::StringArray PlotItem::pFillStyleTypes         { "downwards", "upwards", "centre"};
 
 //==============================================================================
 
@@ -792,6 +831,8 @@ public:
     static const juce::Identifier  pOutputValueYInverted;
     static const juce::Identifier  pOutputValueZ;
     static const juce::Identifier  pOutputValueZInverted;
+    static const juce::Identifier  pTouchedValue;
+    static const juce::Identifier  pTouchedIndex;
     static const juce::Identifier  pCrosshair;
     static const juce::StringArray pCrosshairTypes;
     static const juce::Identifier  pRadius;
@@ -799,6 +840,8 @@ public:
     static const juce::Identifier  pContextParameter;
     static const juce::Identifier  pSenseFactor;
     static const juce::Identifier  pJumpToClick;
+    static const juce::Identifier  pDoubleClickResets;
+    static const juce::Identifier  pMenuItemHeight;
 
     XYDraggerItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node)
@@ -861,6 +904,10 @@ public:
         if (! radius.isVoid())
             dragger.setRadius (radius);
 
+        auto itemHeight = getProperty (pMenuItemHeight);
+        if (! itemHeight.isVoid())
+            dragger.setMenuItemHeight (itemHeight);
+
         auto factor = getProperty (pSenseFactor);
         if (! factor.isVoid())
             dragger.setSenseFactor (factor);
@@ -868,6 +915,10 @@ public:
         auto jumpToClick = getProperty (pJumpToClick);
         if (! jumpToClick.isVoid())
             dragger.setJumpToClick (jumpToClick);
+        
+        auto doubleClickResets = getProperty (pDoubleClickResets);
+        if (! doubleClickResets.isVoid())
+            dragger.setDoubleClickResets (doubleClickResets);
         
         // register the properties
         
@@ -900,6 +951,13 @@ public:
         dragger.referValueX (valueX);
         dragger.referValueY (valueY);
         dragger.referValueZ (valueZ);
+        
+        propertyID = getProperty (pTouchedValue).toString();
+        if (propertyID.isNotEmpty()){
+            dragger.setTouchedIndex(getProperty (pTouchedIndex));
+            valueTouched.referTo(getMagicState().getPropertyAsValue (propertyID));
+            dragger.referTouched(valueTouched);
+        }
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -915,12 +973,16 @@ public:
         props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
         props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pTouchedIndex, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
         props.push_back ({ configNode, pCrosshair, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pCrosshairTypes) });
         props.push_back ({ configNode, pRadius, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pSenseFactor, SettableProperty::Number, {}, {}});
         props.push_back ({ configNode, pJumpToClick, SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pDoubleClickResets, SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pMenuItemHeight, SettableProperty::Number, {}, {}});
 
         return props;
     }
@@ -935,6 +997,7 @@ private:
     juce::Value valueX;
     juce::Value valueY;
     juce::Value valueZ;
+    juce::Value valueTouched;
     
     void valueChanged (juce::Value& source) override
     {
@@ -993,6 +1056,10 @@ const juce::Identifier  XYDraggerItem::pWheelParameter  { "wheel-parameter" };
 const juce::Identifier  XYDraggerItem::pContextParameter { "right-click" };
 const juce::Identifier  XYDraggerItem::pSenseFactor     { "xy-sense-factor" };
 const juce::Identifier  XYDraggerItem::pJumpToClick     { "xy-jump-to-click" };
+const juce::Identifier  XYDraggerItem::pDoubleClickResets     { "double-click-resets" };
+const juce::Identifier  XYDraggerItem::pMenuItemHeight        { "menu-item-height" };
+const juce::Identifier  XYDraggerItem::pTouchedValue          { "touched-value" };
+const juce::Identifier  XYDraggerItem::pTouchedIndex          { "touched-index" };
 
 //==============================================================================
 
@@ -1219,6 +1286,9 @@ public:
             followsPlayedValue.referTo (getMagicState().getPropertyAsValue (valueID));
         else
             followsPlayedValue = 0;
+        
+        drumpad.setWantsKeyboardFocus(false);
+        drumpad.setMouseClickGrabsKeyboardFocus(false);
 
         startTimerHz(60);
     }

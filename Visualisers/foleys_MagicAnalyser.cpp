@@ -108,7 +108,7 @@ float MagicAnalyser::indexToX (int index, float minFreq) const
 
 float MagicAnalyser::binToY (float bin, juce::Rectangle<float> bounds) const
 {
-    const float infinity = -100.0f;
+    const float infinity = -160.0f;
     return juce::jmap (juce::Decibels::gainToDecibels (bin, infinity),
                        infinity, 0.0f, bounds.getBottom(), bounds.getY());
 }

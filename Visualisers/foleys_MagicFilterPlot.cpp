@@ -106,8 +106,20 @@ void MagicFilterPlot::createPlotPaths (juce::Path& path, juce::Path& filledPath,
                      float (magnitudes [i] > 0 ? bounds.getCentreY() - yFactor * std::log (magnitudes [i]) / std::log (2) : bounds.getBottom()));
 
     filledPath = path;
-    filledPath.lineTo (bounds.getBottomRight());
-    filledPath.lineTo (bounds.getBottomLeft());
+    
+    if (getFillStyle() == upwards){
+        filledPath.lineTo (bounds.getTopRight());
+        filledPath.lineTo (bounds.getTopLeft());
+    } else if (getFillStyle() == centre){
+        juce::Point centreLeft(bounds.getX(), bounds.getCentreY());
+        juce::Point centreRight(bounds.getRight(), bounds.getCentreY());
+        filledPath.lineTo (centreRight);
+        filledPath.lineTo (centreLeft);
+    } else {
+        filledPath.lineTo (bounds.getBottomRight());
+        filledPath.lineTo (bounds.getBottomLeft());
+    }
+    
     filledPath.closeSubPath();
 }
 

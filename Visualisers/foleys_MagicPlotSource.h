@@ -51,7 +51,13 @@ class MagicPlotComponent;
 class MagicPlotSource
 {
 public:
-
+    enum FillStyle
+    {
+        downwards,
+        upwards,
+        centre
+    };
+    
     MagicPlotSource()=default;
     virtual ~MagicPlotSource()=default;
 
@@ -97,10 +103,15 @@ public:
      and it will automatically be added to the common background thread.
      */
     virtual juce::TimeSliceClient* getBackgroundJob() { return nullptr; }
+    
+    FillStyle  getFillStyle() { return fillStyle; }
+    void  setFillStyle (FillStyle val) { fillStyle = val; }
+    
 
 private:
     std::atomic<juce::int64> lastData { 0 };
     bool active = true;
+    FillStyle fillStyle = downwards;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE (MagicPlotSource)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotSource)
