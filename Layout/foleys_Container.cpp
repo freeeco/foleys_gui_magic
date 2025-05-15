@@ -320,22 +320,24 @@ void Container::updateLayout()
         auto parameterName = magicBuilder.getStyleProperty (IDs::parameter, configNode).toString();
         auto* parameter = getMagicState().getParameter (parameterName);
         if (parameter){
-            {
-                attachment = std::make_unique<juce::ParameterAttachment>(
-                                                                         *parameter,
-                                                                         [&, parameter](float value)
-                                                                         {
-                                                                             int tabIndex = std::round(value);
-                                                                             int numTabs = tabbedButtons->getNumTabs();
-                                                                             if (tabIndex >= numTabs - 1)
-                                                                                 tabIndex = numTabs - 1;
-                                                                             if (tabIndex < 0)
-                                                                                 tabIndex = 0;
-                                                                             currentTab.setValue(tabIndex);
-                                                                             tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
-                                                                             updateSelectedTab();
-                                                                         });
-            }
+            attachment = std::make_unique<juce::ParameterAttachment>(
+                                                                     *parameter,
+                                                                     [&, parameter](float value)
+                                                                     {
+                                                                         int tabIndex = std::round(value);
+                                                                         int numTabs = tabbedButtons->getNumTabs();
+                                                                         if (tabIndex >= numTabs - 1)
+                                                                             tabIndex = numTabs - 1;
+                                                                         if (tabIndex < 0)
+                                                                             tabIndex = 0;
+                                                                         currentTab.setValue(tabIndex);
+                                                                         tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+                                                                         updateSelectedTab();
+                                                                     });
+            // Initalize current tab value from parameter
+            currentTab.setValue(parameter->getValue());
+            tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+            updateSelectedTab();
         }
     }
     

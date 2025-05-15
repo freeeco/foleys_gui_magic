@@ -292,7 +292,9 @@ void GuiItem::componentTransform()
     
     float scale = magicBuilder.getStyleProperty (IDs::scale, configNode);
     float widthScale = magicBuilder.getStyleProperty (IDs::widthScale, configNode);
+    juce::String originXString = magicBuilder.getStyleProperty (IDs::originX, configNode).toString();
     float heightScale = magicBuilder.getStyleProperty (IDs::heightScale, configNode);
+    juce::String originYString = magicBuilder.getStyleProperty (IDs::originY, configNode).toString();
     float horizontal = magicBuilder.getStyleProperty (IDs::horizontal, configNode);
     float vertical = magicBuilder.getStyleProperty (IDs::vertical, configNode);
     float rotate = magicBuilder.getStyleProperty (IDs::rotate, configNode);
@@ -334,9 +336,25 @@ void GuiItem::componentTransform()
         scale = juce::jmax (scale, 0.00001f);
         widthScale = juce::jmax (widthScale, 0.00001f);
         heightScale = juce::jmax (heightScale, 0.00001f);
-
-        transform = transform.rotated((juce::MathConstants<float>::pi * 2.0f) * (rotate), getBounds().getCentreX(), getBounds().getCentreY());
-        transform = transform.scaled (scale * widthScale, scale * heightScale, getBounds().getCentreX(), getBounds().getCentreY());
+        
+        int originX;
+        if (originXString == "left")
+            originX = getBounds().getX();
+        else if (originXString == "right")
+            originX = getBounds().getRight();
+        else
+            originX = getBounds().getCentreX();
+            
+        int originY;
+        if (originYString == "top")
+            originY = getBounds().getY();
+        else if (originYString == "bottom")
+            originY = getBounds().getBottom();
+        else
+            originY = getBounds().getCentreY();
+            
+        transform = transform.rotated((juce::MathConstants<float>::pi * 2.0f) * (rotate), originX, originY);
+        transform = transform.scaled (scale * widthScale, scale * heightScale, originX, originY);
         transform = transform.translated (horizontal * getWidth(), vertical * getHeight());
     }
     

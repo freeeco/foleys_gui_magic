@@ -362,6 +362,8 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::horizontalValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::verticalValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::rotateValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::originX, styleItem, { "left", "centre", "right" }));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::originY, styleItem, { "top", "centre", "bottom" }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue, styleItem, builder.createPropertiesMenuLambda()));
 
     properties.addSection ("Item", array, false);
