@@ -334,8 +334,14 @@ void GuiItem::componentTransform()
     
     if (scale != 1.0f || widthScale != 1.0f || heightScale != 1.0f || horizontal != 0.0f || vertical != 0.0f || rotate != 0.0f){
         scale = juce::jmax (scale, 0.00001f);
-        widthScale = juce::jmax (widthScale, 0.00001f);
-        heightScale = juce::jmax (heightScale, 0.00001f);
+        
+        // Check for small values
+        
+        if (heightScale > -0.00001f && heightScale < 0.00001f)
+            heightScale = 0.00001f;
+        
+        if (widthScale > -0.00001f && widthScale < 0.00001f)
+            widthScale = 0.00001f;
         
         int originX;
         if (originXString == "left")

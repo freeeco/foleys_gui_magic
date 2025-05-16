@@ -47,13 +47,17 @@ namespace foleys
  This is a 2D parameter dragging component.
  */
 class XYDragComponent  : public juce::Component,
-                         public juce::SettableTooltipClient
+                         public juce::SettableTooltipClient,
+                         private juce::Timer
 {
 public:
 
     enum ColourIds
     {
         xyDotColourId = 0x2002000,
+        xyDotRingColourId,
+        xyDotOuterRingColourId,
+        xyDotSelectedColourId,
         xyDotOverColourId,
         xyHorizontalColourId,
         xyHorizontalOverColourId,
@@ -101,6 +105,8 @@ private:
 
     int getXposition() const;
     int getYposition() const;
+    
+    void timerCallback() final;
 
     bool mouseOverDot = false;
     bool mouseOverX   = false;
@@ -122,6 +128,7 @@ private:
     float senseFactor = 2.0f;
     int menuItemHeight = 25;
     int touchedIndex = 0;
+    bool selected = false;
     
     juce::Value valueX;
     juce::Value valueY;

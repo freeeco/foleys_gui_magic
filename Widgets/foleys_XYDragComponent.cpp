@@ -44,6 +44,9 @@ XYDragComponent::XYDragComponent()
     setOpaque (false);
 
     setColour (xyDotColourId,            juce::Colours::orange.darker());
+    setColour (xyDotRingColourId,        juce::Colours::orange.darker());
+    setColour (xyDotOuterRingColourId,   juce::Colours::orange.darker());
+    setColour (xyDotSelectedColourId,    juce::Colours::orange.darker());
     setColour (xyDotOverColourId,        juce::Colours::orange);
     setColour (xyHorizontalColourId,     juce::Colours::orange.darker());
     setColour (xyHorizontalOverColourId, juce::Colours::orange);
@@ -53,6 +56,8 @@ XYDragComponent::XYDragComponent()
     xAttachment.onParameterChangedAsync = [&] { repaint(); };
     yAttachment.onParameterChangedAsync = [&] { repaint(); };
     zAttachment.onParameterChangedAsync = [&] { repaint(); };
+    
+    startTimerHz(20);
 }
 
 /**
@@ -92,9 +97,21 @@ void XYDragComponent::paint (juce::Graphics& g)
         if (y < getBottom() - gap)
             g.fillRect (x - 1.0f, y + gap, 2.0f, getBottom() - (y + gap));
     }
-
+    
+    juce::Rectangle circleRect(x - radius, y - radius, 2 * radius, 2 * radius);
+    
+    if (selected){
+        g.setColour (findColour (xyDotSelectedColourId));
+    } else {
+        g.setColour (findColour (xyDotOuterRingColourId));
+    }
+    g.fillEllipse (circleRect.expanded(1.2));
+    
+    g.setColour (findColour (mouseOverDot ? xyDotOverColourId : xyDotRingColourId));
+    g.fillEllipse (circleRect);
+    
     g.setColour (findColour (mouseOverDot ? xyDotOverColourId : xyDotColourId));
-    g.fillEllipse (x - radius, y - radius, 2 * radius, 2 * radius);
+    g.fillEllipse (circleRect.reduced(2));
 }
 
 void XYDragComponent::setParameterX (juce::RangedAudioParameter* parameter)
@@ -373,6 +390,15 @@ int XYDragComponent::getXposition() const
 int XYDragComponent::getYposition() const
 {
     return juce::roundToInt ((1.0f - yAttachment.getNormalisedValue()) * getHeight());
+}
+
+void XYDragComponent::timerCallback()
+{
+    if (valueTouched == touchedIndex)
+        selected = true;
+    else
+        selected = false;
+        
 }
 
 } // namespace foleys

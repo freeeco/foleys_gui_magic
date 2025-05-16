@@ -848,12 +848,15 @@ public:
     {
         setColourTranslation (
         {
-            { "xy-drag-handle",      XYDragComponent::xyDotColourId },
-            { "xy-drag-handle-over", XYDragComponent::xyDotOverColourId },
-            { "xy-horizontal",       XYDragComponent::xyHorizontalColourId },
-            { "xy-horizontal-over",  XYDragComponent::xyHorizontalOverColourId },
-            { "xy-vertical",         XYDragComponent::xyVerticalColourId },
-            { "xy-vertical-over",    XYDragComponent::xyVerticalOverColourId }
+            { "xy-drag-handle",                 XYDragComponent::xyDotColourId },
+            { "xy-drag-handle-ring",            XYDragComponent::xyDotRingColourId },
+            { "xy-drag-handle-outer-ring",      XYDragComponent::xyDotOuterRingColourId },
+            { "xy-drag-handle-selected",        XYDragComponent::xyDotSelectedColourId },
+            { "xy-drag-handle-over",            XYDragComponent::xyDotOverColourId },
+            { "xy-horizontal",                  XYDragComponent::xyHorizontalColourId },
+            { "xy-horizontal-over",             XYDragComponent::xyHorizontalOverColourId },
+            { "xy-vertical",                    XYDragComponent::xyVerticalColourId },
+            { "xy-vertical-over",               XYDragComponent::xyVerticalOverColourId }
         });
 
         addAndMakeVisible (dragger);
