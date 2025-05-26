@@ -35,13 +35,16 @@
  */
 
 #include "foleys_MagicAnalyser.h"
+#include <cmath> // Required for std::pow
 
 namespace foleys
 {
 
-
 MagicAnalyser::MagicAnalyser (int channelToAnalyse)
   : channel (channelToAnalyse)
+  , displayRangeMinDb (-90.0f)
+  , displayCurveFactor (0.6f)
+  , decayMilliseconds (2000)
 {
 }
 
@@ -52,7 +55,7 @@ void MagicAnalyser::pushSamples (const juce::AudioBuffer<float>& buffer)
 
 void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, juce::Rectangle<float> bounds, MagicPlotComponent&)
 {
-    const float minFreq = 20.0f;
+    const float minFreq = 20.0f; // This is the left-most frequency (already 20Hz)
     const auto& data = analyserJob.getAnalyserData();
 
     path.clear();
@@ -60,7 +63,10 @@ void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, j
 
     juce::ScopedLock lockedForReading (pathCreationLock);
     const auto* fftData = data.getReadPointer (0);
-    const auto  factor  = bounds.getWidth() / 10.0f;
+
+    const float logFreqRange = std::log2 (displayRangeMaxFreq / minFreq);
+
+    const auto  factor  = bounds.getWidth() / logFreqRange;
 
     path.startNewSubPath (bounds.getX() + factor * indexToX (0, minFreq), binToY (fftData [0], bounds));
     for (int i = 1, step = 1, count = 0; i < data.getNumSamples(); i += step, ++count)
@@ -108,9 +114,18 @@ float MagicAnalyser::indexToX (int index, float minFreq) const
 
 float MagicAnalyser::binToY (float bin, juce::Rectangle<float> bounds) const
 {
-    const float infinity = -160.0f;
-    return juce::jmap (juce::Decibels::gainToDecibels (bin, infinity),
-                       infinity, 0.0f, bounds.getBottom(), bounds.getY());
+    const float minDb = displayRangeMinDb; // e.g., -90.0f
+    const float maxDb = 0.0f; // Assuming 0dB is the top of the scale
+
+    float dbValue = juce::Decibels::gainToDecibels (bin, minDb);
+
+    dbValue = juce::jlimit (minDb, maxDb, dbValue);
+
+    float normalizedDb = juce::jmap (dbValue, minDb, maxDb, 0.0f, 1.0f);
+
+    float curvedNormalizedDb = std::pow (normalizedDb, displayCurveFactor);
+
+    return juce::jmap (curvedNormalizedDb, 0.0f, 1.0f, bounds.getBottom(), bounds.getY());
 }
 
 
@@ -128,6 +143,19 @@ void MagicAnalyser::AnalyserJob::setupAnalyser (int audioFifoSize)
 
     audioFifo.clear();
     values.clear();
+
+    const float minDb = owner.displayRangeMinDb; // Get minDb from owner
+    const float updatesPerSecond = owner.sampleRate / fft.getSize();
+    const float numUpdatesForDecay = owner.decayMilliseconds / 1000.0f * updatesPerSecond;
+
+    if (numUpdatesForDecay > 0)
+    {
+        peakDecayFactor = std::pow (10.0f, (minDb / 20.0f) / numUpdatesForDecay);
+    }
+    else
+    {
+        peakDecayFactor = 0.895318f;
+    }
 }
 
 void MagicAnalyser::AnalyserJob::pushSamples (const juce::AudioBuffer<float>& buffer, int inChannel)
@@ -155,7 +183,7 @@ void MagicAnalyser::AnalyserJob::pushSamples (const juce::AudioBuffer<float>& bu
     {
         const auto b = abstractFifo.write (buffer.getNumSamples());
         if (b.blockSize1 > 0) audioFifo.copyFrom (0, b.startIndex1, buffer.getReadPointer (inChannel), b.blockSize1);
-        if (b.blockSize2 > 0) audioFifo.copyFrom (0, b.startIndex2, buffer.getReadPointer (inChannel, b.blockSize1), b.blockSize2);
+        if (b.blockSize2 > 0) audioFifo.copyFrom (0, b.blockSize1, audioFifo.getReadPointer (inChannel, b.blockSize1), b.blockSize2);
     }
 }
 
@@ -181,17 +209,15 @@ int MagicAnalyser::AnalyserJob::useTimeSlice()
         juce::ScopedLock lockedForWriting (owner.pathCreationLock);
 
         const auto  factor = 1.0f / fft.getSize();
-        const auto  decay  = 0.8f;   // FIXME: calculate by fft size and sampleRate
+        const auto  decay  = peakDecayFactor; // Now calculated dynamically!
         const auto* read   = fftBuffer.getReadPointer (0);
-        auto*       write  = values.getWritePointer (0);
+        auto* write  = values.getWritePointer (0);
 
         for (int i=0; i < values.getNumSamples(); ++i, ++read, ++write)
         {
             auto v = *read * factor;
             if (v >= *write)
                 *write = v;
-            else if (v < 1.12202e-05f)
-                *write = 0.0f;
             else
                 *write = *write * decay;
         }

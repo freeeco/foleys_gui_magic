@@ -85,10 +85,29 @@ public:
      */
     juce::TimeSliceClient* getBackgroundJob() override;
 
+    void setDisplayRangeMinDb (float newMinDb) { displayRangeMinDb = newMinDb; }
+
+    void setDisplayCurveFactor (float newFactor) { displayCurveFactor = newFactor; }
+    
+    void setDisplayRangeMaxFreq (float newMaxFreq) { displayRangeMaxFreq = newMaxFreq; }
+
+    void setDecayMilliseconds (float newDecayMs)
+    {
+        decayMilliseconds = newDecayMs;
+        analyserJob.setupAnalyser (static_cast<int>(sampleRate));
+    }
+
 private:
 
     float indexToX (int index, float minFreq) const;
     float binToY (float bin, juce::Rectangle<float> bounds) const;
+    int   channel = -1; // Moved declaration here
+
+    float displayRangeMinDb = -90.0f;    // Minimum dB value displayed on the analyser
+    float displayCurveFactor = 0.6f;   // Factor for non-linear scaling of the display
+    float decayMilliseconds = 2000.0f; // Default decay time in milliseconds
+    float displayRangeMaxFreq = 20000.0f; // New: Default maximum frequency displayed (20kHz)
+
 
     class AnalyserJob : public juce::TimeSliceClient
     {
@@ -98,11 +117,11 @@ private:
 
         void pushSamples (const juce::AudioBuffer<float>& buffer, int channel);
 
-        void setupAnalyser (int audioFifoSize);
+        void setupAnalyser (int audioFifoSize); // Made public so MagicAnalyser can call it
 
         const juce::AudioBuffer<float> getAnalyserData() const;
 
-        juce::dsp::FFT fft                            { 12 };
+        juce::dsp::FFT fft                            { 10 }; // Changed FFT size to 1024 (2^10)
 
     private:
         MagicAnalyser& owner;
@@ -115,15 +134,17 @@ private:
 
         juce::AudioBuffer<float> values               { 1, fft.getSize() / 2 };
 
+        float peakDecayFactor = 0.895318f;
+
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalyserJob)
     };
 
     double            sampleRate {};
 
-    int               channel = -1;
-
     juce::CriticalSection pathCreationLock;
     AnalyserJob analyserJob { *this };
+
+    juce::WaitableEvent lastDataReady;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicAnalyser)
 };
