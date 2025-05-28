@@ -91,6 +91,31 @@ private:
     bool horizontalFlip = false;
     bool verticalFlip = false;
     int refreshRateHz = 60;
+    
+    // Scale parameters
+    // Experiment with these values to get the desired look and feel.
+    float METER_SCALE_MIN_DB = -90.0f; // dB value for position 0.0 on the non-linear scale
+    float METER_SCALE_MAX_DB = 0.0f;   // dB value for position 1.0 (typically 0 dBFS)
+    float METER_SCALE_GAMMA  = 2.5f;   // Non-linearity factor (e.g., 1.5 to 2.5)
+
+    // This is the value gainToDecibels will return for silence or negative gain.
+    // It should be lower than or equal to METER_SCALE_MIN_DB for consistent mapping.
+    float DB_FLOOR = -120.0f;
+    
+    
+    float db_to_position(float db_value, float meter_min_db, float meter_max_db, float gamma) {
+        if (meter_max_db <= meter_min_db) {
+            return (db_value <= meter_max_db) ? 0.0f : 1.0f;
+        }
+        if (gamma <= 0.0f) {
+            gamma = 1.0f; // Default to linear if gamma is invalid
+        }
+        float clamped_db = std::clamp(db_value, meter_min_db, meter_max_db);
+        float normalized_db = (clamped_db - meter_min_db) / (meter_max_db - meter_min_db);
+        // Use std::pow for C++
+        float position = std::pow(normalized_db, gamma);
+        return position;
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicLevelMeter)
 };

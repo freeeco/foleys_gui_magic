@@ -53,20 +53,22 @@ MagicLevelMeter::MagicLevelMeter()
     startTimerHz (refreshRateHz);
 }
 
+
+
 void MagicLevelMeter::paint (juce::Graphics& g)
 {
-    
+
     this->setTransform (juce::AffineTransform()); // clear transformation
     
     if (horizontalFlip){
-        auto t1 = juce::AffineTransform::rotation (juce::MathConstants< float >::pi, getWidth()/2, getHeight()/2);
-        auto t2 = juce::AffineTransform::verticalFlip (getHeight());
+        auto t1 = juce::AffineTransform::rotation (juce::MathConstants< float >::pi, getWidth()/2.0f, getHeight()/2.0f);
+        auto t2 = juce::AffineTransform::verticalFlip (static_cast<float>(getHeight()));
         auto t3 = t1.followedBy(t2);
         this->setTransform (t3);
     }
     
     if (verticalFlip){
-        auto transform = juce::AffineTransform::verticalFlip (getHeight());
+        auto transform = juce::AffineTransform::verticalFlip (static_cast<float>(getHeight()));
         this->setTransform (transform);
     }
     
@@ -93,47 +95,77 @@ void MagicLevelMeter::paint (juce::Graphics& g)
     const auto barFillColour = findColour (barFillColourId);
     const auto outlineColour = findColour (outlineColourId);
     const auto tickmarkColour = findColour (tickmarkColourId);
-    if (aspect < 1.0f)
+
+    if (aspect < 1.0f) // Vertical Meter
     {
         auto width = bounds.getWidth() / numChannels;
-        const auto infinity = -100.0f;
         for (int i=0; i < numChannels; ++i)
         {
-            auto bar = bounds.removeFromLeft (width).reduced (1);
+            auto bar = bounds.removeFromLeft (width).reduced (1.0f); // Use 1.0f for clarity
             g.setColour (barBackgroundColour);
             g.fillRoundedRectangle (bar, bar.getWidth() * 0.5f * barCorner);
             g.setColour (outlineColour);
             g.drawRoundedRectangle (bar, bar.getWidth() * 0.5f * barCorner, 0.8f);
-            bar.reduce (0.8f, 0.8f);
-            g.setColour (barFillColour);
-            g.fillRoundedRectangle (bar.withTop (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getBottom(), bar.getY())),bar.getWidth() * 0.5f * barCorner);
             
-            // draw peak-hold line
-            g.setColour (tickmarkColour);
-            if ((juce::Decibels::gainToDecibels (source->getMaxValue (i)))> -80.0f){
-                g.fillRoundedRectangle (juce::Rectangle(static_cast<float>(bar.getX ()), juce::jmap (juce::Decibels::gainToDecibels (source->getMaxValue (i), infinity),infinity, 0.0f, bar.getBottom (), bar.getY ()), static_cast<float>(bar.getWidth ()),(static_cast<float>((bounds.getHeight() / 100.0f))))*peakLineThickness, 0.0f);
+            auto fillBar = bar.reduced (0.8f, 0.8f); // Use a different variable for the fill area
+
+            // RMS Bar
+            float rms_db_val = juce::Decibels::gainToDecibels(source->getRMSvalue(i), DB_FLOOR);
+            float normalized_rms_pos = db_to_position(rms_db_val, METER_SCALE_MIN_DB, METER_SCALE_MAX_DB, METER_SCALE_GAMMA);
+            float top_y_rms = juce::jmap(normalized_rms_pos, 0.0f, 1.0f, fillBar.getBottom(), fillBar.getY());
+            
+            g.setColour (barFillColour);
+            g.fillRoundedRectangle (fillBar.withTop(top_y_rms), fillBar.getWidth() * 0.5f * barCorner);
+            
+            // Peak-hold line
+            float peak_db_val = juce::Decibels::gainToDecibels(source->getMaxValue(i), DB_FLOOR);
+            if (peak_db_val > -80.0f) // Keep original threshold for drawing peak line at all
+            {
+                float normalized_peak_pos = db_to_position(peak_db_val, METER_SCALE_MIN_DB, METER_SCALE_MAX_DB, METER_SCALE_GAMMA);
+                float top_y_peak = juce::jmap(normalized_peak_pos, 0.0f, 1.0f, fillBar.getBottom(), fillBar.getY());
+                
+                float peak_line_actual_height = (bounds.getHeight() / 100.0f) * peakLineThickness;
+                if (normalized_peak_pos > 0.0f && peak_line_actual_height < 1.0f) peak_line_actual_height = 1.0f; // Ensure visibility
+
+                g.setColour (tickmarkColour);
+                g.fillRoundedRectangle (juce::Rectangle<float>(fillBar.getX(), top_y_peak, fillBar.getWidth(), peak_line_actual_height), 0.0f);
             }
         }
     }
-    else
+    else // Horizontal Meter
     {
         auto height = bounds.getHeight() / numChannels;
-        const auto infinity = -100.0f;
         for (int i=0; i < numChannels; ++i)
         {
-            auto bar = bounds.removeFromTop (height).reduced (1);
+            auto bar = bounds.removeFromTop (height).reduced (1.0f);
             g.setColour (barBackgroundColour);
             g.fillRoundedRectangle (bar, bar.getHeight() * 0.5f * barCorner);
             g.setColour (outlineColour);
             g.drawRoundedRectangle (bar, bar.getHeight() * 0.5f * barCorner, 0.8f);
-            bar.reduce (0.8f, 0.8f);
-            g.setColour (barFillColour);
-            g.fillRoundedRectangle (bar.withWidth (juce::jmap (juce::Decibels::gainToDecibels (source->getRMSvalue (i), infinity), infinity, 0.0f, bar.getX (), bar.getRight ())), bar.getHeight() * 0.5f * barCorner);
+
+            auto fillBar = bar.reduced (0.8f, 0.8f);
+
+            // RMS Bar
+            float rms_db_val_h = juce::Decibels::gainToDecibels(source->getRMSvalue(i), DB_FLOOR);
+            float normalized_rms_pos_h = db_to_position(rms_db_val_h, METER_SCALE_MIN_DB, METER_SCALE_MAX_DB, METER_SCALE_GAMMA);
+            // Map normalized position (0-1) to the bar's right X-coordinate
+            float right_x_rms = juce::jmap(normalized_rms_pos_h, 0.0f, 1.0f, fillBar.getX(), fillBar.getRight());
             
-            // draw peak-hold line
-            g.setColour (tickmarkColour);
-            if ((juce::Decibels::gainToDecibels (source->getMaxValue (i)))> -80.0f){
-                g.fillRoundedRectangle (juce::Rectangle(juce::jmap (juce::Decibels::gainToDecibels (source->getMaxValue (i), infinity),infinity, 0.0f, bar.getX (), bar.getRight ()), static_cast<float>(bar.getY ()), (static_cast<float>((bounds.getWidth()/100.0f)))*peakLineThickness, static_cast<float>(bar.getHeight ())),0.0f);
+            g.setColour (barFillColour);
+            g.fillRoundedRectangle (fillBar.withRight(right_x_rms), fillBar.getHeight() * 0.5f * barCorner);
+            
+            // Peak-hold line
+            float peak_db_val_h = juce::Decibels::gainToDecibels(source->getMaxValue(i), DB_FLOOR);
+            if (peak_db_val_h > -80.0f)
+            {
+                float normalized_peak_pos_h = db_to_position(peak_db_val_h, METER_SCALE_MIN_DB, METER_SCALE_MAX_DB, METER_SCALE_GAMMA);
+                float peak_x_pos = juce::jmap(normalized_peak_pos_h, 0.0f, 1.0f, fillBar.getX(), fillBar.getRight());
+
+                float peak_line_actual_width = (bounds.getWidth() / 100.0f) * peakLineThickness;
+                if (normalized_peak_pos_h > 0.0f && peak_line_actual_width < 1.0f) peak_line_actual_width = 1.0f;
+
+                g.setColour (tickmarkColour);
+                g.fillRoundedRectangle (juce::Rectangle<float>(peak_x_pos, fillBar.getY(), peak_line_actual_width, fillBar.getHeight()), 0.0f);
             }
         }
     }
