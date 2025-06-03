@@ -121,7 +121,7 @@ private:
 
         const juce::AudioBuffer<float> getAnalyserData() const;
 
-        juce::dsp::FFT fft                            { 10 }; // Changed FFT size to 1024 (2^10)
+        juce::dsp::FFT fft                            { 9 }; // 10 =  FFT size of 1024 (2^10)
 
     private:
         MagicAnalyser& owner;
