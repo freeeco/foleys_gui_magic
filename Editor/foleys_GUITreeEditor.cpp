@@ -69,9 +69,11 @@ void GUITreeEditor::resized()
 
 void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
 {
+    auto scrollPosition = treeView.getViewport()->getViewPositionY();
+    
     auto restorer = treeView.getRootItem() != nullptr ? treeView.getOpennessState (true)
                                                       : std::unique_ptr<juce::XmlElement>();
-
+    
     tree = refTree;
     tree.addListener (this);
 
@@ -84,6 +86,10 @@ void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
 
     if (restorer.get() != nullptr)
         treeView.restoreOpennessState (*restorer, true);
+    
+    juce::MessageManager::callAsync ([=, this]() {
+        treeView.getViewport()->setViewPosition(0, scrollPosition);
+    });
 }
 
 void GUITreeEditor::updateTree()

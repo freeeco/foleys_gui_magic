@@ -335,7 +335,8 @@ void Container::updateLayout()
                                                                          updateSelectedTab();
                                                                      });
             // Initalize current tab value from parameter
-            currentTab.setValue(parameter->getValue());
+            int roundedParameterValue = std::round(parameter->convertFrom0to1(parameter->getValue()));
+            currentTab.setValue(roundedParameterValue);
             tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
             updateSelectedTab();
         }
