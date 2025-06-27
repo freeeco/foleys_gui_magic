@@ -238,6 +238,9 @@ public:
 
     ToolBox& getMagicToolBox();
 #endif
+    
+    RootItem* getRootItem() const{ return root.get(); }
+    
 
 private:
 
