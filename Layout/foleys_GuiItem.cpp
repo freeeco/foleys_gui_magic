@@ -136,6 +136,12 @@ void GuiItem::updateColours()
         if (colour.isNotEmpty())
             component->setColour (pair.second, magicBuilder.getStylesheet().getColour (colour));
     }
+    
+    auto shadCol = magicBuilder.getStyleProperty (IDs::shadowColour, configNode);
+    if (! shadCol.isVoid())
+        shadowColour = magicBuilder.getStylesheet().getColour (shadCol.toString());
+    else
+        shadowColour = juce::Colours::black;
 }
 
 void GuiItem::configureComponent()
@@ -149,8 +155,11 @@ void GuiItem::configureComponent()
     if (auto* tooltipClient = dynamic_cast<juce::SettableTooltipClient*>(component))
     {
         auto tooltip = magicBuilder.getStyleProperty (IDs::tooltip, configNode).toString();
-        if (tooltip.isNotEmpty())
-            tooltipClient->setTooltip (tooltip);
+        
+        auto tooltipFormatted = tooltip.replace("\\n", "\n"); // Use "\n" for new lines in tooltips fields
+        
+        if (tooltipFormatted.isNotEmpty())
+            tooltipClient->setTooltip (tooltipFormatted);
     }
 
     component->setAccessible (magicBuilder.getStyleProperty (IDs::accessibility, configNode));
@@ -301,6 +310,32 @@ void GuiItem::componentTransform()
     float opacity = magicBuilder.getStyleProperty (IDs::opacity, configNode);
     bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
     
+    float componentHeight = (float)getHeight();
+
+    juce::String glowRadiusString = magicBuilder.getStyleProperty (IDs::glowRadius, configNode);
+    if (glowRadiusString.endsWith ("%")) {
+        glowRadius = componentHeight * glowRadiusString.getFloatValue() * 0.01f;
+    } else {
+        glowRadius = glowRadiusString.getFloatValue();
+    }
+
+    juce::String glowDistanceString = magicBuilder.getStyleProperty (IDs::glowDistance, configNode);
+    if (glowDistanceString.endsWith ("%")) {
+        glowDistance = componentHeight * glowDistanceString.getFloatValue() * 0.01f;
+    } else {
+        glowDistance = glowDistanceString.getFloatValue();
+    }
+
+    glowAngle = magicBuilder.getStyleProperty (IDs::glowAngle, configNode);
+    auto glowOpacityString = magicBuilder.getStyleProperty (IDs::glowOpacity, configNode).toString();
+    if (glowOpacityString.isNotEmpty())
+        glowOpacity = magicBuilder.getStyleProperty (IDs::glowOpacity, configNode);
+    else
+        glowOpacity = 1.0f;
+        
+    shadowEnable = magicBuilder.getStyleProperty (IDs::shadowEnable, configNode);
+    continuousRedraw = magicBuilder.getStyleProperty (IDs::continuousRedraw, configNode);
+    
     if (scale == 0.0f)
         scale = 1.0f;
     
@@ -417,8 +452,65 @@ void GuiItem::referValues()
 
 void GuiItem::paint (juce::Graphics& g)
 {
+    auto* component = getWrappedComponent();
+
+    blur.setRadius (glowRadius);
+
+    if (component != nullptr && glowRadius > 0.0f)
+    {
+        // 1) Snapshot the component as before
+        juce::Image componentSnapshot =
+            component->createComponentSnapshot (component->getLocalBounds());
+
+        const int radius     = (int) std::ceil (glowRadius);
+        const int extraSpace = radius + (int) std::ceil (std::abs (glowDistance));
+
+        const int srcW = componentSnapshot.getWidth();
+        const int srcH = componentSnapshot.getHeight();
+
+        // 2) Make a larger image to allow the glow to expand
+        const int dstW = srcW + extraSpace * 2;
+        const int dstH = srcH + extraSpace * 2;
+
+        juce::Image imageToBlur (juce::Image::ARGB, dstW, dstH, true);
+
+        {
+            juce::Graphics ig (imageToBlur);
+
+            if (shadowEnable)
+                ig.setColour (shadowColour);
+            else
+                ig.setColour (juce::Colours::white); // or leave colours from snapshot
+
+            // 3) Draw the snapshot into the centre of the bigger image
+            ig.drawImageAt (componentSnapshot, extraSpace, extraSpace, true);
+        }
+
+        const float clockwiseAngle = glowAngle + 0.75f;
+        const float angleInRadians = clockwiseAngle * juce::MathConstants<float>::twoPi;
+        const int offsetX = (int) (glowDistance * std::cos (angleInRadians));
+        const int offsetY = (int) (glowDistance * std::sin (angleInRadians));
+
+        // 4) Blur the big image
+        juce::Image blurredGlow = blur.render (imageToBlur);
+
+        // 5) Compute where the *component* lives in GuiItem coords
+        auto client = getClientBounds();   // where the wrapped component actually sits
+        const int baseX = client.getX() - extraSpace;
+        const int baseY = client.getY() - extraSpace;
+
+        g.setOpacity (glowOpacity);
+        g.drawImageAt (blurredGlow,
+                       baseX + offsetX,
+                       baseY + offsetY);
+        g.setOpacity (1.0f);
+        if (continuousRedraw)
+            repaint();
+    }
+
     decorator.drawDecorator (g, getLocalBounds());
 }
+
 
 juce::Rectangle<int> GuiItem::getClientBounds() const
 {

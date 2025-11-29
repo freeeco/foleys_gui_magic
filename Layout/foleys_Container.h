@@ -162,7 +162,8 @@ private:
     void updateSelectedTab();
 
     juce::Value   currentTab { juce::var {0} };
-    int           tabbarHeight  = 30;
+//    int           tabbarHeight  = 30;
+    int           tabbarHeight  = 0;
     int           refreshRateHz = 30;
     LayoutType    layout = LayoutType::FlexBox;
     juce::FlexBox flexBox;

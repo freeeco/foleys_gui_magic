@@ -92,6 +92,7 @@ namespace IDs
     static juce::Identifier active       { "active" };
 
     static juce::Identifier backgroundColour  { "background-color" };
+    static juce::Identifier glowColour   { "glow-color" };
     static juce::Identifier borderColour      { "border-color" };
     static juce::Identifier tabCaption   { "tab-caption" };
     static juce::Identifier tabColour    { "tab-color" };
@@ -204,6 +205,14 @@ namespace IDs
     static juce::Identifier width       { "width" };
     static juce::Identifier height      { "height" };
     static juce::Identifier aspect      { "aspect" };
+
+    static juce::Identifier glowRadius     { "glow-radius" };
+    static juce::Identifier glowDistance   { "glow-distance" };
+    static juce::Identifier glowAngle      { "glow-angle" };
+    static juce::Identifier glowOpacity    { "glow-opacity" };
+    static juce::Identifier shadowEnable   { "shadow-enable" };
+    static juce::Identifier shadowColour   { "shadow-colour" };
+    static juce::Identifier continuousRedraw   { "continuous-redraw" };
 
     static juce::Identifier posX        { "pos-x" };
     static juce::Identifier posY        { "pos-y" };

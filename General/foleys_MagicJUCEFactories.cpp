@@ -80,6 +80,8 @@ public:
     static const juce::Identifier  pDisableScrollWheel;
     static const juce::Identifier  pPassMouseClicks;
     static const juce::Identifier  pAltKeyHides;
+    static const juce::Identifier  pOverValue;
+    static const juce::Identifier  pDownValue;
 
     SliderItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
@@ -229,6 +231,20 @@ public:
             slider.setMinValue (minValue);
             slider.setMaxValue (maxValue);   
         }
+        
+        juce::String overValuePropertyID = getProperty (pOverValue).toString();
+        if (overValuePropertyID.isNotEmpty()) {
+            getMagicState().getPropertyAsValue (overValuePropertyID);
+        }
+        
+        juce::String downValuePropertyID = getProperty (pDownValue).toString();
+        if (downValuePropertyID.isNotEmpty()){
+            getMagicState().getPropertyAsValue (downValuePropertyID);
+        }
+        
+        if (overValuePropertyID.isNotEmpty() || downValuePropertyID.isNotEmpty()){
+            slider.addMouseListener (this, true);
+        }
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
@@ -255,6 +271,8 @@ public:
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pAltKeyHides, SettableProperty::Toggle, {}, {} });
         props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} });
+        props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
 
         return props;
     }
@@ -322,6 +340,49 @@ private:
         
         handleValueChanged (source);
     }
+    
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        juce::String propertyID = getProperty (pDownValue).toString();
+        if (propertyID.isNotEmpty()){
+            getMagicState().getPropertyAsValue (propertyID).setValue (1.0f);
+        }
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+        foleys::GuiItem::mouseDown (e);
+#endif
+        return;
+    }
+      
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        juce::String propertyID = getProperty (pDownValue).toString();
+        if (propertyID.isNotEmpty()){
+            getMagicState().getPropertyAsValue (propertyID).setValue (0.0f);
+        }
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+        foleys::GuiItem::mouseUp (e);
+#endif
+        return;
+    }
+          
+    void mouseEnter (const juce::MouseEvent& e) override
+    {
+        juce::String propertyID = getProperty (pOverValue).toString();
+        if (propertyID.isNotEmpty()){
+            getMagicState().getPropertyAsValue (propertyID).setValue (1.0f);
+        }
+        return;
+    }
+              
+    void mouseExit (const juce::MouseEvent& e) override
+    {
+        juce::String propertyID = getProperty (pOverValue).toString();
+        if (propertyID.isNotEmpty()){
+            getMagicState().getPropertyAsValue (propertyID).setValue (0.0f);
+        }
+        return;
+    }
+    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SliderItem)
 };
@@ -347,6 +408,8 @@ const juce::Identifier  SliderItem::pStartAngle         { "start-angle" };
 const juce::Identifier  SliderItem::pDisableScrollWheel { "disable-scroll-wheel" };
 const juce::Identifier  SliderItem::pAltKeyHides        { "alt-key-hides" };
 const juce::Identifier  SliderItem::pPassMouseClicks    { "pass-mouse-clicks" };
+const juce::Identifier  SliderItem::pOverValue          { "over-value" };
+const juce::Identifier  SliderItem::pDownValue          { "down-value" };
 
 
 //==============================================================================

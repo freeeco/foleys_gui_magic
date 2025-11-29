@@ -41,6 +41,8 @@
 #include "foleys_Decorator.h"
 #include "../General/foleys_SettableProperties.h"
 
+#include <melatonin_blur/melatonin_blur.h>
+
 namespace foleys
 {
 
@@ -252,6 +254,13 @@ private:
     float diffY;
     float diffWidth;
     float diffHeight;
+    float glowRadius = 0.0f;
+    float glowDistance = 0.0f;
+    float glowAngle = 0.0f;
+    float glowOpacity = 1.0f;
+    juce::Colour shadowColour = juce::Colours::black;
+    bool shadowEnable = false;
+    bool continuousRedraw = false;
     
     juce::Value     visibility { true };
     juce::Value     scaleValue { 1.0f };
@@ -293,6 +302,8 @@ private:
 
     void configurePosition (const juce::var& v, Position& p, double d);
     void savePosition ();
+    
+    melatonin::CachedBlur blur { 8 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuiItem)
 };

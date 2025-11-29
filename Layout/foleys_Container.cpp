@@ -78,8 +78,17 @@ void Container::update()
     else
         setLayoutMode (LayoutType::FlexBox);
 
-    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
-    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
+//    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
+//    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
+    
+    // Set tab bar height to 0 by default
+//    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
+//    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 0;
+    
+    //  Set tab bar height to 0 by default always bypassing style property
+    tabbarHeight = configNode.hasProperty (IDs::tabHeight)
+                 ? configNode.getProperty (IDs::tabHeight).toString().getIntValue()
+                 : 0;
 
     const auto tabProperty = magicBuilder.getStyleProperty (IDs::selectedTab, configNode).toString();
     if (tabProperty.isNotEmpty()){
@@ -372,7 +381,7 @@ void Container::updateContinuousRedraw()
 void Container::updateTabbedButtons()
 {
     tabbedButtons = std::make_unique<juce::TabbedButtonBar>(juce::TabbedButtonBar::TabsAtTop);
-    containerBox.addAndMakeVisible (*tabbedButtons);
+    containerBox.addChildComponent (*tabbedButtons);
 
     for (auto& child : children)
     {
@@ -383,6 +392,7 @@ void Container::updateTabbedButtons()
     tabbedButtons->addChangeListener (this);
     tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
     updateSelectedTab();
+    tabbedButtons->setVisible (tabbarHeight > 0);
 }
 
 void Container::configureFlexBox (const juce::ValueTree& node)

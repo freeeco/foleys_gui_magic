@@ -355,7 +355,13 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::horizontal, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::vertical, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::rotate, styleItem));
-    array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowRadius, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowDistance, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowAngle, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowOpacity, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::shadowEnable, styleItem));
+    array.add (new StyleColourPropertyComponent (builder, IDs::shadowColour, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::continuousRedraw, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::scaleValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::widthScaleValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::heightScaleValue, styleItem, builder.createPropertiesMenuLambda()));
