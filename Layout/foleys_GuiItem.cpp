@@ -452,50 +452,67 @@ void GuiItem::referValues()
 
 void GuiItem::paint (juce::Graphics& g)
 {
+    decorator.drawDecorator (g, getLocalBounds());
+    
     auto* component = getWrappedComponent();
 
     blur.setRadius (glowRadius);
 
     if (component != nullptr && glowRadius > 0.0f)
     {
-        // 1) Snapshot the component as before
         juce::Image componentSnapshot =
             component->createComponentSnapshot (component->getLocalBounds());
+
+        juce::Image imageToBlur;
+
+        if (shadowEnable)
+        {
+            juce::Image maskImage (juce::Image::ARGB,
+                                   componentSnapshot.getWidth(),
+                                   componentSnapshot.getHeight(),
+                                   true);
+
+            {
+                juce::Rectangle<int> sourceBounds = componentSnapshot.getBounds();
+                juce::Graphics maskG (maskImage);
+
+                maskG.setColour (shadowColour);
+
+                maskG.drawImage (componentSnapshot,
+                                 sourceBounds.getX(), sourceBounds.getY(), sourceBounds.getWidth(), sourceBounds.getHeight(),
+                                 sourceBounds.getX(), sourceBounds.getY(), sourceBounds.getWidth(), sourceBounds.getHeight(),
+                                 true);
+            }
+
+            imageToBlur = maskImage;
+        }
+        else
+        {
+            imageToBlur = componentSnapshot;
+        }
 
         const int radius     = (int) std::ceil (glowRadius);
         const int extraSpace = radius + (int) std::ceil (std::abs (glowDistance));
 
-        const int srcW = componentSnapshot.getWidth();
-        const int srcH = componentSnapshot.getHeight();
+        const int srcW = imageToBlur.getWidth();
+        const int srcH = imageToBlur.getHeight();
 
-        // 2) Make a larger image to allow the glow to expand
         const int dstW = srcW + extraSpace * 2;
         const int dstH = srcH + extraSpace * 2;
 
-        juce::Image imageToBlur (juce::Image::ARGB, dstW, dstH, true);
+        juce::Image paddedImage (juce::Image::ARGB, dstW, dstH, true);
 
-        {
-            juce::Graphics ig (imageToBlur);
-
-            if (shadowEnable)
-                ig.setColour (shadowColour);
-            else
-                ig.setColour (juce::Colours::white); // or leave colours from snapshot
-
-            // 3) Draw the snapshot into the centre of the bigger image
-            ig.drawImageAt (componentSnapshot, extraSpace, extraSpace, true);
-        }
+        juce::Graphics pg (paddedImage);
+        pg.drawImageAt (imageToBlur, extraSpace, extraSpace, false);
 
         const float clockwiseAngle = glowAngle + 0.75f;
         const float angleInRadians = clockwiseAngle * juce::MathConstants<float>::twoPi;
         const int offsetX = (int) (glowDistance * std::cos (angleInRadians));
         const int offsetY = (int) (glowDistance * std::sin (angleInRadians));
 
-        // 4) Blur the big image
-        juce::Image blurredGlow = blur.render (imageToBlur);
+        juce::Image blurredGlow = blur.render (paddedImage);
 
-        // 5) Compute where the *component* lives in GuiItem coords
-        auto client = getClientBounds();   // where the wrapped component actually sits
+        auto client = getClientBounds();
         const int baseX = client.getX() - extraSpace;
         const int baseY = client.getY() - extraSpace;
 
@@ -504,13 +521,11 @@ void GuiItem::paint (juce::Graphics& g)
                        baseX + offsetX,
                        baseY + offsetY);
         g.setOpacity (1.0f);
+
         if (continuousRedraw)
             repaint();
     }
-
-    decorator.drawDecorator (g, getLocalBounds());
 }
-
 
 juce::Rectangle<int> GuiItem::getClientBounds() const
 {
