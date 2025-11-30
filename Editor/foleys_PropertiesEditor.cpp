@@ -361,7 +361,7 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::glowOpacity, styleItem));
     array.add (new StyleBoolPropertyComponent (builder, IDs::shadowEnable, styleItem));
     array.add (new StyleColourPropertyComponent (builder, IDs::shadowColour, styleItem));
-    array.add (new StyleBoolPropertyComponent (builder, IDs::continuousRedraw, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::redrawAll, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::scaleValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::widthScaleValue, styleItem, builder.createPropertiesMenuLambda()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::heightScaleValue, styleItem, builder.createPropertiesMenuLambda()));

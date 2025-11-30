@@ -334,7 +334,7 @@ void GuiItem::componentTransform()
         glowOpacity = 1.0f;
         
     shadowEnable = magicBuilder.getStyleProperty (IDs::shadowEnable, configNode);
-    continuousRedraw = magicBuilder.getStyleProperty (IDs::continuousRedraw, configNode);
+    redrawAll = magicBuilder.getStyleProperty (IDs::redrawAll, configNode);
     
     if (scale == 0.0f)
         scale = 1.0f;
@@ -522,8 +522,14 @@ void GuiItem::paint (juce::Graphics& g)
                        baseY + offsetY);
         g.setOpacity (1.0f);
 
-        if (continuousRedraw)
-            repaint();
+        if (redrawAll){
+            if (blurNeedsRepaint){
+                blurNeedsRepaint = false;
+                repaint();
+            } else{
+                blurNeedsRepaint = true;
+            }
+        }
     }
 }
 

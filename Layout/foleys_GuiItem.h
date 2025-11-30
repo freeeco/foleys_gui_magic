@@ -260,7 +260,8 @@ private:
     float glowOpacity = 1.0f;
     juce::Colour shadowColour = juce::Colours::black;
     bool shadowEnable = false;
-    bool continuousRedraw = false;
+    bool redrawAll = false;
+    bool blurNeedsRepaint = true;
     
     juce::Value     visibility { true };
     juce::Value     scaleValue { 1.0f };

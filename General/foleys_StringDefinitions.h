@@ -212,7 +212,7 @@ namespace IDs
     static juce::Identifier glowOpacity    { "glow-opacity" };
     static juce::Identifier shadowEnable   { "shadow-enable" };
     static juce::Identifier shadowColour   { "shadow-colour" };
-    static juce::Identifier continuousRedraw   { "continuous-redraw" };
+    static juce::Identifier redrawAll      { "redraw-all" };
 
     static juce::Identifier posX        { "pos-x" };
     static juce::Identifier posY        { "pos-y" };
