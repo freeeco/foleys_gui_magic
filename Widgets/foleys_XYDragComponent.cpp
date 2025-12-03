@@ -246,7 +246,7 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
                             .withTargetComponent (this)
                             .withTargetScreenArea ({event.getScreenX(), event.getScreenY(), 1, 1})
                             .withStandardItemHeight(menuItemHeight),
-                            [=](int selected)
+                            [=, this](int selected)
         {
             if (selected <= 0)
                 return;
