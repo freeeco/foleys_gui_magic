@@ -355,6 +355,7 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::horizontal, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::vertical, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::rotate, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::glowRadius, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::glowDistance, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::glowAngle, styleItem));
