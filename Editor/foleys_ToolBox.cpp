@@ -397,9 +397,22 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
-        auto paste = juce::ValueTree::fromXml (selected.toXmlString());
+        auto paste    = juce::ValueTree::fromXml (selected.toXmlString());
+
         if (paste.isValid() && selected.isValid())
-            builder.draggedItemOnto (paste, selected.getParent(), selected.getParent().indexOf (selected) + 1);
+        {
+            builder.draggedItemOnto (paste,
+                                    selected.getParent(),
+                                    selected.getParent().indexOf (selected));
+
+            juce::MessageManager::callAsync ([this, paste]() mutable
+            {
+                 if (auto* item = this->treeEditor.getItemForNode (paste))
+                 {
+                     this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
+                 }
+            });
+        }
 
         return true;
     }

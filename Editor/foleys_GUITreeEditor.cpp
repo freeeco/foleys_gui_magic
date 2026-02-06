@@ -94,8 +94,62 @@ void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
 
 void GUITreeEditor::updateTree()
 {
+    int viewY = 0;
+    if (auto* vp = treeView.getViewport())
+    {
+        viewY = vp->getViewPositionY();
+    }
+
+    auto selected = builder.getSelectedNode();
     auto guiNode = builder.getConfigTree().getChildWithName (IDs::view);
     setValueTree (guiNode);
+    
+    if (auto* vp = treeView.getViewport())
+        vp->setViewPosition (0, viewY);
+
+    if (selected.isValid())
+        setSelectedNode (selected);
+}
+
+juce::TreeViewItem* GUITreeEditor::getItemForNode (const juce::ValueTree& node)
+{
+    if (rootItem.get() == nullptr || node.isAChildOf (tree) == false)
+        return nullptr;
+
+    std::stack<int> path;
+    auto probe = node;
+
+    while (probe != tree)
+    {
+        auto parent = probe.getParent();
+        const int idx = parent.indexOf (probe);
+        if (idx < 0)
+            return nullptr;
+
+        path.push (idx);
+        probe = parent;
+    }
+
+    juce::TreeViewItem* item = rootItem.get();
+
+    while (! path.empty())
+    {
+        item->setOpen (true);
+
+        const int childIndex = path.top();
+        path.pop();
+
+        if (item->getNumSubItems() == 0 && item->mightContainSubItems())
+            item->setOpen (true);
+
+        auto* child = item->getSubItem (childIndex);
+        if (child == nullptr)
+            return nullptr;
+
+        item = child;
+    }
+
+    return item;
 }
 
 void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
@@ -122,7 +176,11 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
     }
 
     itemToSelect->setSelected (true, true, juce::dontSendNotification);
-    treeView.scrollToKeepItemVisible (itemToSelect);
+    juce::MessageManager::callAsync ([this, itemToSelect]()
+    {
+        if (itemToSelect != nullptr)
+            treeView.scrollToKeepItemVisible (itemToSelect);
+    });
 }
 
 void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)

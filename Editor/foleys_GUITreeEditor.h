@@ -61,6 +61,10 @@ public:
     void updateTree();
 
     void setSelectedNode (const juce::ValueTree& node);
+    
+    juce::TreeView& getTreeView() { return treeView; }
+    
+    juce::TreeViewItem* getItemForNode (const juce::ValueTree& node);
 
 private:
     class GuiTreeItem : public juce::TreeViewItem

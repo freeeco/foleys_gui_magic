@@ -221,8 +221,11 @@ public:
         double minValue = getProperty (pMinValue);
         double maxValue = getProperty (pMaxValue);
         double interval = getProperty (pInterval);
+        
         if (maxValue > minValue && !getProperty (pModifierSnap))
             slider.setRange (minValue, maxValue, interval);
+        else if (paramID.isEmpty())
+            slider.setRange (0.0, 1.0, 0.0);
         
         if (getProperty (pMaxValue).toString().isNotEmpty()){
             slider.setUseInterval (true);
