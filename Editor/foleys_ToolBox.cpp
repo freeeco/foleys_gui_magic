@@ -80,13 +80,39 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     fileMenu.onClick = [&]
     {
         juce::PopupMenu file;
+        
+        {
+            juce::PopupMenu::Item it ("Load XML");
+            it.action = [&] { loadDialog(); };
+            it.shortcutKeyDescription = "Cmd+O"; // or "Cmd+O"
+            file.addItem (it);
+        }
 
-        file.addItem ("Load XML", [&] { loadDialog(); });
-        file.addItem ("Save XML", [&] { saveDialog(); });
+        {
+            juce::PopupMenu::Item it ("Save XML");
+            it.action = [&] { save(); };
+            it.shortcutKeyDescription = "Cmd+S";
+            file.addItem (it);
+        }
+
+        {
+            juce::PopupMenu::Item it ("Save XML As...");
+            it.action = [&] { saveDialog(); };
+            it.shortcutKeyDescription = "Shift+Cmd+S";
+            file.addItem (it);
+        }
+
         file.addSeparator();
         file.addItem ("Clear",    [&] { builder.clearGUI(); });
         file.addSeparator();
-        file.addItem ("Refresh",  [&] { builder.updateComponents(); });
+        
+        {
+            juce::PopupMenu::Item it ("Refresh");
+            it.action = [&] { builder.updateComponents(); };
+            it.shortcutKeyDescription = "Cmd+R";
+            file.addItem (it);
+        }
+        
         file.showMenuAsync (juce::PopupMenu::Options());
     };
 
@@ -203,6 +229,16 @@ void ToolBox::loadDialog()
     });
 
     builder.showOverlayDialog (std::move (dialog));
+}
+
+void ToolBox::save()
+{
+    auto xmlFile = lastLocation;
+    if (xmlFile.existsAsFile()){
+        saveGUI (xmlFile);
+    } else {
+        saveDialog();
+    }
 }
 
 void ToolBox::saveDialog()
@@ -419,6 +455,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         
     if (key.isKeyCode ('S') && key.getModifiers().isCommandDown())
     {
+        save();
+
+        return true;
+    }
+    
+    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown())
+    {
         saveDialog();
 
         return true;
@@ -427,6 +470,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if (key.isKeyCode ('O') && key.getModifiers().isCommandDown())
     {
         loadDialog();
+
+        return true;
+    }
+               
+    if (key.isKeyCode ('R') && key.getModifiers().isCommandDown())
+    {
+        builder.updateComponents();
 
         return true;
     }

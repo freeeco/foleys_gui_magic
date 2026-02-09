@@ -69,6 +69,7 @@ public:
     enum PositionOption  { left, right, detached };
 
     void loadDialog();
+    void save();
     void saveDialog();
 
     void loadGUI (const juce::File& file);
