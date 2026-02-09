@@ -453,7 +453,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         return true;
     }
         
-    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown())
+    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown()  && !key.getModifiers().isShiftDown())
     {
         save();
 
