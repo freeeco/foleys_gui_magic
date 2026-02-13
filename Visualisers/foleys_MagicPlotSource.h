@@ -112,6 +112,7 @@ private:
     std::atomic<juce::int64> lastData { 0 };
     bool active = true;
     FillStyle fillStyle = downwards;
+    juce::dsp::FFT fft { 12 }; // 12 =  FFT size of 4096 (2^12)
 
     JUCE_DECLARE_WEAK_REFERENCEABLE (MagicPlotSource)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotSource)

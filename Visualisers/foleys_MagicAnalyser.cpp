@@ -55,28 +55,88 @@ void MagicAnalyser::pushSamples (const juce::AudioBuffer<float>& buffer)
 
 void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, juce::Rectangle<float> bounds, MagicPlotComponent&)
 {
-    const float minFreq = 20.0f; // This is the left-most frequency (already 20Hz)
+    const float minFreq = 20.0f;
     const auto& data = analyserJob.getAnalyserData();
+    const auto* fftData = data.getReadPointer (0);
+    const int numBins = data.getNumSamples();
+    analyserJob.clearValues();
 
+    // Resize display values if needed
+    if (displayValues.getNumSamples() != numBins)
+    {
+        displayValues.setSize (1, numBins);
+        displayValues.clear();
+    }
+
+    // Calculate time-based decay
+    double now = juce::Time::getMillisecondCounterHiRes();
+    float elapsed = (lastRepaintTime > 0.0) ? (float) (now - lastRepaintTime) / 1000.0f : 0.0f;
+    lastRepaintTime = now;
+
+    float decayPerSecond = 1.0f / (decayMilliseconds / 1000.0f);
+    float decayThisFrame = decayPerSecond * elapsed;
+
+    auto* display = displayValues.getWritePointer (0);
+
+    for (int i = 0; i < numBins; ++i)
+    {
+        float peak = fftData[i];
+
+        if (peak >= display[i])
+        {
+            display[i] = peak;
+        }
+        else
+        {
+            float currentDb = juce::Decibels::gainToDecibels (display[i], displayRangeMinDb);
+            float normalized = juce::jmap (currentDb, displayRangeMinDb, 0.0f, 0.0f, 1.0f);
+            float curved = std::pow (juce::jmax (normalized, 0.0f), displayCurveFactor);
+
+            curved -= decayThisFrame;
+
+            if (curved <= 0.0f)
+            {
+                display[i] = 0.0f;
+            }
+            else
+            {
+                float uncurved = std::pow (curved, 1.0f / displayCurveFactor);
+                float db = juce::jmap (uncurved, 0.0f, 1.0f, displayRangeMinDb, 0.0f);
+                display[i] = juce::Decibels::decibelsToGain (db, displayRangeMinDb);
+            }
+        }
+    }
+    
+    bool stillDecaying = false;
+    for (int i = 0; i < numBins; ++i)
+    {
+        if (display[i] > 0.0f)
+        {
+            stillDecaying = true;
+            break;
+        }
+    }
+
+    if (stillDecaying)
+        resetLastDataFlag();
+
+    // Draw using decayed display values
     path.clear();
-    path.preallocateSpace (8 + data.getNumSamples() * 3);
+    path.preallocateSpace (8 + numBins * 3);
 
     juce::ScopedLock lockedForReading (pathCreationLock);
-    const auto* fftData = data.getReadPointer (0);
 
     const float logFreqRange = std::log2 (displayRangeMaxFreq / minFreq);
+    const auto factor = bounds.getWidth() / logFreqRange;
 
-    const auto  factor  = bounds.getWidth() / logFreqRange;
-
-    path.startNewSubPath (bounds.getX() + factor * indexToX (0, minFreq), binToY (fftData [0], bounds));
-    for (int i = 1, step = 1, count = 0; i < data.getNumSamples(); i += step, ++count)
+    path.startNewSubPath (bounds.getX() + factor * indexToX (0, minFreq), binToY (display[0], bounds));
+    for (int i = 1, step = 1, count = 0; i < numBins; i += step, ++count)
     {
-        auto avg = fftData [i];
+        auto avg = display[i];
         if (step > 1)
         {
-            for (int j = i+1; j < std::min (data.getNumSamples(), i + step); ++j)
-                avg += fftData [j];
-
+            for (int j = i + 1; j < std::min (numBins, i + step); ++j)
+                avg += display[j];
             avg = avg / step;
         }
 
@@ -85,7 +145,7 @@ void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, j
         if (count > 64)
         {
             ++step;
-            count = -0;
+            count = 0;
         }
     }
 
@@ -143,19 +203,6 @@ void MagicAnalyser::AnalyserJob::setupAnalyser (int audioFifoSize)
 
     audioFifo.clear();
     values.clear();
-
-    const float minDb = owner.displayRangeMinDb; // Get minDb from owner
-    const float updatesPerSecond = owner.sampleRate / fft.getSize();
-    const float numUpdatesForDecay = owner.decayMilliseconds / 1000.0f * updatesPerSecond;
-
-    if (numUpdatesForDecay > 0)
-    {
-        peakDecayFactor = std::pow (10.0f, (minDb / 20.0f) / numUpdatesForDecay);
-    }
-    else
-    {
-        peakDecayFactor = 0.895318f;
-    }
 }
 
 void MagicAnalyser::AnalyserJob::pushSamples (const juce::AudioBuffer<float>& buffer, int inChannel)
@@ -209,17 +256,12 @@ int MagicAnalyser::AnalyserJob::useTimeSlice()
         juce::ScopedLock lockedForWriting (owner.pathCreationLock);
 
         const auto  factor = 1.0f / fft.getSize();
-        const auto  decay  = peakDecayFactor; // Now calculated dynamically!
-        const auto* read   = fftBuffer.getReadPointer (0);
-        auto* write  = values.getWritePointer (0);
+        const auto* read  = fftBuffer.getReadPointer (0);
+        auto* write = values.getWritePointer (0);
 
-        for (int i=0; i < values.getNumSamples(); ++i, ++read, ++write)
+        for (int i = 0; i < values.getNumSamples(); ++i, ++read, ++write)
         {
-            auto v = *read * factor;
-            if (v >= *write)
-                *write = v;
-            else
-                *write = *write * decay;
+            *write = *read * factor;
         }
 
         owner.resetLastDataFlag();

@@ -113,13 +113,15 @@ private:
     juce::UndoManager&          undo;
     juce::ApplicationProperties appProperties;
 
-    juce::TextButton    fileMenu   { TRANS ("File...") };
-    juce::TextButton    viewMenu   { TRANS ("View...") };
+    juce::TextButton    fileMenu   { TRANS ("File") };
+    juce::TextButton    viewMenu   { TRANS ("View") };
 
     juce::TextButton    undoButton { TRANS ("Undo") };
+    
+    juce::TextButton    snippetsButton { TRANS ("Snippets") };
 
     juce::TextButton    editSwitch { TRANS ("Edit") };
-
+    
     PositionOption      positionOption      { left };
 
     GUITreeEditor       treeEditor          { builder };

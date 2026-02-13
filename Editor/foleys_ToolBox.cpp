@@ -70,11 +70,13 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     fileMenu.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     viewMenu.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     undoButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+    snippetsButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     editSwitch.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
 
     addAndMakeVisible (fileMenu);
     addAndMakeVisible (viewMenu);
     addAndMakeVisible (undoButton);
+    addAndMakeVisible (snippetsButton);
     addAndMakeVisible (editSwitch);
 
     fileMenu.onClick = [&]
@@ -143,6 +145,171 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     editSwitch.onStateChange = [&]
     {
         builder.setEditMode (editSwitch.getToggleState());
+    };
+    
+    snippetsButton.onClick = [&]
+    {
+        juce::PopupMenu snippets;
+        
+        // Get the project folder by going up from the executable
+        auto snippetsFolder = juce::File::getRealUserHomeDirectory()
+                                  .getChildFile("GitHub")
+                                  .getChildFile("toybox_plugins")
+                                  .getChildFile ("XML Snippets");
+        
+        // If running in development, try relative to current working directory
+        if (!snippetsFolder.exists())
+        {
+            snippetsFolder = juce::File::getCurrentWorkingDirectory().getChildFile ("XML Snippets");
+        }
+        
+        // Add "Save Snippet As..." menu item
+        snippets.addItem ("Save Snippet As...", [&, snippetsFolder]()
+        {
+            auto selected = builder.getSelectedNode();
+            if (!selected.isValid())
+            {
+                juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                       "No Selection",
+                                                       "Please select a node to save as a snippet.");
+                return;
+            }
+            
+            // Create snippets folder if it doesn't exist
+            if (!snippetsFolder.exists())
+            {
+                snippetsFolder.createDirectory();
+            }
+            
+            // Get the node id for the default filename
+            juce::String defaultName = "snippet";
+            if (selected.hasProperty ("id"))
+            {
+                defaultName = selected.getProperty ("id").toString();
+            }
+            else if (selected.getType().isValid())
+            {
+                // Fallback to node type if no id property
+                defaultName = selected.getType().toString();
+            }
+            
+            // Start in the snippets folder with the suggested filename
+            auto suggestedFile = snippetsFolder.getChildFile (defaultName).withFileExtension (".xml");
+            
+            auto dialog = std::make_unique<FileBrowserDialog>(NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
+                                                              juce::FileBrowserComponent::saveMode |
+                                                              juce::FileBrowserComponent::canSelectFiles |
+                                                              juce::FileBrowserComponent::warnAboutOverwriting,
+                                                              suggestedFile,
+                                                              getFileFilter());
+        
+            dialog->setAcceptFunction ([&, dlg=dialog.get(), selected]
+            {
+                auto snippetFile = dlg->getFile();
+                if (!snippetFile.hasFileExtension (".xml"))
+                    snippetFile = snippetFile.withFileExtension (".xml");
+                
+                if (auto stream = snippetFile.createOutputStream())
+                {
+                    stream->writeString (selected.toXmlString());
+                }
+                
+                builder.closeOverlayDialog();
+            });
+            dialog->setCancelFunction ([&]
+            {
+                builder.closeOverlayDialog();
+            });
+            
+            builder.showOverlayDialog (std::move (dialog));
+        });
+        
+        snippets.addItem ("Open Snippets Folder", [snippetsFolder]()
+            {
+                // Create snippets folder if it doesn't exist
+                if (!snippetsFolder.exists())
+                {
+                    snippetsFolder.createDirectory();
+                }
+                
+                // Open the folder in Finder/Explorer
+                snippetsFolder.revealToUser();
+            });
+        
+        snippets.addSeparator();
+        
+        // Lambda function to recursively add folders and files
+        std::function<void(juce::PopupMenu&, const juce::File&)> addFolderContents;
+        addFolderContents = [&](juce::PopupMenu& menu, const juce::File& folder)
+        {
+            juce::Array<juce::File> items;
+            
+            // Get all subdirectories and XML files
+            juce::RangedDirectoryIterator iter (folder, false, "*", juce::File::findFilesAndDirectories);
+            for (const auto& entry : iter)
+            {
+                auto file = entry.getFile();
+                if (file.isDirectory() || file.hasFileExtension (".xml"))
+                {
+                    items.add (file);
+                }
+            }
+            
+            // Sort: directories first, then files, alphabetically
+            struct FileComparator
+            {
+                int compareElements (const juce::File& a, const juce::File& b) const
+                {
+                    if (a.isDirectory() && !b.isDirectory()) return -1;
+                    if (!a.isDirectory() && b.isDirectory()) return 1;
+                    return a.getFileName().compareIgnoreCase (b.getFileName());
+                }
+            };
+
+            FileComparator comparator;
+            items.sort (comparator);
+            
+            // Add items to menu
+            for (auto& item : items)
+            {
+                if (item.isDirectory())
+                {
+                    juce::PopupMenu subMenu;
+                    addFolderContents (subMenu, item);
+                    menu.addSubMenu (item.getFileName(), subMenu);
+                }
+                else if (item.hasFileExtension (".xml"))
+                {
+                    menu.addItem (item.getFileNameWithoutExtension(), [&, item]()
+                    {
+                        auto xmlContent = item.loadFileAsString();
+                        auto snippet = juce::ValueTree::fromXml (xmlContent);
+                        
+                        if (snippet.isValid())
+                        {
+                            auto selected = builder.getSelectedNode();
+                            if (selected.isValid())
+                                builder.draggedItemOnto (snippet, selected);
+                            else
+                                builder.draggedItemOnto (snippet, builder.getGuiRootNode());
+                        }
+                    });
+                }
+            }
+        };
+        
+        if (snippetsFolder.exists() && snippetsFolder.isDirectory())
+        {
+            addFolderContents (snippets, snippetsFolder);
+        }
+        else
+        {
+            snippets.addItem ("XML Snippets folder not found", false, false, [](){});
+            snippets.addSeparator();
+            snippets.addItem ("Expected location: " + snippetsFolder.getFullPathName(), false, false, [](){});
+        }
+        
+        snippets.showMenuAsync (juce::PopupMenu::Options());
     };
 
     addAndMakeVisible (treeEditor);
@@ -234,9 +401,18 @@ void ToolBox::loadDialog()
 void ToolBox::save()
 {
     auto xmlFile = lastLocation;
-    if (xmlFile.existsAsFile()){
+    if (xmlFile.existsAsFile())
+    {
         saveGUI (xmlFile);
-    } else {
+        
+        // Flash the button
+        fileMenu.setColour (juce::TextButton::buttonColourId, juce::Colours::grey);
+        juce::Timer::callAfterDelay (300, [this]() {
+            fileMenu.removeColour (juce::TextButton::buttonColourId);
+        });
+    }
+    else
+    {
         saveDialog();
     }
 }
@@ -329,6 +505,7 @@ void ToolBox::resized()
     fileMenu.setBounds (buttons.removeFromLeft (w));
     viewMenu.setBounds (buttons.removeFromLeft (w));
     undoButton.setBounds (buttons.removeFromLeft (w));
+    snippetsButton.setBounds (buttons.removeFromLeft (w));
     editSwitch.setBounds (buttons.removeFromLeft (w));
 
     juce::Component* comps[] = {
