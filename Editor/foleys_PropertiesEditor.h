@@ -93,6 +93,8 @@ private:
 
     juce::PropertyPanel properties;
 
+    juce::Label         addColourLabel;
+    
     juce::TextEditor    newItemName;
     juce::TextButton    newItemButton { "+" };
 

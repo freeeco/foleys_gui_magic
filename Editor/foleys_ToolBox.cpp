@@ -182,12 +182,30 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             it.shortcutKeyDescription = "Cmd+V";
             edit.addItem (it);
         }
+        
+        edit.addSeparator();
+        
         {
             juce::PopupMenu::Item it ("Paste Unique");
             it.action = [&] { performPasteUnique(); };
             it.shortcutKeyDescription = "Opt+Cmd+V";
             edit.addItem (it);
         }
+        {
+            juce::PopupMenu::Item it ("Paste Dimensions");
+            it.action = [&] { performPasteDimensions(); };
+            it.shortcutKeyDescription = "Shift+Cmd+V";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Paste Item Properties");
+            it.action = [&] { performPasteItemProperties(); };
+            it.shortcutKeyDescription = "Shift+Opt+Cmd+V";
+            edit.addItem (it);
+        }
+        
+        edit.addSeparator();
+        
         {
             juce::PopupMenu::Item it ("Duplicate");
             it.action = [&] { performDuplicate(); };
@@ -450,6 +468,85 @@ void ToolBox::performPasteUnique()
     auto selected = builder.getSelectedNode();
     if (paste.isValid() && selected.isValid())
         builder.draggedItemOnto (makeParameterRefsUnique (paste), selected);
+}
+
+void ToolBox::performPasteDimensions()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+
+    if (!paste.isValid() || !selected.isValid())
+        return;
+
+    static const juce::Identifier dimensionProps[] = {
+        juce::Identifier ("pos-x"),
+        juce::Identifier ("pos-y"),
+        juce::Identifier ("pos-width"),
+        juce::Identifier ("pos-height"),
+        juce::Identifier ("dont-snap-to-pixels")
+    };
+
+    undo.beginNewTransaction();
+
+    for (const auto& prop : dimensionProps)
+        if (paste.hasProperty (prop))
+            selected.setProperty (prop, paste.getProperty (prop), &undo);
+}
+
+void ToolBox::performPasteItemProperties()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+
+    if (!paste.isValid() || !selected.isValid())
+        return;
+
+    static const juce::Identifier itemProps[] = {
+        juce::Identifier ("pos-x"),
+        juce::Identifier ("pos-y"),
+        juce::Identifier ("pos-width"),
+        juce::Identifier ("pos-height"),
+        juce::Identifier ("dont-snap-to-pixels"),
+        juce::Identifier ("width"),
+        juce::Identifier ("height"),
+        juce::Identifier ("min-width"),
+        juce::Identifier ("min-height"),
+        juce::Identifier ("max-width"),
+        juce::Identifier ("max-height"),
+        juce::Identifier ("flex-grow"),
+        juce::Identifier ("flex-shrink"),
+        juce::Identifier ("flex-order"),
+        juce::Identifier ("flex-align-self"),
+        juce::Identifier ("scale"),
+        juce::Identifier ("width-scale"),
+        juce::Identifier ("height-scale"),
+        juce::Identifier ("horizontal-position"),
+        juce::Identifier ("vertical-position"),
+        juce::Identifier ("rotate"),
+        juce::Identifier ("opacity"),
+        juce::Identifier ("glow-radius"),
+        juce::Identifier ("glow-distance"),
+        juce::Identifier ("glow-angle"),
+        juce::Identifier ("glow-opacity"),
+        juce::Identifier ("shadow-enable"),
+        juce::Identifier ("shadow-colour"),
+        juce::Identifier ("redraw-all"),
+        juce::Identifier ("scale-value"),
+        juce::Identifier ("width-scale-value"),
+        juce::Identifier ("height-scale-value"),
+        juce::Identifier ("horizontal-position-value"),
+        juce::Identifier ("vertical-position-value"),
+        juce::Identifier ("rotate-value"),
+        juce::Identifier ("origin-x"),
+        juce::Identifier ("origin-y"),
+        juce::Identifier ("opacity-value")
+    };
+
+    undo.beginNewTransaction();
+
+    for (const auto& prop : itemProps)
+        if (paste.hasProperty (prop))
+            selected.setProperty (prop, paste.getProperty (prop), &undo);
 }
 
 void ToolBox::performDuplicate()
@@ -744,10 +841,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
-    // Cmd+V - paste (plain), Opt+Cmd+V - paste unique
     if (key.isKeyCode ('V') && key.getModifiers().isCommandDown())
     {
-        if (key.getModifiers().isAltDown())
+        if (key.getModifiers().isShiftDown() && key.getModifiers().isAltDown())
+            performPasteItemProperties();
+        else if (key.getModifiers().isShiftDown())
+            performPasteDimensions();
+        else if (key.getModifiers().isAltDown())
             performPasteUnique();
         else
             performPaste();

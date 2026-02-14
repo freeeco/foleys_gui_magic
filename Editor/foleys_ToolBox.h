@@ -131,6 +131,8 @@ private:
     void performCopy();
     void performPaste();
     void performPasteUnique();
+    void performPasteDimensions();
+    void performPasteItemProperties();
     void performDuplicate();
     void performDuplicateUnique();
 

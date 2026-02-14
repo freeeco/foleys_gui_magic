@@ -68,8 +68,17 @@ StyleColourPropertyComponent::StyleColourPropertyComponent (MagicGUIBuilder& bui
         juce::PopupMenu::Options options;
 
         juce::Component::SafePointer<juce::Label> l = dynamic_cast<juce::Label*>(editor.get());
-        for (auto v : builder.getStylesheet().getPaletteEntryNames())
-            menu.addItem (v, [l, v]() mutable { if (l) l->setText ("$" + v, juce::sendNotification); });
+        auto entries = builder.getStylesheet().getPaletteEntryNames();
+
+        if (entries.isEmpty())
+        {
+            menu.addItem (1, "No colours defined", false);
+        }
+        else
+        {
+            for (auto v : entries)
+                menu.addItem (v, [l, v]() mutable { if (l) l->setText ("$" + v, juce::sendNotification); });
+        }
 
         menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (editor.get()));
     };

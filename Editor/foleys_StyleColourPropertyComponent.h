@@ -105,8 +105,8 @@ private:
 
     MouseLambdas mouseEvents;
     juce::Component::SafePointer<ColourPanel> colourPanel;
-    juce::TextButton variables {"V"};
-
+    juce::TextButton variables {juce::String::charToString (0x25BE)};
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StyleColourPropertyComponent)
 };
 

@@ -60,8 +60,13 @@ PropertiesEditor::PropertiesEditor (MagicGUIBuilder& builderToEdit)
 {
     addAndMakeVisible (nodeSelect);
     addAndMakeVisible (properties);
+    addAndMakeVisible (addColourLabel);
     addAndMakeVisible (newItemName);
     addAndMakeVisible (newItemButton);
+
+    addColourLabel.setText (TRANS ("Add Colour:"), juce::dontSendNotification);
+    addColourLabel.setJustificationType (juce::Justification::centredLeft);
+    
 
     newItemButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft);
     newItemButton.onClick = [&]
@@ -497,6 +502,10 @@ void PropertiesEditor::paint (juce::Graphics& g)
 {
     g.setColour (EditorColours::outline);
     g.drawRect (getLocalBounds(), 1);
+
+    const auto buttonHeight = 24;
+    auto labelBounds = getLocalBounds().reduced (1).removeFromBottom (buttonHeight).removeFromLeft (85);
+    g.drawRect (labelBounds, 1);
 }
 
 void PropertiesEditor::resized()
@@ -508,6 +517,7 @@ void PropertiesEditor::resized()
 
     auto bottom = bounds.removeFromBottom (buttonHeight);
     newItemButton.setBounds (bottom.removeFromRight (buttonHeight));
+    addColourLabel.setBounds (bottom.removeFromLeft (84));
     newItemName.setBounds (bottom);
 
     properties.setBounds (bounds.reduced (0, 2));
