@@ -96,6 +96,18 @@ public:
     void setLastLocation (juce::File file);
 
 private:
+    struct IconButtonLookAndFeel : public juce::LookAndFeel_V4
+    {
+        IconButtonLookAndFeel (juce::Typeface::Ptr tf) : typeface (tf) {}
+        
+        juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
+        {
+            return juce::Font (typeface).withHeight (buttonHeight * 0.6f);
+        }
+        
+        juce::Typeface::Ptr typeface;
+    };
+
     enum Timers : int
     {
         WindowDrag=1,
@@ -146,7 +158,8 @@ private:
     juce::TextButton    editMenu       { TRANS ("Edit") };
     juce::TextButton    viewMenu       { TRANS ("View") };
     juce::TextButton    snippetsButton { TRANS ("Snippets") };
-    juce::TextButton    editSwitch { juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")) };
+//    juce::TextButton    editSwitch { juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")) };
+    juce::TextButton    editSwitch { juce::String::fromUTF8 (u8"\uf140") };
 
     PositionOption      positionOption      { left };
 
@@ -163,6 +176,8 @@ private:
     juce::File                                  autoSaveFile;
     
     juce::LookAndFeel_V4        defaultLAF;
+    std::unique_ptr<IconButtonLookAndFeel> editSwitchLAF;
+    juce::Typeface::Ptr         fontAudio { juce::Typeface::createSystemTypefaceFor (BinaryData::FontAudio_ttf, BinaryData::FontAudio_ttfSize) };
     
     juce::TooltipWindow tooltipWindow { this, 1500 };  // 500ms delay before showing
 

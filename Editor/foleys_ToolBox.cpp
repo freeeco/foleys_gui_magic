@@ -80,6 +80,9 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     addAndMakeVisible (viewMenu);
     addAndMakeVisible (snippetsButton);
     addAndMakeVisible (editSwitch);
+    
+    editSwitchLAF = std::make_unique<IconButtonLookAndFeel> (fontAudio);
+    editSwitch.setLookAndFeel (editSwitchLAF.get());
 
     //==========================================================================
     // File menu
@@ -231,8 +234,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     {
         builder.setEditMode (editSwitch.getToggleState());
         editSwitch.setButtonText (editSwitch.getToggleState()
-            ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x93"))
-            : juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")));
+            ? juce::String::fromUTF8 (u8"\uf191")   // Unlock
+            : juce::String::fromUTF8 (u8"\uf140"));  // Lock
     };
 
     //==========================================================================
@@ -422,6 +425,8 @@ ToolBox::~ToolBox()
 
     if (autoSaveFile.existsAsFile() && lastLocation.hasIdenticalContentTo (autoSaveFile))
         autoSaveFile.deleteFile();
+    
+    editSwitch.setLookAndFeel (nullptr);
 }
 
 //==============================================================================
