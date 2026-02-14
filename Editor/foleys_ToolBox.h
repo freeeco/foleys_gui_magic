@@ -146,7 +146,7 @@ private:
     juce::TextButton    editMenu       { TRANS ("Edit") };
     juce::TextButton    viewMenu       { TRANS ("View") };
     juce::TextButton    snippetsButton { TRANS ("Snippets") };
-    juce::TextButton    editSwitch     { TRANS ("Edit Mode") };
+    juce::TextButton    editSwitch { juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")) };
 
     PositionOption      positionOption      { left };
 

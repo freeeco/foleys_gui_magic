@@ -230,6 +230,9 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     editSwitch.onStateChange = [&]
     {
         builder.setEditMode (editSwitch.getToggleState());
+        editSwitch.setButtonText (editSwitch.getToggleState()
+            ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x93"))
+            : juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")));
     };
 
     //==========================================================================

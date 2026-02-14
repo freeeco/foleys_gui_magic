@@ -60,9 +60,9 @@ PropertiesEditor::PropertiesEditor (MagicGUIBuilder& builderToEdit)
 {
     addAndMakeVisible (nodeSelect);
     addAndMakeVisible (properties);
-    addAndMakeVisible (addColourLabel);
-    addAndMakeVisible (newItemName);
-    addAndMakeVisible (newItemButton);
+    addChildComponent (addColourLabel);
+    addChildComponent (newItemName);
+    addChildComponent (newItemButton);
 
     addColourLabel.setText (TRANS ("Add Colour:"), juce::dontSendNotification);
     addColourLabel.setJustificationType (juce::Justification::centredLeft);
@@ -129,7 +129,13 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
 
     properties.clear();
 
-    if (stylesheet.isColourPaletteNode (styleItem))
+    const bool isPalette = stylesheet.isColourPaletteNode (styleItem);
+    addColourLabel.setVisible (isPalette);
+    newItemName.setVisible (isPalette);
+    newItemButton.setVisible (isPalette);
+    resized();
+
+    if (isPalette)
     {
         addPaletteColours();
         return;
@@ -173,7 +179,7 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
     else if (stylesheet.isColourPaletteNode (styleItem))
         nodeSelect.setText (TRANS ("Palette: ") + styleItem.getType().toString(), juce::dontSendNotification);
     else
-        nodeSelect.setText (TRANS ("Editing node"), juce::dontSendNotification);
+        nodeSelect.setText (TRANS ("Edit"), juce::dontSendNotification);
 
     properties.restoreOpennessState (*openness);
     properties.setSectionOpen (3,true);
@@ -433,6 +439,15 @@ void PropertiesEditor::updatePopupMenu()
 {
     auto* popup = nodeSelect.getRootMenu();
     popup->clear();
+    
+   popup->addItem (juce::PopupMenu::Item ("Edit Nodes")
+                    .setID (1)
+                    .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+    {
+        if (p != nullptr)
+            p->setNodeToEdit (p->builder.getSelectedNode());
+    }));
+    popup->addSeparator();
 
     auto typesNode = style.getChildWithName (IDs::types);
     if (typesNode.isValid())
@@ -503,9 +518,12 @@ void PropertiesEditor::paint (juce::Graphics& g)
     g.setColour (EditorColours::outline);
     g.drawRect (getLocalBounds(), 1);
 
-    const auto buttonHeight = 24;
-    auto labelBounds = getLocalBounds().reduced (1).removeFromBottom (buttonHeight).removeFromLeft (85);
-    g.drawRect (labelBounds, 1);
+    if (newItemButton.isVisible())
+    {
+        const auto buttonHeight = 24;
+        auto labelBounds = getLocalBounds().reduced (1).removeFromBottom (buttonHeight).removeFromLeft (85);
+        g.drawRect (labelBounds, 1);
+    }
 }
 
 void PropertiesEditor::resized()
@@ -515,10 +533,13 @@ void PropertiesEditor::resized()
 
     nodeSelect.setBounds (bounds.removeFromTop (buttonHeight));
 
-    auto bottom = bounds.removeFromBottom (buttonHeight);
-    newItemButton.setBounds (bottom.removeFromRight (buttonHeight));
-    addColourLabel.setBounds (bottom.removeFromLeft (84));
-    newItemName.setBounds (bottom);
+    if (newItemButton.isVisible())
+    {
+        auto bottom = bounds.removeFromBottom (buttonHeight);
+        newItemButton.setBounds (bottom.removeFromRight (buttonHeight));
+        addColourLabel.setBounds (bottom.removeFromLeft (84));
+        newItemName.setBounds (bottom);
+    }
 
     properties.setBounds (bounds.reduced (0, 2));
 }
