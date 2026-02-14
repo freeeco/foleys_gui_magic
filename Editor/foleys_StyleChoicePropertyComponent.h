@@ -49,15 +49,24 @@ public:
     StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> menuCreationLambda);
 
     void refresh() override;
+    void resized() override;
 
 private:
     void initialiseComboBox (bool editable);
+
+    static bool isPropertiesMenu (juce::ComboBox& combo);
 
     void valueChanged (juce::Value& value) override;
 
     juce::StringArray               choices;
     std::function<void(juce::ComboBox&)> menuCreationLambda;
     juce::Value                     proxy;
+
+    bool                            hasCopyPaste = false;
+    juce::TextButton                copyButton { "C" };
+    juce::TextButton                pasteButton { "P" };
+
+    static juce::String             clipboard;
 
     bool                            updating = false;
 

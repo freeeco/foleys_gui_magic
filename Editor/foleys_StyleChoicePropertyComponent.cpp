@@ -39,6 +39,9 @@
 namespace foleys
 {
 
+// Static clipboard shared across all instances
+juce::String StyleChoicePropertyComponent::clipboard;
+
 StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse,
                                                             juce::Identifier propertyToUse,
                                                             juce::ValueTree& nodeToUse,
@@ -54,6 +57,22 @@ StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& bui
     menuCreationLambda (lambdaToUse)
 {
     initialiseComboBox (false);
+}
+
+bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
+{
+    auto* menu = combo.getRootMenu();
+    if (menu == nullptr)
+        return false;
+
+    juce::PopupMenu::MenuItemIterator iter (*menu, false);
+    while (iter.next())
+    {
+        if (iter.getItem().text == NEEDS_TRANS ("New / Edit Value"))
+            return true;
+    }
+
+    return false;
 }
 
 void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
@@ -76,6 +95,14 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 
     addAndMakeVisible (combo.get());
 
+    // Detect if this is a properties/values menu
+    hasCopyPaste = isPropertiesMenu (*combo);
+
+    // For properties menus, make the combo editable so clicking the text
+    // opens the text editor, and the arrow still opens the dropdown.
+    if (hasCopyPaste)
+        combo->setEditableText (true);
+
     combo->onChange = [&]
     {
         if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
@@ -86,7 +113,56 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 
     editor = std::move (combo);
 
+    // --- Copy/Paste buttons (only for properties/values menus) ---
+    if (hasCopyPaste)
+    {
+        addAndMakeVisible (copyButton);
+        addAndMakeVisible (pasteButton);
+
+        copyButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        pasteButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+
+        copyButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+        pasteButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+
+        copyButton.onClick = [this]
+        {
+            if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
+                clipboard = c->getText();
+        };
+
+        pasteButton.onClick = [this]
+        {
+            if (clipboard.isNotEmpty())
+            {
+                if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
+                {
+                    c->setText (clipboard, juce::sendNotificationSync);
+                    node.setProperty (property, clipboard, &builder.getUndoManager());
+                    refresh();
+                }
+            }
+        };
+    }
+
     proxy.addListener (this);
+}
+
+void StyleChoicePropertyComponent::resized()
+{
+    auto b = getLocalBounds().reduced (1).withLeft (getWidth() / 2);
+    remove.setBounds (b.removeFromRight (getHeight()));
+
+    if (hasCopyPaste)
+    {
+        const auto buttonW = juce::roundToInt (getHeight() * 0.6f);
+        auto buttonsArea = juce::Rectangle<int> (b.getX() - buttonW * 2, b.getY(), buttonW * 2, b.getHeight());
+        copyButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
+        pasteButton.setBounds (buttonsArea);
+    }
+
+    if (editor)
+        editor->setBounds (b);
 }
 
 void StyleChoicePropertyComponent::refresh()

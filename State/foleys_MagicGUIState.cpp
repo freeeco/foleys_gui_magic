@@ -223,7 +223,7 @@ void MagicGUIState::addPropertiesToMenu (const juce::ValueTree& tree, juce::Comb
     }
 
     menu.addSeparator();
-    menu.addItem (NEEDS_TRANS ("New / Edit Property"), [&combo, t = path]
+    menu.addItem (NEEDS_TRANS ("New / Edit Value"), [&combo, t = path]
     {
         auto currentString = combo.getText();
         if (currentString.isEmpty()){
