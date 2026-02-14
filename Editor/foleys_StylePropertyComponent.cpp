@@ -78,6 +78,13 @@ StylePropertyComponent::StylePropertyComponent (MagicGUIBuilder& builderToUse, j
     remove.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     remove.onClick = [&]
     {
+        // Break any live binding first before removing the property
+        if (auto* label = dynamic_cast<juce::Label*>(editor.get()))
+            label->getTextValue().referTo (juce::Value());
+        
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+            combo->setText ({}, juce::dontSendNotification);
+
         node.removeProperty (property, &builder.getUndoManager());
         refresh();
     };

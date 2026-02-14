@@ -254,28 +254,28 @@ public:
     {
         std::vector<SettableProperty> props;
 
-        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pSliderType, SettableProperty::Choice, pSliderTypes [0], magicBuilder.createChoicesMenuLambda (pSliderTypes) });
-        props.push_back ({ configNode, pSliderTextBox, SettableProperty::Choice, pTextBoxPositions [2], magicBuilder.createChoicesMenuLambda (pTextBoxPositions) });
-        props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pValueSetsParameter, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} });
-        props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} });
-        props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} });
-        props.push_back ({ configNode, pModifierSnap, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} });
-        props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} });
-        props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) });
-        props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} });
-        props.push_back ({ configNode, pImage, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) });
-        props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) });
-        props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pAltKeyHides, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this slider" });
+        props.push_back ({ configNode, pSliderType, SettableProperty::Choice, pSliderTypes [0], magicBuilder.createChoicesMenuLambda (pSliderTypes) , "Slider style: auto, linear-horizontal, linear-vertical, rotary, rotary-horizontal-vertical, inc-dec-buttons" });
+        props.push_back ({ configNode, pSliderTextBox, SettableProperty::Choice, pTextBoxPositions [2], magicBuilder.createChoicesMenuLambda (pTextBoxPositions) , "Position of the text box: no-textbox, above, below, left, right" });
+        props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the slider position" });
+        props.push_back ({ configNode, pValueSetsParameter, SettableProperty::Toggle, {}, {} , "Use the value to set the parameter directly" });
+        props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} , "Output the slider position as a normalized 0-1 value" });
+        props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} , "Minimum slider range value" });
+        props.push_back ({ configNode, pMaxValue, SettableProperty::Number, 2.0f, {} , "Maximum slider range value" });
+        props.push_back ({ configNode, pInterval, SettableProperty::Number, 0.0f, {} , "Step interval for the slider range" });
+        props.push_back ({ configNode, pModifierSnap, SettableProperty::Toggle, {}, {} , "Snap to interval only when a modifier key is held" });
+        props.push_back ({ configNode, pSuffix, SettableProperty::Text, {}, {} , "Text suffix appended to the slider value display" });
+        props.push_back ({ configNode, pSensitivity, SettableProperty::Number, 200.0f, {} , "Mouse drag sensitivity in pixels per full range" });
+        props.push_back ({ configNode, pFilmStrip, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) , "Film strip image for custom slider appearance" });
+        props.push_back ({ configNode, pNumImages, SettableProperty::Number, 0.0f, {} , "Number of frames in the film strip image" });
+        props.push_back ({ configNode, pImage, SettableProperty::Choice, 0.0f, magicBuilder.createChoicesMenuLambda(Resources::getResourceImageFileNames()) , "Image used for custom slider appearance (rotated or moved based on image-mode)" });
+        props.push_back ({ configNode, pImageMode, SettableProperty::Choice, pImageModes [0], magicBuilder.createChoicesMenuLambda (pImageModes) , "How the image is rendered: rotary, horizontal, or vertical" });
+        props.push_back ({ configNode, pStartAngle, foleys::SettableProperty::Number, {}, {} , "Start angle in radians for rotary sliders" });
+        props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} , "Disable mouse scroll wheel control of this slider" });
+        props.push_back ({ configNode, pAltKeyHides, SettableProperty::Toggle, {}, {} , "Hide the slider when the Alt key is held down" });
+        props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} , "Allow mouse clicks to pass through to components behind" });
+        props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 when the mouse is over the slider" });
+        props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 when the mouse is pressed on the slider" });
 
         return props;
     }
@@ -460,7 +460,7 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
+        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this combo box" });
         return props;
     }
 
@@ -550,12 +550,12 @@ public:
     {
         std::vector<SettableProperty> props;
 
-        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} });
-        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOnClick, SettableProperty::Choice, {}, magicBuilder.createTriggerMenuLambda() });
-        props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this button" });
+        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} , "Text label displayed on the button" });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write to when the button is clicked" });
+        props.push_back ({ configNode, pOnClick, SettableProperty::Choice, {}, magicBuilder.createTriggerMenuLambda() , "Trigger to fire when the button is clicked" });
+        props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} , "Radio group ID so only one button in the group is active" });
+        props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} , "Number written to the value output when this radio button is selected" });
 
         return props;
     }
@@ -631,11 +631,11 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} });
-        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} , "Text label displayed next to the toggle" });
+        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this toggle button" });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the toggle state" });
+        props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} , "Radio group ID so only one button in the group is active" });
+        props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} , "Number written to the value output when this radio button is selected" });
         return props;
     }
 
@@ -730,12 +730,12 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} });
-        props.push_back ({ configNode, pJustification, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (getAllKeyNames (makeJustificationsChoices())) });
-        props.push_back ({ configNode, pFontSize, SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pEditable, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
+        props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} , "Static text content displayed in the label" });
+        props.push_back ({ configNode, pJustification, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (getAllKeyNames (makeJustificationsChoices())) , "Text alignment within the label" });
+        props.push_back ({ configNode, pFontSize, SettableProperty::Number, {}, {} , "Font size in pixels" });
+        props.push_back ({ configNode, pEditable, SettableProperty::Toggle, {}, {} , "Allow the user to edit the label text by clicking" });
+        props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to display and edit as text" });
+        props.push_back ({ configNode, pValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the label text" });
         return props;
     }
 
@@ -848,17 +848,17 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, IDs::source,     SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicPlotSource>() });
-        props.push_back ({ configNode, pDecay,          SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pRoundedCorners, SettableProperty::Toggle, {}, {} });
-        props.push_back ({ configNode, pGradient,       SettableProperty::Gradient, {}, {} });
-        props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}});
-        props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pFillUpwards,   SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pFillStyle, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pFillStyleTypes) });
+        props.push_back ({ configNode, IDs::source,     SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicPlotSource>() , "Plot data source to visualise" });
+        props.push_back ({ configNode, pDecay,          SettableProperty::Number, {}, {} , "Decay factor for smoothing the plot over time" });
+        props.push_back ({ configNode, pLineWidth,      SettableProperty::Number, {}, {} , "Width of the plot line in pixels" });
+        props.push_back ({ configNode, pRoundedCorners, SettableProperty::Toggle, {}, {} , "Round the corners of the plot path" });
+        props.push_back ({ configNode, pGradient,       SettableProperty::Gradient, {}, {} , "Gradient applied to the plot fill area" });
+        props.push_back ({ configNode, pScaled,         SettableProperty::Toggle, {}, {}, "Scale the plot inward to prevent thick lines from clipping" });
+        props.push_back ({ configNode, pAlwaysPlot,     SettableProperty::Toggle, {}, {}, "Continuously redraw the plot even when data hasn't changed" });
+        props.push_back ({ configNode, pAlwaysPlotHz,   SettableProperty::Number, {}, {}, "Refresh rate in Hz for continuous redrawing" });
+        props.push_back ({ configNode, IDs::bufferToImage,   SettableProperty::Toggle, {}, {}, "Render the plot to an offscreen image buffer for performance" });
+        props.push_back ({ configNode, pFillUpwards,   SettableProperty::Toggle, {}, {}, "Fill the area above the plot line instead of below" });
+        props.push_back ({ configNode, pFillStyle, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pFillStyleTypes) , "Fill direction: downwards, upwards, or centre" });
         
         return props;
     }
@@ -1033,25 +1033,25 @@ public:
     {
         std::vector<SettableProperty> props;
 
-        props.push_back ({ configNode, IDs::parameterX, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, IDs::parameterY, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, IDs::parameterZ, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pOutputValueX, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOutputValueXInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOutputValueY, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pTouchedIndex, SettableProperty::Number, {}, {}});
-        props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() });
-        props.push_back ({ configNode, pCrosshair, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pCrosshairTypes) });
-        props.push_back ({ configNode, pRadius, SettableProperty::Number, {}, {}});
-        props.push_back ({ configNode, pSenseFactor, SettableProperty::Number, {}, {}});
-        props.push_back ({ configNode, pJumpToClick, SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pDoubleClickResets, SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pMenuItemHeight, SettableProperty::Number, {}, {}});
+        props.push_back ({ configNode, IDs::parameterX, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by horizontal drag" });
+        props.push_back ({ configNode, IDs::parameterY, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by vertical drag" });
+        props.push_back ({ configNode, IDs::parameterZ, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by the Z axis (mouse wheel)" });
+        props.push_back ({ configNode, pOutputValueX, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised X position to" });
+        props.push_back ({ configNode, pOutputValueXInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted X position to" });
+        props.push_back ({ configNode, pOutputValueY, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised Y position to" });
+        props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted Y position to" });
+        props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised Z position to" });
+        props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted Z position to" });
+        props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while a drag handle is being touched" });
+        props.push_back ({ configNode, pTouchedIndex, SettableProperty::Number, {}, {}, "Index of the drag handle that reports touch state" });
+        props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by right-click drag" });
+        props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by mouse wheel" });
+        props.push_back ({ configNode, pCrosshair, SettableProperty::Choice, {}, magicBuilder.createChoicesMenuLambda (pCrosshairTypes) , "Crosshair style: none, vertical, horizontal, or both" });
+        props.push_back ({ configNode, pRadius, SettableProperty::Number, {}, {}, "Radius of the drag handle in pixels" });
+        props.push_back ({ configNode, pSenseFactor, SettableProperty::Number, {}, {}, "Drag sensitivity multiplier" });
+        props.push_back ({ configNode, pJumpToClick, SettableProperty::Toggle, {}, {}, "Handle jumps directly to the click position" });
+        props.push_back ({ configNode, pDoubleClickResets, SettableProperty::Toggle, {}, {}, "Double-click resets the handle to its default position" });
+        props.push_back ({ configNode, pMenuItemHeight, SettableProperty::Number, {}, {}, "Height of items in the right-click context menu" });
 
         return props;
     }
@@ -1181,7 +1181,7 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} });
+        props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} , "Width of each white key in pixels" });
         
         return props;
     }
@@ -1365,30 +1365,30 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, pColumns,  SettableProperty::Number,  3, {}});
-        props.push_back ({ configNode, pRows,     SettableProperty::Number,  3, {}});
-        props.push_back ({ configNode, pRootNote, SettableProperty::Number, 64, {}});
-        props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_6, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_7, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_8, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_9, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_10, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_11, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_12, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_13, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_14, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_15, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pDownValue_16, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() });
-        props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pInvisible, foleys::SettableProperty::Toggle, {}, {}});
+        props.push_back ({ configNode, pColumns,  SettableProperty::Number,  3, {}, "Number of pad columns in the grid" });
+        props.push_back ({ configNode, pRows,     SettableProperty::Number,  3, {}, "Number of pad rows in the grid" });
+        props.push_back ({ configNode, pRootNote, SettableProperty::Number, 64, {}, "MIDI note number for the first pad" });
+        props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 1 is held down" });
+        props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 2 is held down" });
+        props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 3 is held down" });
+        props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 4 is held down" });
+        props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 5 is held down" });
+        props.push_back ({ configNode, pDownValue_6, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 6 is held down" });
+        props.push_back ({ configNode, pDownValue_7, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 7 is held down" });
+        props.push_back ({ configNode, pDownValue_8, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 8 is held down" });
+        props.push_back ({ configNode, pDownValue_9, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 9 is held down" });
+        props.push_back ({ configNode, pDownValue_10, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 10 is held down" });
+        props.push_back ({ configNode, pDownValue_11, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 11 is held down" });
+        props.push_back ({ configNode, pDownValue_12, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 12 is held down" });
+        props.push_back ({ configNode, pDownValue_13, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 13 is held down" });
+        props.push_back ({ configNode, pDownValue_14, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 14 is held down" });
+        props.push_back ({ configNode, pDownValue_15, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 15 is held down" });
+        props.push_back ({ configNode, pDownValue_16, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 16 is held down" });
+        props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value updated with the note number of the last pad triggered" });
+        props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value that enables tracking of mouse-clicked pads" });
+        props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value that enables tracking of MIDI-played pads" });
+        props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}, "Order MIDI notes starting from the bottom row (MPC layout)" });
+        props.push_back ({ configNode, pInvisible, foleys::SettableProperty::Toggle, {}, {}, "Hide the drum pads visually while keeping them functional" });
         
         return props;
     }
@@ -1520,12 +1520,12 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicLevelSource>() });
-        props.push_back ({ configNode, pBarCorner, foleys::SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} });
-        props.push_back ({ configNode, pHorizontalFlip, foleys::SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pVerticalFlip, foleys::SettableProperty::Toggle, {}, {}});
-        props.push_back ({ configNode, pRefreshRateHz,   SettableProperty::Number, {}, {}});
+        props.push_back ({ configNode, IDs::source, SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<MagicLevelSource>() , "Level meter data source to display" });
+        props.push_back ({ configNode, pBarCorner, foleys::SettableProperty::Number, {}, {} , "Corner radius for the meter bars in pixels" });
+        props.push_back ({ configNode, pPeakLineThickness, foleys::SettableProperty::Number, {}, {} , "Thickness of the peak level indicator line" });
+        props.push_back ({ configNode, pHorizontalFlip, foleys::SettableProperty::Toggle, {}, {}, "Mirror the meter display horizontally" });
+        props.push_back ({ configNode, pVerticalFlip, foleys::SettableProperty::Toggle, {}, {}, "Mirror the meter display vertically" });
+        props.push_back ({ configNode, pRefreshRateHz,   SettableProperty::Number, {}, {}, "Refresh rate for the meter display in Hz" });
         return props;
     }
 
@@ -1616,7 +1616,7 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<juce::ListBoxModel>() });
+        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<juce::ListBoxModel>() , "Data model that provides the list box content" });
         return props;
     }
 
@@ -1659,7 +1659,7 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, pUrl, SettableProperty::Text, {}, {} });
+        props.push_back ({ configNode, pUrl, SettableProperty::Text, {}, {} , "URL to load in the embedded web browser" });
         return props;
     }
 

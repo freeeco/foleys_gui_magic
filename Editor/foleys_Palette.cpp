@@ -106,7 +106,7 @@ void Palette::PaletteListModel::paintListBoxItem (int rowNumber, juce::Graphics 
         
     if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
         g.setColour (EditorColours::disabledText);
-        g.drawFittedText (TRANS ("drag me"), box, juce::Justification::right, 1);
+        g.drawFittedText (juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\xa5")), box, juce::Justification::right, 1);  // ✥
     }
 }
 

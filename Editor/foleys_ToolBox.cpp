@@ -63,6 +63,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     EditorColours::disabledText = juce::Colours::grey;
     EditorColours::removeButton = juce::Colours::darkred;
     EditorColours::selectedBackground = juce::Colours::darkorange;
+    
+    tooltipWindow.setLookAndFeel (&defaultLAF);
 
     setOpaque (true);
     setWantsKeyboardFocus (true);

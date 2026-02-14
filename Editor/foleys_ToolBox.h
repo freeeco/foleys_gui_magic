@@ -160,7 +160,9 @@ private:
     juce::File                                  lastLocation;
     juce::File                                  autoSaveFile;
     
-    juce::TooltipWindow tooltipWindow { this, 2000 };  // 500ms delay before showing
+    juce::LookAndFeel_V4        defaultLAF;
+    
+    juce::TooltipWindow tooltipWindow { this, 1500 };  // 500ms delay before showing
 
     void updateToolboxPosition();
     juce::ResizableCornerComponent resizeCorner { this, nullptr };

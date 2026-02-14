@@ -205,8 +205,8 @@ void StyleChoicePropertyComponent::refresh()
             combo->setText (value.toString(), juce::dontSendNotification);
         }
     }
-    if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
-            combo->setTooltip (combo->getText());
+//    if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+//            combo->setTooltip (combo->getText());
 
     repaint();
 }
