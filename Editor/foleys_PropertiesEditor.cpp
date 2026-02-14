@@ -318,7 +318,17 @@ void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juc
         for (auto& p : item->getSettableProperties())
         {
             if (auto* component = StylePropertyComponent::createComponent (builder, p, styleItem))
+            {
+                if (p.tooltip.isNotEmpty())
+                {
+                    component->setTooltip (p.tooltip);
+                    // Also set on all child components so it shows wherever the user hovers
+                    for (int i = 0; i < component->getNumChildComponents(); ++i)
+                        if (auto* tooltipClient = dynamic_cast<juce::SettableTooltipClient*> (component->getChildComponent (i)))
+                            tooltipClient->setTooltip (p.tooltip);
+                }
                 array.add (component);
+            }
         }
 
         for (auto colour : item->getColourNames())

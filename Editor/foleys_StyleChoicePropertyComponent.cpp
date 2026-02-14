@@ -128,7 +128,31 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
         copyButton.onClick = [this]
         {
             if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
-                clipboard = c->getText();
+            {
+                auto currentText = c->getText();
+                
+                if (currentText.isEmpty())
+                {
+                    auto secondsSince2000 = juce::String (juce::int64 (
+                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+
+                    // Build prefix from node id, falling back to node type name
+                    juce::String nodePrefix;
+                    if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
+                        nodePrefix = node.getProperty ("id").toString();
+                    else
+                        nodePrefix = node.getType().toString();
+
+                    currentText = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                    
+                    // Write it into the field and the node immediately
+                    c->setText (currentText, juce::sendNotificationSync);
+                    node.setProperty (property, currentText, &builder.getUndoManager());
+                    refresh();
+                }
+                
+                clipboard = currentText;
+            }
         };
 
         pasteButton.onClick = [this]
@@ -181,6 +205,8 @@ void StyleChoicePropertyComponent::refresh()
             combo->setText (value.toString(), juce::dontSendNotification);
         }
     }
+    if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+            combo->setTooltip (combo->getText());
 
     repaint();
 }

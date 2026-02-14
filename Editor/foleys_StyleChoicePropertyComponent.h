@@ -63,8 +63,11 @@ private:
     juce::Value                     proxy;
 
     bool                            hasCopyPaste = false;
-    juce::TextButton                copyButton { "C" };
-    juce::TextButton                pasteButton { "P" };
+//    juce::TextButton                copyButton { "C" };
+//    juce::TextButton                pasteButton { "P" };
+    juce::TextButton                copyButton  { juce::String (juce::CharPointer_UTF8 ("\xe2\x86\xa6")) };  // ↦
+    juce::TextButton                pasteButton { juce::String (juce::CharPointer_UTF8 ("\xe2\x87\xa5")) };  // ⇥
+    
 
     static juce::String             clipboard;
 

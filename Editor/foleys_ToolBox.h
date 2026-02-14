@@ -107,21 +107,45 @@ private:
 
     static std::unique_ptr<juce::FileFilter> getFileFilter();
 
+    /**
+     Recursively walks a ValueTree and makes all PGM parameter references unique
+     by appending a timestamp suffix. Detects references by the presence of ":"
+     in the property value, while excluding URLs and values with whitespace.
+     Any existing timestamp suffix (8+ digit number after a dash) is stripped
+     first to avoid ever-growing suffixes on re-used snippets.
+     */
+    static juce::ValueTree makeParameterRefsUnique (juce::ValueTree tree);
+
+    /**
+     Inserts a snippet from a file into the currently selected node (or root).
+     If the Option/Alt key is held at call time, the snippet is inserted as-is
+     without making parameter references unique - useful for global/shared
+     parameters such as BPM that should remain the same across copies.
+     */
+    void insertSnippet (const juce::File& file);
+
+    // Edit operations - called from both the Edit menu and keyboard shortcuts
+    void performUndo();
+    void performRedo();
+    void performCut();
+    void performCopy();
+    void performPaste();
+    void performPasteUnique();
+    void performDuplicate();
+    void performDuplicateUnique();
+
     juce::Component::SafePointer<juce::Component> parent;
 
     MagicGUIBuilder&            builder;
     juce::UndoManager&          undo;
     juce::ApplicationProperties appProperties;
 
-    juce::TextButton    fileMenu   { TRANS ("File") };
-    juce::TextButton    viewMenu   { TRANS ("View") };
-
-    juce::TextButton    undoButton { TRANS ("Undo") };
-    
+    juce::TextButton    fileMenu       { TRANS ("File") };
+    juce::TextButton    editMenu       { TRANS ("Edit") };
+    juce::TextButton    viewMenu       { TRANS ("View") };
     juce::TextButton    snippetsButton { TRANS ("Snippets") };
+    juce::TextButton    editSwitch     { TRANS ("Edit Mode") };
 
-    juce::TextButton    editSwitch { TRANS ("Edit") };
-    
     PositionOption      positionOption      { left };
 
     GUITreeEditor       treeEditor          { builder };
@@ -135,6 +159,8 @@ private:
     std::unique_ptr<juce::FileBrowserComponent> fileBrowser;
     juce::File                                  lastLocation;
     juce::File                                  autoSaveFile;
+    
+    juce::TooltipWindow tooltipWindow { this, 2000 };  // 500ms delay before showing
 
     void updateToolboxPosition();
     juce::ResizableCornerComponent resizeCorner { this, nullptr };

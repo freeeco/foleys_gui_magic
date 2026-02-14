@@ -68,35 +68,36 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     setWantsKeyboardFocus (true);
 
     fileMenu.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+    editMenu.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     viewMenu.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
-    undoButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     snippetsButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     editSwitch.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
 
     addAndMakeVisible (fileMenu);
+    addAndMakeVisible (editMenu);
     addAndMakeVisible (viewMenu);
-    addAndMakeVisible (undoButton);
     addAndMakeVisible (snippetsButton);
     addAndMakeVisible (editSwitch);
 
+    //==========================================================================
+    // File menu
+    //==========================================================================
     fileMenu.onClick = [&]
     {
         juce::PopupMenu file;
-        
+
         {
             juce::PopupMenu::Item it ("Load XML");
             it.action = [&] { loadDialog(); };
-            it.shortcutKeyDescription = "Cmd+O"; // or "Cmd+O"
+            it.shortcutKeyDescription = "Cmd+O";
             file.addItem (it);
         }
-
         {
             juce::PopupMenu::Item it ("Save XML");
             it.action = [&] { save(); };
             it.shortcutKeyDescription = "Cmd+S";
             file.addItem (it);
         }
-
         {
             juce::PopupMenu::Item it ("Save XML As...");
             it.action = [&] { saveDialog(); };
@@ -105,29 +106,33 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         }
 
         file.addSeparator();
-        file.addItem ("Clear",    [&] { builder.clearGUI(); });
+        file.addItem ("Clear", [&] { builder.clearGUI(); });
         file.addSeparator();
-        
+
         {
             juce::PopupMenu::Item it ("Refresh");
             it.action = [&] { builder.updateComponents(); };
             it.shortcutKeyDescription = "Cmd+R";
             file.addItem (it);
         }
-        
+
         file.showMenuAsync (juce::PopupMenu::Options());
     };
 
+    //==========================================================================
+    // View menu
+    //==========================================================================
     viewMenu.onClick = [&]
     {
         juce::PopupMenu view;
 
-        view.addItem ("Left",  true, positionOption == left, [&]() { setToolboxPosition (left); });
-        view.addItem ("Right", true, positionOption == right, [&]() { setToolboxPosition (right); });
+        view.addItem ("Left",     true, positionOption == left,     [&]() { setToolboxPosition (left); });
+        view.addItem ("Right",    true, positionOption == right,    [&]() { setToolboxPosition (right); });
         view.addItem ("Detached", true, positionOption == detached, [&]() { setToolboxPosition (detached); });
         view.addSeparator();
-        view.addItem ("AlwaysOnTop", true, isAlwaysOnTop(), [&]() {
-            setAlwaysOnTop ( ! isAlwaysOnTop() );
+        view.addItem ("AlwaysOnTop", true, isAlwaysOnTop(), [&]()
+        {
+            setAlwaysOnTop (!isAlwaysOnTop());
             if (auto* properties = appProperties.getUserSettings())
                 properties->setValue ("alwaysOnTop", isAlwaysOnTop() ? "true" : "false");
         });
@@ -135,35 +140,94 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         view.showMenuAsync (juce::PopupMenu::Options());
     };
 
-    undoButton.onClick = [&]
+    //==========================================================================
+    // Edit menu (replaces the old Undo button)
+    //==========================================================================
+    editMenu.onClick = [&]
     {
-        undo.undo();
+        juce::PopupMenu edit;
+
+        {
+            juce::PopupMenu::Item it ("Undo");
+            it.action = [&] { performUndo(); };
+            it.shortcutKeyDescription = "Cmd+Z";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Redo");
+            it.action = [&] { performRedo(); };
+            it.shortcutKeyDescription = "Shift+Cmd+Z";
+            edit.addItem (it);
+        }
+
+        edit.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Cut");
+            it.action = [&] { performCut(); };
+            it.shortcutKeyDescription = "Cmd+X";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Copy");
+            it.action = [&] { performCopy(); };
+            it.shortcutKeyDescription = "Cmd+C";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Paste");
+            it.action = [&] { performPaste(); };
+            it.shortcutKeyDescription = "Cmd+V";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Paste Unique");
+            it.action = [&] { performPasteUnique(); };
+            it.shortcutKeyDescription = "Opt+Cmd+V";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Duplicate");
+            it.action = [&] { performDuplicate(); };
+            it.shortcutKeyDescription = "Cmd+D";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Duplicate Unique");
+            it.action = [&] { performDuplicateUnique(); };
+            it.shortcutKeyDescription = "Opt+Cmd+D";
+            edit.addItem (it);
+        }
+
+        edit.showMenuAsync (juce::PopupMenu::Options());
     };
 
+    //==========================================================================
+    // Edit mode toggle
+    //==========================================================================
     editSwitch.setClickingTogglesState (true);
     editSwitch.setColour (juce::TextButton::buttonOnColourId, EditorColours::selectedBackground);
     editSwitch.onStateChange = [&]
     {
         builder.setEditMode (editSwitch.getToggleState());
     };
-    
+
+    //==========================================================================
+    // Snippets menu
+    //==========================================================================
     snippetsButton.onClick = [&]
     {
         juce::PopupMenu snippets;
-        
-        // Get the project folder by going up from the executable
+
         auto snippetsFolder = juce::File::getRealUserHomeDirectory()
-                                  .getChildFile("GitHub")
-                                  .getChildFile("toybox_plugins")
+                                  .getChildFile ("GitHub")
+                                  .getChildFile ("toybox_plugins")
                                   .getChildFile ("XML Snippets");
-        
-        // If running in development, try relative to current working directory
+
         if (!snippetsFolder.exists())
-        {
             snippetsFolder = juce::File::getCurrentWorkingDirectory().getChildFile ("XML Snippets");
-        }
-        
-        // Add "Save Snippet As..." menu item
+
+        // Save Snippet As...
         snippets.addItem ("Save Snippet As...", [&, snippetsFolder]()
         {
             auto selected = builder.getSelectedNode();
@@ -174,88 +238,66 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                                                        "Please select a node to save as a snippet.");
                 return;
             }
-            
-            // Create snippets folder if it doesn't exist
+
             if (!snippetsFolder.exists())
-            {
                 snippetsFolder.createDirectory();
-            }
-            
-            // Get the node id for the default filename
+
+            // Pre-fill filename from node id, falling back to node type
             juce::String defaultName = "snippet";
             if (selected.hasProperty ("id"))
-            {
                 defaultName = selected.getProperty ("id").toString();
-            }
             else if (selected.getType().isValid())
-            {
-                // Fallback to node type if no id property
                 defaultName = selected.getType().toString();
-            }
-            
-            // Start in the snippets folder with the suggested filename
+
             auto suggestedFile = snippetsFolder.getChildFile (defaultName).withFileExtension (".xml");
-            
+
             auto dialog = std::make_unique<FileBrowserDialog>(NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
                                                               juce::FileBrowserComponent::saveMode |
                                                               juce::FileBrowserComponent::canSelectFiles |
                                                               juce::FileBrowserComponent::warnAboutOverwriting,
                                                               suggestedFile,
                                                               getFileFilter());
-        
             dialog->setAcceptFunction ([&, dlg=dialog.get(), selected]
             {
                 auto snippetFile = dlg->getFile();
                 if (!snippetFile.hasFileExtension (".xml"))
                     snippetFile = snippetFile.withFileExtension (".xml");
-                
+
                 if (auto stream = snippetFile.createOutputStream())
-                {
                     stream->writeString (selected.toXmlString());
-                }
-                
+
                 builder.closeOverlayDialog();
             });
-            dialog->setCancelFunction ([&]
-            {
-                builder.closeOverlayDialog();
-            });
-            
+            dialog->setCancelFunction ([&] { builder.closeOverlayDialog(); });
+
             builder.showOverlayDialog (std::move (dialog));
         });
-        
+
+        // Open Snippets Folder
         snippets.addItem ("Open Snippets Folder", [snippetsFolder]()
-            {
-                // Create snippets folder if it doesn't exist
-                if (!snippetsFolder.exists())
-                {
-                    snippetsFolder.createDirectory();
-                }
-                
-                // Open the folder in Finder/Explorer
-                snippetsFolder.revealToUser();
-            });
-        
+        {
+            if (!snippetsFolder.exists())
+                snippetsFolder.createDirectory();
+
+            snippetsFolder.revealToUser();
+        });
+
         snippets.addSeparator();
-        
-        // Lambda function to recursively add folders and files
+
+        // Recursive folder contents
         std::function<void(juce::PopupMenu&, const juce::File&)> addFolderContents;
         addFolderContents = [&](juce::PopupMenu& menu, const juce::File& folder)
         {
             juce::Array<juce::File> items;
-            
-            // Get all subdirectories and XML files
+
             juce::RangedDirectoryIterator iter (folder, false, "*", juce::File::findFilesAndDirectories);
             for (const auto& entry : iter)
             {
                 auto file = entry.getFile();
                 if (file.isDirectory() || file.hasFileExtension (".xml"))
-                {
                     items.add (file);
-                }
             }
-            
-            // Sort: directories first, then files, alphabetically
+
             struct FileComparator
             {
                 int compareElements (const juce::File& a, const juce::File& b) const
@@ -268,8 +310,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
 
             FileComparator comparator;
             items.sort (comparator);
-            
-            // Add items to menu
+
             for (auto& item : items)
             {
                 if (item.isDirectory())
@@ -282,22 +323,12 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                 {
                     menu.addItem (item.getFileNameWithoutExtension(), [&, item]()
                     {
-                        auto xmlContent = item.loadFileAsString();
-                        auto snippet = juce::ValueTree::fromXml (xmlContent);
-                        
-                        if (snippet.isValid())
-                        {
-                            auto selected = builder.getSelectedNode();
-                            if (selected.isValid())
-                                builder.draggedItemOnto (snippet, selected);
-                            else
-                                builder.draggedItemOnto (snippet, builder.getGuiRootNode());
-                        }
+                        insertSnippet (item);
                     });
                 }
             }
         };
-        
+
         if (snippetsFolder.exists() && snippetsFolder.isDirectory())
         {
             addFolderContents (snippets, snippetsFolder);
@@ -308,9 +339,11 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             snippets.addSeparator();
             snippets.addItem ("Expected location: " + snippetsFolder.getFullPathName(), false, false, [](){});
         }
-        
+
         snippets.showMenuAsync (juce::PopupMenu::Options());
     };
+
+    //==========================================================================
 
     addAndMakeVisible (treeEditor);
     addAndMakeVisible (resizer1);
@@ -343,7 +376,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
 #if defined TOOLBOX_HEIGHT
     height = TOOLBOX_HEIGHT;
 #endif
-    
+
     setBounds (x, y, width, height);
     addToDesktop (getLookAndFeel().getMenuWindowFlags());
 
@@ -367,6 +400,126 @@ ToolBox::~ToolBox()
     if (autoSaveFile.existsAsFile() && lastLocation.hasIdenticalContentTo (autoSaveFile))
         autoSaveFile.deleteFile();
 }
+
+//==============================================================================
+// Edit operations
+//==============================================================================
+
+void ToolBox::performUndo()
+{
+    undo.undo();
+}
+
+void ToolBox::performRedo()
+{
+    undo.redo();
+}
+
+void ToolBox::performCut()
+{
+    auto selected = builder.getSelectedNode();
+    if (selected.isValid())
+    {
+        juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+        auto p = selected.getParent();
+        if (p.isValid())
+            p.removeChild (selected, &undo);
+    }
+}
+
+void ToolBox::performCopy()
+{
+    auto selected = builder.getSelectedNode();
+    if (selected.isValid())
+        juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+}
+
+void ToolBox::performPaste()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+    if (paste.isValid() && selected.isValid())
+        builder.draggedItemOnto (paste, selected);
+}
+
+void ToolBox::performPasteUnique()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+    if (paste.isValid() && selected.isValid())
+        builder.draggedItemOnto (makeParameterRefsUnique (paste), selected);
+}
+
+void ToolBox::performDuplicate()
+{
+    auto selected = builder.getSelectedNode();
+    auto paste    = juce::ValueTree::fromXml (selected.toXmlString());
+
+    if (paste.isValid() && selected.isValid())
+    {
+        builder.draggedItemOnto (paste,
+                                 selected.getParent(),
+                                 selected.getParent().indexOf (selected) + 1);
+
+        juce::MessageManager::callAsync ([this, paste]() mutable
+        {
+            if (auto* item = this->treeEditor.getItemForNode (paste))
+            {
+                this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
+                this->setSelectedNode (paste);
+            }
+        });
+    }
+}
+
+void ToolBox::performDuplicateUnique()
+{
+    auto selected = builder.getSelectedNode();
+    auto paste    = makeParameterRefsUnique (juce::ValueTree::fromXml (selected.toXmlString()));
+
+    if (paste.isValid() && selected.isValid())
+    {
+        builder.draggedItemOnto (paste,
+                                 selected.getParent(),
+                                 selected.getParent().indexOf (selected) + 1);
+
+        juce::MessageManager::callAsync ([this, paste]() mutable
+        {
+            if (auto* item = this->treeEditor.getItemForNode (paste))
+            {
+                this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
+                this->setSelectedNode (paste);
+            }
+        });
+    }
+}
+
+//==============================================================================
+// Snippet insertion
+//==============================================================================
+
+void ToolBox::insertSnippet (const juce::File& file)
+{
+    auto xmlContent = file.loadFileAsString();
+    auto snippet = juce::ValueTree::fromXml (xmlContent);
+
+    if (!snippet.isValid())
+        return;
+
+    // If Option/Alt is held, insert as-is (preserves shared parameter refs
+    // like BPM). Otherwise make all parameter references unique.
+    const bool optionHeld = juce::ModifierKeys::getCurrentModifiers().isAltDown();
+    if (!optionHeld)
+        snippet = makeParameterRefsUnique (snippet);
+
+    auto selected = builder.getSelectedNode();
+    if (selected.isValid())
+        builder.draggedItemOnto (snippet, selected);
+    else
+        builder.draggedItemOnto (snippet, builder.getGuiRootNode());
+}
+
+//==============================================================================
 
 void ToolBox::mouseDown (const juce::MouseEvent& e)
 {
@@ -404,8 +557,8 @@ void ToolBox::save()
     if (xmlFile.existsAsFile())
     {
         saveGUI (xmlFile);
-        
-        // Flash the button
+
+        // Flash the button as a save indicator
         fileMenu.setColour (juce::TextButton::buttonColourId, juce::Colours::grey);
         juce::Timer::callAfterDelay (300, [this]() {
             fileMenu.removeColour (juce::TextButton::buttonColourId);
@@ -502,11 +655,11 @@ void ToolBox::resized()
     auto bounds = getLocalBounds().reduced (2).withTop (24);
     auto buttons = bounds.removeFromTop (24);
     auto w = buttons.getWidth() / 5;
-    fileMenu.setBounds (buttons.removeFromLeft (w));
-    viewMenu.setBounds (buttons.removeFromLeft (w));
-    undoButton.setBounds (buttons.removeFromLeft (w));
+    fileMenu.setBounds       (buttons.removeFromLeft (w));
+    editMenu.setBounds       (buttons.removeFromLeft (w));
+    viewMenu.setBounds       (buttons.removeFromLeft (w));
     snippetsButton.setBounds (buttons.removeFromLeft (w));
-    editSwitch.setBounds (buttons.removeFromLeft (w));
+    editSwitch.setBounds     (buttons.removeFromLeft (w));
 
     juce::Component* comps[] = {
         &treeEditor,
@@ -540,6 +693,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key, juce::Component*)
 
 bool ToolBox::keyPressed (const juce::KeyPress& key)
 {
+    // Delete / Backspace - remove selected node
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && !key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
@@ -552,119 +706,99 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
-    
+
+    // Cmd+Delete - remove all children of selected node
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
         if (selected.isValid())
-        {
             selected.removeAllChildren (&undo);
-        }
 
         return true;
     }
 
+    // Cmd+Z / Cmd+Shift+Z - undo / redo
     if (key.isKeyCode ('Z') && key.getModifiers().isCommandDown())
     {
         if (key.getModifiers().isShiftDown())
-            undo.redo();
+            performRedo();
         else
-            undo.undo();
+            performUndo();
 
         return true;
     }
 
+    // Cmd+X - cut
     if (key.isKeyCode ('X') && key.getModifiers().isCommandDown())
     {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid())
-        {
-            juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
-            auto p = selected.getParent();
-            if (p.isValid())
-                p.removeChild (selected, &undo);
-        }
-        
+        performCut();
         return true;
     }
 
+    // Cmd+C - copy
     if (key.isKeyCode ('C') && key.getModifiers().isCommandDown())
     {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid())
-            juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
-
+        performCopy();
         return true;
     }
 
+    // Cmd+V - paste (plain), Opt+Cmd+V - paste unique
     if (key.isKeyCode ('V') && key.getModifiers().isCommandDown())
     {
-        auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
-        auto selected = builder.getSelectedNode();
-        if (paste.isValid() && selected.isValid())
-            builder.draggedItemOnto (paste, selected);
+        if (key.getModifiers().isAltDown())
+            performPasteUnique();
+        else
+            performPaste();
 
         return true;
     }
-    
+
+    // Cmd+D - duplicate (plain), Opt+Cmd+D - duplicate unique
     if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
     {
-        auto selected = builder.getSelectedNode();
-        auto paste    = juce::ValueTree::fromXml (selected.toXmlString());
-
-        if (paste.isValid() && selected.isValid())
-        {
-            builder.draggedItemOnto (paste,
-                                    selected.getParent(),
-                                    selected.getParent().indexOf (selected));
-
-            juce::MessageManager::callAsync ([this, paste]() mutable
-            {
-                 if (auto* item = this->treeEditor.getItemForNode (paste))
-                 {
-                     this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-                 }
-            });
-        }
+        if (key.getModifiers().isAltDown())
+            performDuplicateUnique();
+        else
+            performDuplicate();
 
         return true;
     }
-        
-    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown()  && !key.getModifiers().isShiftDown())
+
+    // Cmd+S - save, Cmd+Shift+S - save as
+    if (key.isKeyCode ('S') && key.getModifiers().isCommandDown() && !key.getModifiers().isShiftDown())
     {
         save();
-
         return true;
     }
-    
+
     if (key.isKeyCode ('S') && key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown())
     {
         saveDialog();
-
         return true;
     }
-          
+
+    // Cmd+O - load
     if (key.isKeyCode ('O') && key.getModifiers().isCommandDown())
     {
         loadDialog();
-
         return true;
     }
-               
+
+    // Cmd+R - refresh
     if (key.isKeyCode ('R') && key.getModifiers().isCommandDown())
     {
         builder.updateComponents();
-
         return true;
     }
-               
+
+    // Cmd+E - toggle edit mode
     if (key.isKeyCode ('E') && key.getModifiers().isCommandDown())
     {
         editSwitch.triggerClick();
-
         return true;
     }
-     
+
+    // Cmd+- / Cmd+= - move selected node up/down in tree
     if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
@@ -673,7 +807,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
-         
+
     if (key.isKeyCode ('=') && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
@@ -682,57 +816,50 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
         return true;
     }
-    
-   if (key.isKeyCode (juce::KeyPress::leftKey))
-   {
-       auto selected = builder.getSelectedNode();
-       auto item = builder.findGuiItem(selected);
-       if (item){
-           item->nudgeLeft();
-           return true;
-       }
-       else{
-           return false;
-       }
-   }
-    
+
+    // Arrow keys - nudge selected item
+    if (key.isKeyCode (juce::KeyPress::leftKey))
+    {
+        auto selected = builder.getSelectedNode();
+        if (auto* item = builder.findGuiItem (selected))
+        {
+            item->nudgeLeft();
+            return true;
+        }
+        return false;
+    }
+
     if (key.isKeyCode (juce::KeyPress::rightKey))
     {
         auto selected = builder.getSelectedNode();
-        auto item = builder.findGuiItem(selected);
-        if (item){
+        if (auto* item = builder.findGuiItem (selected))
+        {
             item->nudgeRight();
             return true;
         }
-        else{
-            return false;
-        }
+        return false;
     }
-             
+
     if (key.isKeyCode (juce::KeyPress::upKey))
     {
         auto selected = builder.getSelectedNode();
-        auto item = builder.findGuiItem(selected);
-        if (item){
+        if (auto* item = builder.findGuiItem (selected))
+        {
             item->nudgeUp();
             return true;
         }
-        else{
-            return false;
-        }
+        return false;
     }
-             
+
     if (key.isKeyCode (juce::KeyPress::downKey))
     {
         auto selected = builder.getSelectedNode();
-        auto item = builder.findGuiItem(selected);
-        if (item){
+        if (auto* item = builder.findGuiItem (selected))
+        {
             item->nudgeDown();
             return true;
         }
-        else{
-            return false;
-        }
+        return false;
     }
 
     return false;
@@ -777,7 +904,7 @@ void ToolBox::updateToolboxPosition()
         setBounds (parentBounds.getRight(), parentBounds.getY(), width, height);
 }
 
-void ToolBox::setLastLocation(juce::File file)
+void ToolBox::setLastLocation (juce::File file)
 {
     if (file.getFullPathName().isEmpty())
         return;
@@ -789,41 +916,40 @@ void ToolBox::setLastLocation(juce::File file)
 
     autoSaveFile.deleteFile();
     auto autoSaveFileDirectory = lastLocation.getParentDirectory()
-            .getChildFile ("auto-saved");
-        
-        if (!autoSaveFileDirectory.exists()) {
-            const auto result = autoSaveFileDirectory.createDirectory();
-            if (result.failed()) {
-                DBG("Could not create auto-saved file directory: " + result.getErrorMessage());
-                jassertfalse;
-            }
+                                             .getChildFile ("auto-saved");
+
+    if (!autoSaveFileDirectory.exists())
+    {
+        const auto result = autoSaveFileDirectory.createDirectory();
+        if (result.failed())
+        {
+            DBG ("Could not create auto-saved file directory: " + result.getErrorMessage());
+            jassertfalse;
         }
-        
-        autoSaveFile = autoSaveFileDirectory.getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
-    
+    }
+
+    autoSaveFile = autoSaveFileDirectory.getNonexistentChildFile (file.getFileNameWithoutExtension() + ".sav", ".xml");
+
 #if defined AUTO_SAVE_MINUTES
-    startTimer (Timers::AutoSave, 6000*AUTO_SAVE_MINUTES);
+    startTimer (Timers::AutoSave, 6000 * AUTO_SAVE_MINUTES);
 #else
-    startTimer (Timers::AutoSave, 6000*5);
+    startTimer (Timers::AutoSave, 6000 * 5);
 #endif
 }
 
 std::unique_ptr<juce::FileFilter> ToolBox::getFileFilter()
 {
-    return std::make_unique<juce::WildcardFileFilter>("*.xml", "*", "XML files");
+    return std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
 }
 
 juce::String ToolBox::positionOptionToString (PositionOption option)
 {
     switch (option)
     {
-        case PositionOption::right:
-            return "right";
-        case PositionOption::detached:
-            return "detached";
+        case PositionOption::right:    return "right";
+        case PositionOption::detached: return "detached";
         case PositionOption::left:
-        default:
-            return "left";
+        default:                       return "left";
     }
 }
 
@@ -840,11 +966,56 @@ ToolBox::PositionOption ToolBox::positionOptionFromString (const juce::String& t
 juce::PropertiesFile::Options ToolBox::getApplicationPropertyStorage()
 {
     juce::PropertiesFile::Options options;
-    options.folderName      = "FoleysFinest";
-    options.applicationName = "foleys_gui_magic";
-    options.filenameSuffix  = ".settings";
-    options.osxLibrarySubFolder = "Application Support";
+    options.folderName           = "FoleysFinest";
+    options.applicationName      = "foleys_gui_magic";
+    options.filenameSuffix       = ".settings";
+    options.osxLibrarySubFolder  = "Application Support";
     return options;
+}
+
+juce::ValueTree ToolBox::makeParameterRefsUnique (juce::ValueTree tree)
+{
+    // Generate a unique suffix: seconds since year 2000
+    auto secondsSince2000 = juce::String (juce::int64 (
+        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+
+    std::function<void(juce::ValueTree&)> processTree;
+    processTree = [&](juce::ValueTree& node)
+    {
+        for (int i = 0; i < node.getNumProperties(); ++i)
+        {
+            auto propValue = node.getProperty (node.getPropertyName (i)).toString();
+
+            // Detect PGM parameter references: contain ":" but are not URLs or
+            // human-readable strings. Add further exclusions here if needed.
+            if (propValue.contains (":")
+                && propValue == propValue.removeCharacters (" \t\n\r")
+                && !propValue.startsWithIgnoreCase ("http"))
+            {
+                // Strip any existing timestamp suffix to avoid ever-growing strings.
+                // A suffix is a "-" followed by 8+ digits (seconds since 2000 is
+                // currently ~816 million, i.e. 9 digits).
+                auto cleanValue = propValue;
+                auto lastDash = propValue.lastIndexOf ("-");
+                if (lastDash >= 0)
+                {
+                    auto suffix = propValue.substring (lastDash + 1);
+                    if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
+                        cleanValue = propValue.substring (0, lastDash);
+                }
+
+                node.setProperty (node.getPropertyName (i),
+                                  cleanValue + "-" + secondsSince2000,
+                                  nullptr);
+            }
+        }
+
+        for (auto child : node)
+            processTree (child);
+    };
+
+    processTree (tree);
+    return tree;
 }
 
 } // namespace foleys
