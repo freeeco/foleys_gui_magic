@@ -55,6 +55,9 @@ public:
     void mouseDoubleClick (const juce::MouseEvent& event) override;
 
     static StylePropertyComponent* createComponent (MagicGUIBuilder& builder, SettableProperty& property, juce::ValueTree& node);
+    
+    void removeThisProperty();
+    juce::Identifier getPropertyName() const { return property; }
 
 protected:
 

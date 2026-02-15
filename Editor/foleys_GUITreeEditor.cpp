@@ -299,5 +299,42 @@ void GUITreeEditor::GuiTreeItem::itemDropped (const juce::DragAndDropTarget::Sou
     }
 }
 
+void GUITreeEditor::collapseAll()
+{
+    if (rootItem == nullptr)
+        return;
+
+    std::function<void(juce::TreeViewItem*)> collapseRecursive;
+    collapseRecursive = [&](juce::TreeViewItem* item)
+    {
+        for (int i = 0; i < item->getNumSubItems(); ++i)
+            collapseRecursive (item->getSubItem (i));
+
+        item->setOpen (false);
+    };
+
+    collapseRecursive (rootItem.get());
+
+    // Re-open root so it's always visible
+    rootItem->setOpen (true);
+}
+
+void GUITreeEditor::expandAll()
+{
+    if (rootItem == nullptr)
+        return;
+
+    std::function<void(juce::TreeViewItem*)> expandRecursive;
+    expandRecursive = [&](juce::TreeViewItem* item)
+    {
+        item->setOpen (true);
+
+        for (int i = 0; i < item->getNumSubItems(); ++i)
+            expandRecursive (item->getSubItem (i));
+    };
+
+    expandRecursive (rootItem.get());
+}
+
 
 } // namespace foleys

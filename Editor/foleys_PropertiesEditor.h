@@ -67,6 +67,8 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    
+    void removeProperties (const juce::Array<juce::Identifier>& props);
 
     MagicGUIBuilder& getMagicBuilder();
 

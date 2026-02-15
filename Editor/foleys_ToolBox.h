@@ -147,6 +147,15 @@ private:
     void performPasteItemProperties();
     void performDuplicate();
     void performDuplicateUnique();
+    void performSendToBack();
+    void performSendBack();
+    void performBringForward();
+    void performBringToFront();
+    void performSelectParent();
+    void performDeselect();
+    void performPasteStyling();
+    void performClearDimensions();
+    void performWrapInView();
 
     juce::Component::SafePointer<juce::Component> parent;
 

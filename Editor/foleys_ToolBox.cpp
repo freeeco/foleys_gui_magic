@@ -141,6 +141,18 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             if (auto* properties = appProperties.getUserSettings())
                 properties->setValue ("alwaysOnTop", isAlwaysOnTop() ? "true" : "false");
         });
+        view.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Expand All");
+            it.action = [&] { treeEditor.expandAll(); };
+            view.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Collapse All");
+            it.action = [&] { treeEditor.collapseAll(); };
+            view.addItem (it);
+        }
 
         view.showMenuAsync (juce::PopupMenu::Options());
     };
@@ -206,6 +218,12 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             it.shortcutKeyDescription = "Shift+Opt+Cmd+V";
             edit.addItem (it);
         }
+        {
+            juce::PopupMenu::Item it ("Paste Styling");
+            it.action = [&] { performPasteStyling(); };
+            it.shortcutKeyDescription = "Cmd+T";
+            edit.addItem (it);
+        }
         
         edit.addSeparator();
         
@@ -219,6 +237,62 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Duplicate Unique");
             it.action = [&] { performDuplicateUnique(); };
             it.shortcutKeyDescription = "Opt+Cmd+D";
+            edit.addItem (it);
+        }
+        
+        edit.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Send to Back");
+            it.action = [&] { performSendToBack(); };
+            it.shortcutKeyDescription = "Shift+Cmd+[";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Send Back");
+            it.action = [&] { performSendBack(); };
+            it.shortcutKeyDescription = "Cmd+[";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Bring Forward");
+            it.action = [&] { performBringForward(); };
+            it.shortcutKeyDescription = "Cmd+]";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Bring to Front");
+            it.action = [&] { performBringToFront(); };
+            it.shortcutKeyDescription = "Shift+Cmd+]";
+            edit.addItem (it);
+        }
+
+        edit.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Select Parent");
+            it.action = [&] { performSelectParent(); };
+            it.shortcutKeyDescription = "Cmd+P";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Deselect");
+            it.action = [&] { performDeselect(); };
+            it.shortcutKeyDescription = "Cmd+U";
+            edit.addItem (it);
+        }
+
+        edit.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Clear Dimensions");
+            it.action = [&] { performClearDimensions(); };
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Wrap in View");
+            it.action = [&] { performWrapInView(); };
+            it.shortcutKeyDescription = "Cmd+W";
             edit.addItem (it);
         }
 
@@ -557,6 +631,51 @@ void ToolBox::performPasteItemProperties()
             selected.setProperty (prop, paste.getProperty (prop), &undo);
 }
 
+void ToolBox::performPasteStyling()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+
+    if (!paste.isValid() || !selected.isValid())
+        return;
+
+    static const juce::Identifier stylingProps[] = {
+        juce::Identifier ("style-class"),
+        juce::Identifier ("lookAndFeel"),
+        juce::Identifier ("background-colour"),
+        juce::Identifier ("border-colour"),
+        juce::Identifier ("border"),
+        juce::Identifier ("border-radius"),
+        juce::Identifier ("padding"),
+        juce::Identifier ("margin"),
+        juce::Identifier ("background-image"),
+        juce::Identifier ("image-placement"),
+        juce::Identifier ("background-gradient"),
+        juce::Identifier ("gradient-pos1"),
+        juce::Identifier ("gradient-pos2"),
+        juce::Identifier ("gradient-colour1"),
+        juce::Identifier ("gradient-colour2"),
+        juce::Identifier ("gradient-type"),
+        juce::Identifier ("caption"),
+        juce::Identifier ("caption-size"),
+        juce::Identifier ("caption-colour"),
+        juce::Identifier ("caption-placement"),
+        juce::Identifier ("font-size"),
+        juce::Identifier ("justification"),
+        juce::Identifier ("tooltip"),
+        juce::Identifier ("tab-caption"),
+        juce::Identifier ("tab-colour"),
+        juce::Identifier ("visibility"),
+        juce::Identifier ("alpha")
+    };
+
+    undo.beginNewTransaction();
+
+    for (const auto& prop : stylingProps)
+        if (paste.hasProperty (prop))
+            selected.setProperty (prop, paste.getProperty (prop), &undo);
+}
+
 void ToolBox::performDuplicate()
 {
     auto selected = builder.getSelectedNode();
@@ -599,6 +718,156 @@ void ToolBox::performDuplicateUnique()
             }
         });
     }
+}
+
+void ToolBox::performSendToBack()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+        return;
+
+    auto currentIndex = parent.indexOf (selected);
+    if (currentIndex <= 0)
+        return;
+
+    parent.moveChild (currentIndex, 0, &undo);
+}
+
+void ToolBox::performSendBack()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+        return;
+
+    auto currentIndex = parent.indexOf (selected);
+    if (currentIndex <= 0)
+        return;
+
+    parent.moveChild (currentIndex, currentIndex - 1, &undo);
+}
+
+void ToolBox::performBringForward()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+        return;
+
+    auto currentIndex = parent.indexOf (selected);
+    if (currentIndex >= parent.getNumChildren() - 1)
+        return;
+
+    parent.moveChild (currentIndex, currentIndex + 1, &undo);
+}
+
+void ToolBox::performBringToFront()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+        return;
+
+    auto currentIndex = parent.indexOf (selected);
+    if (currentIndex >= parent.getNumChildren() - 1)
+        return;
+
+    parent.moveChild (currentIndex, parent.getNumChildren() - 1, &undo);
+}
+
+void ToolBox::performSelectParent()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (parent.isValid())
+        setSelectedNode (parent);
+}
+
+void ToolBox::performDeselect()
+{
+    setSelectedNode ({});
+    builder.setSelectedNode ({});
+}
+
+void ToolBox::performClearDimensions()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    undo.beginNewTransaction();
+
+    propertiesEditor.removeProperties ({
+        juce::Identifier ("pos-x"),
+        juce::Identifier ("pos-y"),
+        juce::Identifier ("pos-width"),
+        juce::Identifier ("pos-height"),
+        juce::Identifier ("dont-snap-to-pixels")
+    });
+}
+
+void ToolBox::performWrapInView()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid())
+        return;
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+        return;
+
+    undo.beginNewTransaction();
+
+    auto index = parent.indexOf (selected);
+
+    // Create the wrapper View node
+    juce::ValueTree wrapper ("View");
+
+    // Transfer dimension properties from selected to wrapper,
+    // breaking live bindings before removal
+    static const juce::Identifier dimensionProps[] = {
+        juce::Identifier ("pos-x"),
+        juce::Identifier ("pos-y"),
+        juce::Identifier ("pos-width"),
+        juce::Identifier ("pos-height"),
+        juce::Identifier ("dont-snap-to-pixels")
+    };
+
+    for (const auto& prop : dimensionProps)
+        if (selected.hasProperty (prop))
+            wrapper.setProperty (prop, selected.getProperty (prop), nullptr);
+
+    propertiesEditor.removeProperties ({
+        juce::Identifier ("pos-x"),
+        juce::Identifier ("pos-y"),
+        juce::Identifier ("pos-width"),
+        juce::Identifier ("pos-height"),
+        juce::Identifier ("dont-snap-to-pixels")
+    });
+
+    // Insert wrapper where the selected node was
+    builder.draggedItemOnto (wrapper, parent, index);
+
+    // Move selected into the wrapper
+    builder.draggedItemOnto (selected, wrapper);
+
+    setSelectedNode (wrapper);
 }
 
 //==============================================================================
@@ -970,6 +1239,58 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
             return true;
         }
         return false;
+    }
+    
+    // Cmd+[ - send back, Cmd+{ (Shift+[) - send to back
+    if (key.isKeyCode ('[') && key.getModifiers().isCommandDown())
+    {
+        performSendBack();
+        return true;
+    }
+    if (key.isKeyCode ('{') && key.getModifiers().isCommandDown())
+    {
+        performSendToBack();
+        return true;
+    }
+
+    // Cmd+] - bring forward, Cmd+} (Shift+]) - bring to front
+    if (key.isKeyCode (']') && key.getModifiers().isCommandDown())
+    {
+        performBringForward();
+        return true;
+    }
+    if (key.isKeyCode ('}') && key.getModifiers().isCommandDown())
+    {
+        performBringToFront();
+        return true;
+    }
+
+    // Cmd+P - select parent
+    if (key.isKeyCode ('P') && key.getModifiers().isCommandDown())
+    {
+        performSelectParent();
+        return true;
+    }
+
+    // Cmd+U - deselect
+    if (key.isKeyCode ('U') && key.getModifiers().isCommandDown())
+    {
+        performDeselect();
+        return true;
+    }
+
+    // Cmd+T - paste styling
+    if (key.isKeyCode ('T') && key.getModifiers().isCommandDown())
+    {
+        performPasteStyling();
+        return true;
+    }
+
+    // Cmd+W - wrap in view
+    if (key.isKeyCode ('W') && key.getModifiers().isCommandDown())
+    {
+        performWrapInView();
+        return true;
     }
 
     return false;

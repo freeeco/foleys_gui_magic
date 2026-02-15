@@ -562,5 +562,29 @@ void PropertiesEditor::valueTreeChildRemoved (juce::ValueTree&,
         setNodeToEdit ({});
 }
 
+void PropertiesEditor::removeProperties (const juce::Array<juce::Identifier>& props)
+{
+    std::function<void(juce::Component*)> findAndRemove;
+    findAndRemove = [&](juce::Component* parent)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* style = dynamic_cast<StylePropertyComponent*>(child))
+            {
+                if (props.contains (style->getPropertyName()))
+                    style->removeThisProperty();
+            }
+            else
+            {
+                findAndRemove (child);
+            }
+        }
+    };
+
+    findAndRemove (&properties);
+}
+
 
 } // namespace foleys

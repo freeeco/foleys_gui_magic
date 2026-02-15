@@ -161,4 +161,16 @@ void StylePropertyComponent::valueTreePropertyChanged (juce::ValueTree& tree, co
         refresh();
 }
 
+void StylePropertyComponent::removeThisProperty()
+{
+    if (auto* label = dynamic_cast<juce::Label*>(editor.get()))
+        label->getTextValue().referTo (juce::Value());
+    
+    if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+        combo->setText ({}, juce::dontSendNotification);
+
+    node.removeProperty (property, &builder.getUndoManager());
+    refresh();
+}
+
 } // namespace foleys
