@@ -83,6 +83,9 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     
     editSwitchLAF = std::make_unique<IconButtonLookAndFeel> (fontAudio);
     editSwitch.setLookAndFeel (editSwitchLAF.get());
+    
+    resizer1.setLookAndFeel (&resizerBarLAF);
+    resizer3.setLookAndFeel (&resizerBarLAF);
 
     //==========================================================================
     // File menu
@@ -151,6 +154,21 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         {
             juce::PopupMenu::Item it ("Collapse All");
             it.action = [&] { treeEditor.collapseAll(); };
+            view.addItem (it);
+        }
+
+        view.addSeparator();
+        
+        {
+            juce::PopupMenu::Item it (showItemsPanel ? "Hide Items Panel" : "Show Items Panel");
+            it.shortcutKeyDescription = "Tab";
+            it.action = [&]
+            {
+                showItemsPanel = !showItemsPanel;
+                palette.setVisible (showItemsPanel);
+                resizer3.setVisible (showItemsPanel);
+                resized();
+            };
             view.addItem (it);
         }
 
@@ -461,9 +479,15 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     resizeCorner.setAlwaysOnTop (true);
 
     int x = 100;
-    int y = 100;
+    int y = 0;
     int width = 300;
-    int height = 100;
+    int height = 800;
+
+    if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+    {
+        height = display->userArea.getHeight();
+        y = display->userArea.getY();
+    }
 #if defined TOOLBOX_X
     x = TOOLBOX_X;
 #endif
@@ -487,6 +511,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     stateWasReloaded();
 
     parent->addKeyListener (this);
+    resizer1.addMouseListener (this, false);
 }
 
 ToolBox::~ToolBox()
@@ -501,6 +526,8 @@ ToolBox::~ToolBox()
         autoSaveFile.deleteFile();
     
     editSwitch.setLookAndFeel (nullptr);
+    resizer1.setLookAndFeel (nullptr);
+    resizer3.setLookAndFeel (nullptr);
 }
 
 //==============================================================================
@@ -685,14 +712,13 @@ void ToolBox::performDuplicate()
     {
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
-                                 selected.getParent().indexOf (selected) + 1);
+                                 selected.getParent().indexOf (selected));
 
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
             if (auto* item = this->treeEditor.getItemForNode (paste))
             {
                 this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-                this->setSelectedNode (paste);
             }
         });
     }
@@ -709,12 +735,13 @@ void ToolBox::performDuplicateUnique()
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
 
+        
+        this->setSelectedNode (paste);
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
             if (auto* item = this->treeEditor.getItemForNode (paste))
             {
                 this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-                this->setSelectedNode (paste);
             }
         });
     }
@@ -899,14 +926,29 @@ void ToolBox::insertSnippet (const juce::File& file)
 
 void ToolBox::mouseDown (const juce::MouseEvent& e)
 {
+    if (e.originalComponent == &resizer1)
+        return;
     if (positionOption == PositionOption::detached)
         componentDragger.startDraggingComponent (this, e);
 }
 
 void ToolBox::mouseDrag (const juce::MouseEvent& e)
 {
+    if (e.originalComponent == &resizer1)
+        return;
     if (positionOption == PositionOption::detached)
         componentDragger.dragComponent (this, e, nullptr);
+}
+
+void ToolBox::mouseUp (const juce::MouseEvent& e)
+{
+    if (e.originalComponent == &resizer1)
+    {
+        if (showItemsPanel)
+            savedTreeHeightShowing = treeEditor.getHeight();
+        else
+            savedTreeHeightHidden = treeEditor.getHeight();
+    }
 }
 
 void ToolBox::loadDialog()
@@ -1036,6 +1078,28 @@ void ToolBox::resized()
     viewMenu.setBounds       (buttons.removeFromLeft (w));
     snippetsButton.setBounds (buttons.removeFromLeft (w));
     editSwitch.setBounds     (buttons.removeFromLeft (w));
+
+    if (showItemsPanel != lastShowItemsPanel)
+    {
+        lastShowItemsPanel = showItemsPanel;
+
+        if (showItemsPanel)
+        {
+            resizeManager.setItemLayout (0, 1, -1.0, savedTreeHeightShowing > 0 ? savedTreeHeightShowing : -0.4);
+            resizeManager.setItemLayout (1, 6, 6, 6);
+            resizeManager.setItemLayout (2, 1, -1.0, -0.3);
+            resizeManager.setItemLayout (3, 6, 6, 6);
+            resizeManager.setItemLayout (4, 1, -1.0, -0.3);
+        }
+        else
+        {
+            resizeManager.setItemLayout (0, 1, -1.0, savedTreeHeightHidden > 0 ? savedTreeHeightHidden : treeEditor.getHeight());
+            resizeManager.setItemLayout (1, 6, 6, 6);
+            resizeManager.setItemLayout (2, 1, -1.0, -1.0);
+            resizeManager.setItemLayout (3, 0, 0, 0);
+            resizeManager.setItemLayout (4, 0, 0, 0);
+        }
+    }
 
     juce::Component* comps[] = {
         &treeEditor,
@@ -1292,6 +1356,16 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         performWrapInView();
         return true;
     }
+    
+    // Tab - toggle items panel
+    if (key.isKeyCode (juce::KeyPress::tabKey))
+    {
+        showItemsPanel = !showItemsPanel;
+        palette.setVisible (showItemsPanel);
+        resizer3.setVisible (showItemsPanel);
+        resized();
+        return true;
+    }
 
     return false;
 }
@@ -1327,7 +1401,7 @@ void ToolBox::updateToolboxPosition()
 
     const auto parentBounds = parent->getScreenBounds();
     const auto width { 280 };
-    const auto height = juce::roundToInt (parentBounds.getHeight() * 0.9f);
+    const auto height = parentBounds.getHeight();
 
     if (positionOption == PositionOption::left)
         setBounds (parentBounds.getX() - width, parentBounds.getY(), width, height);

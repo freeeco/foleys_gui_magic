@@ -102,11 +102,35 @@ private:
         
         juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
         {
-            return juce::Font (typeface).withHeight (buttonHeight * 0.6f);
+            return juce::Font (juce::FontOptions (typeface).withHeight (buttonHeight * 0.6f));
         }
         
         juce::Typeface::Ptr typeface;
     };
+    
+    struct ResizerBarLookAndFeel : public juce::LookAndFeel_V4
+    {
+        void drawStretchableLayoutResizerBar (juce::Graphics& g,
+                                              int w, int h,
+                                              bool isVerticalBar,
+                                              bool isMouseOver,
+                                              bool isMouseDragging) override
+        {
+            g.setColour (isMouseOver || isMouseDragging ? juce::Colours::grey : juce::Colours::lightgrey);
+            g.fillRect (0, 0, w, h);
+
+            g.setColour (juce::Colours::black);
+            auto cx = w / 2;
+            auto cy = h / 2;
+            auto dotSize = 3;
+            auto spacing = 6;
+            g.fillEllipse (cx - spacing - dotSize / 2.0f, cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
+            g.fillEllipse (cx - dotSize / 2.0f,           cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
+            g.fillEllipse (cx + spacing - dotSize / 2.0f, cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
+        }
+    };
+
+    ResizerBarLookAndFeel resizerBarLAF;
 
     enum Timers : int
     {
@@ -189,6 +213,11 @@ private:
     juce::Typeface::Ptr         fontAudio { juce::Typeface::createSystemTypefaceFor (BinaryData::FontAudio_ttf, BinaryData::FontAudio_ttfSize) };
     
     juce::TooltipWindow tooltipWindow { this, 1500 };  // 500ms delay before showing
+    
+    bool showItemsPanel = true;
+    bool lastShowItemsPanel = true;
+    int savedTreeHeightShowing = -1;
+    int savedTreeHeightHidden = -1;
 
     void updateToolboxPosition();
     juce::ResizableCornerComponent resizeCorner { this, nullptr };
@@ -196,6 +225,7 @@ private:
 
     void mouseDown (const juce::MouseEvent& e) override;
     void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp (const juce::MouseEvent& e) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToolBox)
 };
