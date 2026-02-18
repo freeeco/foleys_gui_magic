@@ -565,7 +565,7 @@ void GuiItem::updateLayout()
 
 LayoutType GuiItem::getParentsLayoutType() const
 {
-    if (auto* container = dynamic_cast<Container*>(getParentComponent()))
+    if (auto* container = findParentComponentOfClass<Container>())
         return container->getLayoutMode();
 
     return LayoutType::Contents;
@@ -864,7 +864,32 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 void GuiItem::mouseUp (const juce::MouseEvent& event)
 {
     if (! event.mouseWasDraggedSinceMouseDown())
+    {
+        if (isContainer())
+        {
+            if (auto* parentContainer = findParentComponentOfClass<Container>())
+            {
+                if (parentContainer->getLayoutMode() != LayoutType::Contents)
+                {
+                    for (int i = configNode.getNumChildren() - 1; i >= 0; --i)
+                    {
+                        auto childNode = configNode.getChild (i);
+                        if (auto* childItem = magicBuilder.findGuiItem (childNode))
+                        {
+                            auto posInChild = event.getEventRelativeTo (childItem).getPosition();
+                            if (childItem->getLocalBounds().contains (posInChild))
+                            {
+                                magicBuilder.setSelectedNode (childNode);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         magicBuilder.setSelectedNode (configNode);
+    }
 }
 
 void GuiItem::mouseDoubleClick (const juce::MouseEvent& event)

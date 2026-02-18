@@ -142,14 +142,14 @@ public:
 
         if (isScrollbarVertical)
         {
-            auto thumbWidth = juce::jmax (4.0f, width * 0.4f);
+            auto thumbWidth = juce::jmax (4.0f, width * 0.9f);
             auto xOffset = (width - thumbWidth) * 0.5f;
             thumbBounds = { x + xOffset, (float) thumbStartPosition,
                             thumbWidth, (float) thumbSize };
         }
         else
         {
-            auto thumbHeight = juce::jmax (4.0f, height * 0.4f);
+            auto thumbHeight = juce::jmax (4.0f, height * 0.9f);
             auto yOffset = (height - thumbHeight) * 0.5f;
             thumbBounds = { (float) thumbStartPosition, y + yOffset,
                             (float) thumbSize, thumbHeight };
@@ -259,7 +259,7 @@ public:
                         area.getHeight() * 0.5f,
                         (float) area.getWidth() - popupPadding * 0.5f,
                         area.getHeight() * 0.5f,
-                        area.getHeight() * 0.3f);
+                        1.0f);
             return;
         }
 
@@ -286,7 +286,7 @@ public:
         if (isTicked)
         {
             auto tickSize = area.getHeight() * 0.28f;
-            auto tickX = area.getX() + 6.0f;
+            auto tickX = area.getX() + 7.0f;
             auto tickY = area.getCentreY();
 
             juce::Path tick;
@@ -318,21 +318,24 @@ public:
         g.setColour (textColourToUse);
         g.setFont (popupFontSize);
 
-        auto textX = area.getX() + (int) (popupPadding * (area.getHeight() * 0.03f));
+        auto textX = area.getX() + (int) (popupPadding * (area.getHeight() * 0.03f)) + 4;
         auto textR = juce::Rectangle<int> (textX, area.getY(),
                                            area.getWidth() - textX, area.getHeight());
 
+        
         // Shortcut key text on the right
         if (shortcutKeyText.isNotEmpty())
         {
+            g.setFont (popupFontSize * 0.8f);
             g.setColour (isHighlighted ? ToolBoxColours::textBright.withAlpha (0.7f)
                                        : ToolBoxColours::textDim);
             g.drawText (shortcutKeyText,
-                        textR.withTrimmedRight ((int) popupPadding),
+                        textR.withTrimmedRight ((int) popupPadding * 0.8f),
                         juce::Justification::centredRight, true);
-
-            g.setColour (textColourToUse);
         }
+
+        g.setFont (popupFontSize);
+        g.setColour (textColourToUse);
 
         g.drawText (text, textR, juce::Justification::centredLeft, true);
     }
@@ -341,7 +344,8 @@ public:
     static constexpr float popupPadding          = 24.0f;
     static constexpr float popupHighlightPadding = 3.0f;
     static constexpr float popupCornerSize       = 5.0f;
-    static constexpr float popupFontSize         = 14.0f;
+    static constexpr float popupFontSize         = 15.0f;
+    static constexpr float popupItemHeight       = 26;   // default is 20
 
     //==============================================================================
     // PROPERTY COMPONENTS — clean dark rows
@@ -485,6 +489,14 @@ public:
                               juce::jmax (1, (int) ((float) area.getHeight() / g.getCurrentFont().getHeight())),
                               label.getMinimumHorizontalScale());
         }
+    }
+    
+    void getIdealPopupMenuItemSize (const juce::String& text, bool isSeparator,
+                                    int standardMenuItemHeight, int& idealWidth, int& idealHeight) override
+    {
+        juce::LookAndFeel_V4::getIdealPopupMenuItemSize (text, isSeparator, standardMenuItemHeight, idealWidth, idealHeight);
+        if (!isSeparator)
+            idealHeight = popupItemHeight;
     }
 };
 

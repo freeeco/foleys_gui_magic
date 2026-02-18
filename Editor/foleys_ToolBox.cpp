@@ -62,7 +62,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     EditorColours::outline             = ToolBoxColours::border;
     EditorColours::text                = ToolBoxColours::text;
     EditorColours::disabledText        = ToolBoxColours::textDim;
-    EditorColours::removeButton        = ToolBoxColours::danger;
+    EditorColours::removeButton        = ToolBoxColours::textDim.darker (0.4f);
     EditorColours::selectedBackground  = ToolBoxColours::accent;
 
     setLookAndFeel (&toolBoxLAF);
