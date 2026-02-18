@@ -42,6 +42,8 @@
 #include "foleys_PropertiesEditor.h"
 #include "foleys_Palette.h"
 
+
+
 namespace foleys
 {
 
@@ -107,30 +109,6 @@ private:
         
         juce::Typeface::Ptr typeface;
     };
-    
-    struct ResizerBarLookAndFeel : public juce::LookAndFeel_V4
-    {
-        void drawStretchableLayoutResizerBar (juce::Graphics& g,
-                                              int w, int h,
-                                              bool isVerticalBar,
-                                              bool isMouseOver,
-                                              bool isMouseDragging) override
-        {
-            g.setColour (isMouseOver || isMouseDragging ? juce::Colours::grey : juce::Colours::lightgrey);
-            g.fillRect (0, 0, w, h);
-
-            g.setColour (juce::Colours::black);
-            auto cx = w / 2;
-            auto cy = h / 2;
-            auto dotSize = 3;
-            auto spacing = 6;
-            g.fillEllipse (cx - spacing - dotSize / 2.0f, cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
-            g.fillEllipse (cx - dotSize / 2.0f,           cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
-            g.fillEllipse (cx + spacing - dotSize / 2.0f, cy - dotSize / 2.0f, (float)dotSize, (float)dotSize);
-        }
-    };
-
-    ResizerBarLookAndFeel resizerBarLAF;
 
     enum Timers : int
     {
@@ -209,6 +187,7 @@ private:
     juce::File                                  autoSaveFile;
     
     juce::LookAndFeel_V4        defaultLAF;
+    ToolBoxLookAndFeel toolBoxLAF;
     std::unique_ptr<IconButtonLookAndFeel> editSwitchLAF;
     juce::Typeface::Ptr         fontAudio { juce::Typeface::createSystemTypefaceFor (BinaryData::FontAudio_ttf, BinaryData::FontAudio_ttfSize) };
     

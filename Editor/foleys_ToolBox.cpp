@@ -58,13 +58,14 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         GuiItem::selectionToFront = properties->getValue ("selectionToFront") == "true";
     }
 
-    EditorColours::background = findColour (juce::ResizableWindow::backgroundColourId);
-    EditorColours::outline = juce::Colours::silver;
-    EditorColours::text = juce::Colours::white;
-    EditorColours::disabledText = juce::Colours::grey;
-    EditorColours::removeButton = juce::Colours::darkred;
-    EditorColours::selectedBackground = juce::Colours::darkorange;
-    
+    EditorColours::background          = ToolBoxColours::bg;
+    EditorColours::outline             = ToolBoxColours::border;
+    EditorColours::text                = ToolBoxColours::text;
+    EditorColours::disabledText        = ToolBoxColours::textDim;
+    EditorColours::removeButton        = ToolBoxColours::danger;
+    EditorColours::selectedBackground  = ToolBoxColours::accent;
+
+    setLookAndFeel (&toolBoxLAF);
     tooltipWindow.setLookAndFeel (&defaultLAF);
 
     setOpaque (true);
@@ -84,9 +85,6 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     
     editSwitchLAF = std::make_unique<IconButtonLookAndFeel> (fontAudio);
     editSwitch.setLookAndFeel (editSwitchLAF.get());
-    
-    resizer1.setLookAndFeel (&resizerBarLAF);
-    resizer3.setLookAndFeel (&resizerBarLAF);
 
     //==========================================================================
     // File menu
@@ -125,7 +123,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             file.addItem (it);
         }
 
-        file.showMenuAsync (juce::PopupMenu::Options());
+        file.setLookAndFeel (&toolBoxLAF);
+        file.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&fileMenu));
     };
 
     //==========================================================================
@@ -173,7 +172,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             view.addItem (it);
         }
 
-        view.showMenuAsync (juce::PopupMenu::Options());
+        view.setLookAndFeel (&toolBoxLAF);
+        view.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&viewMenu));
     };
 
     //==========================================================================
@@ -348,7 +348,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             edit.addItem (it);
         }
 
-        edit.showMenuAsync (juce::PopupMenu::Options());
+        edit.setLookAndFeel (&toolBoxLAF);
+        edit.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&editMenu));
     };
 
     //==========================================================================
@@ -491,8 +492,9 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             snippets.addSeparator();
             snippets.addItem ("Expected location: " + snippetsFolder.getFullPathName(), false, false, [](){});
         }
-
-        snippets.showMenuAsync (juce::PopupMenu::Options());
+        
+        snippets.setLookAndFeel (&toolBoxLAF);
+        snippets.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&snippetsButton));
     };
 
     //==========================================================================
@@ -560,8 +562,7 @@ ToolBox::~ToolBox()
         autoSaveFile.deleteFile();
     
     editSwitch.setLookAndFeel (nullptr);
-    resizer1.setLookAndFeel (nullptr);
-    resizer3.setLookAndFeel (nullptr);
+    setLookAndFeel (nullptr);
 }
 
 //==============================================================================
@@ -1097,10 +1098,15 @@ void ToolBox::stateWasReloaded()
 void ToolBox::paint (juce::Graphics& g)
 {
     g.fillAll (EditorColours::background);
+    
+    // Fill behind toolbar buttons to hide rounded corner gaps
+    g.setColour (ToolBoxColours::border);
+    g.fillRect (getLocalBounds().reduced (2).withTop (24).removeFromTop (24));
+    
     g.setColour (EditorColours::outline);
     g.drawRect (getLocalBounds().toFloat(), 2.0f);
     g.setColour (EditorColours::text);
-    g.drawFittedText ("foleys GUI magic", getLocalBounds().withHeight (24), juce::Justification::centred, 1);
+    g.drawFittedText ("GUI Editor", getLocalBounds().withHeight (24), juce::Justification::centred, 1);
 }
 
 void ToolBox::resized()
