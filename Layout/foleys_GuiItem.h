@@ -199,11 +199,12 @@ public:
      */
     virtual void setEditMode (bool shouldEdit);
 
-    void setDraggable (bool selected);
+    virtual void setDraggable (bool selected);
 
     void mouseDown (const juce::MouseEvent& event) override;
     void mouseDrag (const juce::MouseEvent& event) override;
     void mouseUp (const juce::MouseEvent& event) override;
+    void mouseDoubleClick (const juce::MouseEvent& event) override;
 
 #endif
 

@@ -137,6 +137,7 @@ public:
      can move them around.
      */
     void setEditMode (bool shouldEdit) override;
+    void setDraggable (bool selected) override;
 #endif
 
 private:

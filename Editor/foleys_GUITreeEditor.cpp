@@ -183,9 +183,10 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
     });
 }
 
-void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)
+void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
 {
-    updateTree();
+    if (property == IDs::id || property == IDs::caption)
+        updateTree();
 }
 
 void GUITreeEditor::valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&)

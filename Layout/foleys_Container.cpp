@@ -499,6 +499,7 @@ std::vector<std::unique_ptr<GuiItem>>::iterator Container::end()
 }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+
 void Container::setEditMode (bool shouldEdit)
 {
     for (auto& child : children)
@@ -506,6 +507,33 @@ void Container::setEditMode (bool shouldEdit)
 
     GuiItem::setEditMode (shouldEdit);
 }
+
+void Container::setDraggable (bool selected)
+{
+    if (selected)
+    {
+        // Block viewport and containerBox so clicks reach this Container
+        viewport.setInterceptsMouseClicks (false, false);
+        containerBox.setInterceptsMouseClicks (false, false);
+
+        // Block all children recursively
+        for (auto& child : children)
+            child->setInterceptsMouseClicks (false, false);
+    }
+    else
+    {
+        // Restore everything
+        viewport.setInterceptsMouseClicks (true, true);
+        containerBox.setInterceptsMouseClicks (false, true);
+
+        for (auto& child : children)
+            child->setEditMode (true);
+    }
+
+    // Call base to handle border dragger etc.
+    GuiItem::setDraggable (selected);
+}
+
 #endif
 
 //==============================================================================

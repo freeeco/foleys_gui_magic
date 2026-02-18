@@ -115,6 +115,7 @@ void GuiItem::updateInternal()
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     setEditMode (magicBuilder.isEditModeOn());
+    resized();
 #endif
     
     setOpaque (decorator.getBackgroundColour().isOpaque() || decorator.getBackgroundImage().isValid());
@@ -864,6 +865,26 @@ void GuiItem::mouseUp (const juce::MouseEvent& event)
 {
     if (! event.mouseWasDraggedSinceMouseDown())
         magicBuilder.setSelectedNode (configNode);
+}
+
+void GuiItem::mouseDoubleClick (const juce::MouseEvent& event)
+{
+    if (!isContainer())
+        return;
+
+    for (int i = configNode.getNumChildren() - 1; i >= 0; --i)
+    {
+        auto childNode = configNode.getChild (i);
+        if (auto* childItem = magicBuilder.findGuiItem (childNode))
+        {
+            auto posInChild = event.getEventRelativeTo (childItem).getPosition();
+            if (childItem->getLocalBounds().contains (posInChild))
+            {
+                magicBuilder.setSelectedNode (childNode);
+                return;
+            }
+        }
+    }
 }
 
 #endif
