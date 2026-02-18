@@ -166,6 +166,10 @@ public:
     juce::String getTabCaption (const juce::String& defaultName) const;
     juce::Colour getTabColour() const;
     
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    static inline bool selectionToFront = true;
+#endif
+    
     void handleValueChanged (juce::Value& source);
 
     juce::FlexItem& getFlexItem() { return flexItem; }

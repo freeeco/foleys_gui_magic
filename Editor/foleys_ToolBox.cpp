@@ -55,6 +55,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     {
         setToolboxPosition (ToolBox::positionOptionFromString (properties->getValue ("position")));
         setAlwaysOnTop (properties->getValue ("alwaysOnTop") == "true");
+        GuiItem::selectionToFront = properties->getValue ("selectionToFront") == "true";
     }
 
     EditorColours::background = findColour (juce::ResizableWindow::backgroundColourId);
@@ -313,6 +314,39 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             it.shortcutKeyDescription = "Cmd+W";
             edit.addItem (it);
         }
+        edit.addSeparator();
+        {
+            juce::PopupMenu::Item it ("Selection To Front");
+            it.isTicked = GuiItem::selectionToFront;
+            it.shortcutKeyDescription = "Opt+Cmd+F";
+            it.action = [&]
+            {
+                GuiItem::selectionToFront = !GuiItem::selectionToFront;
+                if (auto* properties = appProperties.getUserSettings())
+                    properties->setValue ("selectionToFront", GuiItem::selectionToFront ? "true" : "false");
+                
+                auto selected = builder.getSelectedNode();
+                if (selected.isValid())
+                {
+                    if (GuiItem::selectionToFront)
+                    {
+                        if (auto* item = builder.findGuiItem (selected))
+                            item->toFront (false);
+                    }
+                    else
+                    {
+                        // Rebuild component z-order from the ValueTree
+                        auto parent = selected.getParent();
+                        if (parent.isValid())
+                            if (auto* parentItem = builder.findGuiItem (parent))
+                                for (int i = 0; i < parent.getNumChildren(); ++i)
+                                    if (auto* child = builder.findGuiItem (parent.getChild (i)))
+                                        child->toFront (false);
+                    }
+                }
+            };
+            edit.addItem (it);
+        }
 
         edit.showMenuAsync (juce::PopupMenu::Options());
     };
@@ -322,7 +356,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     //==========================================================================
     editSwitch.setClickingTogglesState (true);
     editSwitch.setColour (juce::TextButton::buttonOnColourId, EditorColours::selectedBackground);
-    editSwitch.onStateChange = [&]
+    editSwitch.onClick = [&]
     {
         builder.setEditMode (editSwitch.getToggleState());
         editSwitch.setButtonText (editSwitch.getToggleState()
@@ -1016,6 +1050,7 @@ void ToolBox::loadGUI (const juce::File& xmlFile)
 
     if (tree.isValid() && tree.getType() == IDs::magic)
     {
+        builder.clearGUI();
         builder.getMagicState().setGuiValueTree (tree);
         stateWasReloaded();
     }
@@ -1364,6 +1399,35 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         palette.setVisible (showItemsPanel);
         resizer3.setVisible (showItemsPanel);
         resized();
+        return true;
+    }
+    
+    // Alt+Cmd+F - toggle selection to front
+    if (key.isKeyCode ('F') && key.getModifiers().isCommandDown() && key.getModifiers().isAltDown())
+    {
+        GuiItem::selectionToFront = !GuiItem::selectionToFront;
+        if (auto* properties = appProperties.getUserSettings())
+            properties->setValue ("selectionToFront", GuiItem::selectionToFront ? "true" : "false");
+
+        auto selected = builder.getSelectedNode();
+        if (selected.isValid())
+        {
+            if (GuiItem::selectionToFront)
+            {
+                if (auto* item = builder.findGuiItem (selected))
+                    item->toFront (false);
+            }
+            else
+            {
+                auto parent = selected.getParent();
+                if (parent.isValid())
+                    if (auto* parentItem = builder.findGuiItem (parent))
+                        for (int i = 0; i < parent.getNumChildren(); ++i)
+                            if (auto* child = builder.findGuiItem (parent.getChild (i)))
+                                child->toFront (false);
+            }
+        }
+
         return true;
     }
 

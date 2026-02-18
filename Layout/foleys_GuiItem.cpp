@@ -680,8 +680,39 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     if (magicBuilder.isEditModeOn() && magicBuilder.getSelectedNode() == configNode)
     {
-        g.setColour (juce::Colours::orange.withAlpha (0.5f));
-        g.fillRoundedRectangle (getLocalBounds().toFloat(), 5.0f);
+        const float handleSize = 5.0f;
+        const float lineThickness = 1.0f;
+        const auto lineColour = juce::Colour (0xff5ba6d6);
+        const auto handleFill = juce::Colours::white;
+        const float handleRadius = handleSize * 0.5f;
+
+        auto bounds = getLocalBounds().toFloat().reduced (handleRadius);
+        auto handleBounds = getLocalBounds().toFloat().reduced (handleRadius + 1.0f);
+
+        // Selection border
+        g.setColour (lineColour);
+        g.drawRect (bounds, lineThickness);
+
+        // 8 handles: 4 corners + 4 edge midpoints
+        const juce::Point<float> handlePositions[] = {
+            handleBounds.getTopLeft(),
+            handleBounds.getTopRight(),
+            handleBounds.getBottomLeft(),
+            handleBounds.getBottomRight(),
+            { handleBounds.getCentreX(), handleBounds.getY() },
+            { handleBounds.getCentreX(), handleBounds.getBottom() },
+            { handleBounds.getX(),       handleBounds.getCentreY() },
+            { handleBounds.getRight(),   handleBounds.getCentreY() }
+        };
+
+        for (auto& pos : handlePositions)
+        {
+            auto handle = juce::Rectangle<float> (handleSize, handleSize).withCentre (pos);
+            g.setColour (handleFill);
+            g.fillEllipse (handle);
+            g.setColour (lineColour);
+            g.drawEllipse (handle, lineThickness);
+        }
     }
 #endif
 
@@ -708,7 +739,9 @@ void GuiItem::setDraggable (bool selected)
         getParentsLayoutType() == LayoutType::Contents &&
         configNode != magicBuilder.getGuiRootNode())
     {
-        toFront (false);
+        if (selectionToFront)
+            toFront (false);
+        
         borderDragger = std::make_unique<BorderDragger>(this, nullptr);
         componentDragger = std::make_unique<juce::ComponentDragger>();
 
