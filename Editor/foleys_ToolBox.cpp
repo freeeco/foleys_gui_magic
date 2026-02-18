@@ -260,6 +260,41 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         }
         
         edit.addSeparator();
+        
+        {
+            juce::PopupMenu::Item it ("Delete");
+            it.action = [&]
+            {
+                auto selected = builder.getSelectedNode();
+                if (selected.isValid())
+                {
+                    auto p = selected.getParent();
+                    if (p.isValid())
+                    {
+                        undo.beginNewTransaction ("Delete");
+                        p.removeChild (selected, &undo);
+                    }
+                }
+            };
+            it.shortcutKeyDescription = "Delete";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Delete All Children");
+            it.action = [&]
+            {
+                auto selected = builder.getSelectedNode();
+                if (selected.isValid())
+                {
+                    undo.beginNewTransaction ("Delete All Children");
+                    selected.removeAllChildren (&undo);
+                }
+            };
+            it.shortcutKeyDescription = "Cmd+Delete";
+            edit.addItem (it);
+        }
+        
+        edit.addSeparator();
 
         {
             juce::PopupMenu::Item it ("Send to Back");
@@ -587,6 +622,7 @@ void ToolBox::performCut()
         juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
         auto p = selected.getParent();
         if (p.isValid())
+            undo.beginNewTransaction ("Cut");
             p.removeChild (selected, &undo);
     }
 }
@@ -796,6 +832,7 @@ void ToolBox::performSendToBack()
     if (currentIndex <= 0)
         return;
 
+    undo.beginNewTransaction ("Send To Back");
     parent.moveChild (currentIndex, 0, &undo);
 }
 
@@ -813,6 +850,7 @@ void ToolBox::performSendBack()
     if (currentIndex <= 0)
         return;
 
+    undo.beginNewTransaction ("Send Back");
     parent.moveChild (currentIndex, currentIndex - 1, &undo);
 }
 
@@ -830,6 +868,7 @@ void ToolBox::performBringForward()
     if (currentIndex >= parent.getNumChildren() - 1)
         return;
 
+    undo.beginNewTransaction ("Bring Foward");
     parent.moveChild (currentIndex, currentIndex + 1, &undo);
 }
 
@@ -847,6 +886,7 @@ void ToolBox::performBringToFront()
     if (currentIndex >= parent.getNumChildren() - 1)
         return;
 
+    undo.beginNewTransaction ("Bring To Front");
     parent.moveChild (currentIndex, parent.getNumChildren() - 1, &undo);
 }
 
@@ -1182,6 +1222,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         {
             auto p = selected.getParent();
             if (p.isValid())
+                undo.beginNewTransaction ("Delete");
                 p.removeChild (selected, &undo);
         }
 
@@ -1192,8 +1233,10 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && key.getModifiers().isCommandDown())
     {
         auto selected = builder.getSelectedNode();
-        if (selected.isValid())
+        if (selected.isValid()){
+            undo.beginNewTransaction ("Delete All Children");
             selected.removeAllChildren (&undo);
+        }
 
         return true;
     }

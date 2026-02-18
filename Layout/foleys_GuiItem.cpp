@@ -694,25 +694,28 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
         g.setColour (lineColour);
         g.drawRect (bounds, lineThickness);
 
-        // 8 handles: 4 corners + 4 edge midpoints
-        const juce::Point<float> handlePositions[] = {
-            handleBounds.getTopLeft(),
-            handleBounds.getTopRight(),
-            handleBounds.getBottomLeft(),
-            handleBounds.getBottomRight(),
-            { handleBounds.getCentreX(), handleBounds.getY() },
-            { handleBounds.getCentreX(), handleBounds.getBottom() },
-            { handleBounds.getX(),       handleBounds.getCentreY() },
-            { handleBounds.getRight(),   handleBounds.getCentreY() }
-        };
-
-        for (auto& pos : handlePositions)
-        {
-            auto handle = juce::Rectangle<float> (handleSize, handleSize).withCentre (pos);
-            g.setColour (handleFill);
-            g.fillEllipse (handle);
-            g.setColour (lineColour);
-            g.drawEllipse (handle, lineThickness);
+        // Only show resize handles in Contents layout (free positioning)
+        if (getParentsLayoutType() == LayoutType::Contents){
+            // 8 handles: 4 corners + 4 edge midpoints
+            const juce::Point<float> handlePositions[] = {
+                handleBounds.getTopLeft(),
+                handleBounds.getTopRight(),
+                handleBounds.getBottomLeft(),
+                handleBounds.getBottomRight(),
+                { handleBounds.getCentreX(), handleBounds.getY() },
+                { handleBounds.getCentreX(), handleBounds.getBottom() },
+                { handleBounds.getX(),       handleBounds.getCentreY() },
+                { handleBounds.getRight(),   handleBounds.getCentreY() }
+            };
+            
+            for (auto& pos : handlePositions)
+            {
+                auto handle = juce::Rectangle<float> (handleSize, handleSize).withCentre (pos);
+                g.setColour (handleFill);
+                g.fillEllipse (handle);
+                g.setColour (lineColour);
+                g.drawEllipse (handle, lineThickness);
+            }
         }
     }
 #endif
@@ -757,6 +760,8 @@ void GuiItem::setDraggable (bool selected)
         borderDragger->onDragEnd = [&]
         {
             savePosition();
+            if (auto* topLevel = getTopLevelComponent())
+                    topLevel->grabKeyboardFocus();
         };
 
         borderDragger->setBounds (getLocalBounds());
@@ -771,6 +776,7 @@ void GuiItem::setDraggable (bool selected)
 
 void GuiItem::nudgeLeft ()
 {
+    magicBuilder.getUndoManager().beginNewTransaction ("Nudge Left");
     auto itemBounds = getBounds();
     int distance = 1;
     const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
@@ -783,6 +789,7 @@ void GuiItem::nudgeLeft ()
 
 void GuiItem::nudgeRight ()
 {
+    magicBuilder.getUndoManager().beginNewTransaction ("Nudge Right");
     auto itemBounds = getBounds();
     int distance = 1;
     const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
@@ -795,6 +802,7 @@ void GuiItem::nudgeRight ()
 
 void GuiItem::nudgeUp ()
 {
+    magicBuilder.getUndoManager().beginNewTransaction ("Nudge Up");
     auto itemBounds = getBounds();
     int distance = 1;
     const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
@@ -807,6 +815,7 @@ void GuiItem::nudgeUp ()
 
 void GuiItem::nudgeDown ()
 {
+    magicBuilder.getUndoManager().beginNewTransaction ("Nudge Down");
     auto itemBounds = getBounds();
     int distance = 1;
     const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
@@ -890,6 +899,9 @@ void GuiItem::mouseUp (const juce::MouseEvent& event)
 
         magicBuilder.setSelectedNode (configNode);
     }
+    
+    if (auto* topLevel = getTopLevelComponent())
+            topLevel->grabKeyboardFocus();
 }
 
 void GuiItem::mouseDoubleClick (const juce::MouseEvent& event)

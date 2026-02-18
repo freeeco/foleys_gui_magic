@@ -198,7 +198,6 @@ public:
      This method sets the GUI in edit mode, that allows to drag the components around.
      */
     virtual void setEditMode (bool shouldEdit);
-
     virtual void setDraggable (bool selected);
 
     void mouseDown (const juce::MouseEvent& event) override;
