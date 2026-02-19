@@ -71,12 +71,14 @@ void Container::update()
     setTitle (magicBuilder.getStyleProperty (IDs::accessibilityTitle, configNode).toString());
 
     const auto display = magicBuilder.getStyleProperty (IDs::display, configNode).toString();
+    LayoutType newLayout = LayoutType::FlexBox;
     if (display == IDs::contents)
-        setLayoutMode (LayoutType::Contents);
+        newLayout = LayoutType::Contents;
     else if (display == IDs::tabbed)
-        setLayoutMode (LayoutType::Tabbed);
-    else
-        setLayoutMode (LayoutType::FlexBox);
+        newLayout = LayoutType::Tabbed;
+
+    if (newLayout != layout)
+        setLayoutMode (newLayout);
 
 //    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
 //    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
@@ -186,7 +188,11 @@ void Container::setLayoutMode (LayoutType layoutToUse)
     {
         tabbedButtons.reset();
         for (auto& child : children)
-            child->refreshVisibility();
+        {
+            bool shouldBeVisible = child->getStaticVisibility();
+            if (child->isVisible() != shouldBeVisible)
+                child->setVisible (shouldBeVisible);
+        }
     }
 
     updateLayout();
@@ -207,6 +213,9 @@ void Container::resized()
 
 void Container::updateLayout()
 {
+    if (getWidth() == 0 || getHeight() == 0)
+            return;  // Skip layout if we haven't been sized yet
+    
     if (children.empty())
         return;
 
@@ -364,8 +373,8 @@ void Container::updateColours()
 {
     decorator.updateColours (magicBuilder, configNode);
 
-    for (auto& child : children)
-        child->updateColours();
+//    for (auto& child : children)
+//        child->updateColours();
 }
 
 void Container::updateContinuousRedraw()

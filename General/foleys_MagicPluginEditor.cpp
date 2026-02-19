@@ -189,7 +189,6 @@ void MagicPluginEditor::setConfigTree (const juce::ValueTree& config)
     }
 
     builder->createGUI (*this);
-    updateSize();
 }
 
 MagicGUIBuilder& MagicPluginEditor::getGUIBuilder()
