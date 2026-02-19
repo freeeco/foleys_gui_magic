@@ -129,7 +129,7 @@ void Container::update()
 
 void Container::addChildItem (std::unique_ptr<GuiItem> child)
 {
-    containerBox.addAndMakeVisible (child.get());
+    containerBox.addChildComponent (child.get());
     children.push_back (std::move (child));
 }
 
@@ -142,9 +142,7 @@ void Container::createSubComponents()
         auto childItem = magicBuilder.createGuiItem (childNode);
         if (childItem)
         {
-            containerBox.addAndMakeVisible (childItem.get());
-//            childItem->createSubComponents();
-
+            containerBox.addChildComponent (childItem.get());
             children.push_back (std::move (childItem));
         }
     }
@@ -188,7 +186,7 @@ void Container::setLayoutMode (LayoutType layoutToUse)
     {
         tabbedButtons.reset();
         for (auto& child : children)
-            child->setVisible (true);
+            child->refreshVisibility();
     }
 
     updateLayout();
@@ -225,8 +223,13 @@ void Container::updateLayout()
     if (layout == LayoutType::FlexBox)
     {
         flexBox.items.clear();
+
         for (auto& child : children)
+        {
+            if (!child->isVisible())
+                continue;
             flexBox.items.add (child->getFlexItem());
+        }
 
         auto overall = clientBounds;
         flexBox.performLayout (overall);

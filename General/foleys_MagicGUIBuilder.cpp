@@ -380,6 +380,8 @@ juce::var MagicGUIBuilder::getPropertyDefaultValue (juce::Identifier property) c
     if (property == IDs::lookAndFeel) return "FoleysFinest";
 
     if (property == juce::Identifier ("font-size")) return 12.0;
+    if (property == IDs::opacity) return 1.0;
+    if (property == IDs::glowOpacity) return 1.0;
 
     return {};
 }

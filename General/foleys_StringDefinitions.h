@@ -62,6 +62,7 @@ namespace IDs
     static juce::Identifier webBrowser   { "WebBrowserComponent" };
 
     static juce::Identifier visibility   { "visibility" };
+    static juce::Identifier visible      { "visible" };
     static juce::Identifier caption      { "caption" };
     static juce::Identifier captionPlacement { "caption-placement" };
     static juce::Identifier captionColour { "caption-color" };

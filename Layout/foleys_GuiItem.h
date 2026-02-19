@@ -156,6 +156,18 @@ public:
     void componentTransform();
     
     void referValues();
+    
+    /** Override to return false in headless items (LFO, Evaluate, Transport, etc.)
+        that should be invisible unless explicitly set visible in the XML. */
+    virtual bool isVisibleByDefault() const { return true; }
+
+    /** Reads the static 'visible' property from the node, falling back to isVisibleByDefault(). */
+    bool getStaticVisibility() const;
+
+    /** Re-applies the correct visibility, respecting dynamic 'visibility' binding if active,
+        otherwise falls back to the static 'visible' property / isVisibleByDefault().
+        Use this anywhere you'd otherwise be tempted to call setVisible(true) unconditionally. */
+    void refreshVisibility();
 
     /**
      Returns the bounds of the wrapped Component. This is the GuiItems bounds

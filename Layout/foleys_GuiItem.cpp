@@ -119,6 +119,10 @@ void GuiItem::updateInternal()
 #endif
     
     setOpaque (decorator.getBackgroundColour().isOpaque() || decorator.getBackgroundImage().isValid());
+    
+    auto dynamicProp = magicBuilder.getStyleProperty (IDs::visibility, configNode).toString();
+    if (dynamicProp.isEmpty())
+        setVisible (getStaticVisibility());
 
     repaint();
 }
@@ -963,6 +967,24 @@ void GuiItem::itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSou
     if (node.isValid())
         magicBuilder.draggedItemOnto (node, configNode);
 #endif
+}
+
+bool GuiItem::getStaticVisibility() const
+{
+    auto v = magicBuilder.getStyleProperty (IDs::visible, configNode);
+    if (! v.isVoid())
+        return static_cast<bool> (v);
+
+    return isVisibleByDefault();
+}
+
+void GuiItem::refreshVisibility()
+{
+    auto dynamicProp = magicBuilder.getStyleProperty (IDs::visibility, configNode).toString();
+    if (dynamicProp.isNotEmpty())
+        setVisible (magicBuilder.getMagicState().getPropertyAsValue (dynamicProp).getValue());
+    else
+        setVisible (getStaticVisibility());
 }
 
 
