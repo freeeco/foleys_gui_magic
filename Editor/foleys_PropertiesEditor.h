@@ -86,6 +86,7 @@ private:
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override {}
     void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override {}
     void valueTreeParentChanged (juce::ValueTree&) override {}
+    juce::String sectionName (const juce::String& name, const juce::Array<juce::PropertyComponent*>& array) const;
 
 
     MagicGUIBuilder&    builder;

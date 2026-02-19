@@ -187,6 +187,8 @@ void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Iden
 {
     if (property == IDs::id || property == IDs::caption || property == IDs::visible)
         updateTree();
+    else
+        treeView.repaint();
 }
 
 void GUITreeEditor::valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&)
@@ -249,7 +251,8 @@ void GUITreeEditor::GuiTreeItem::paintItem (juce::Graphics& g, int width, int he
     for (int i = 0; i < itemNode.getNumProperties(); ++i)
     {
         auto value = itemNode.getPropertyAsValue (itemNode.getPropertyName (i), nullptr).toString();
-        if (value.contains (":") && !value.contains ("://"))
+        if (value.contains (":") && !value.startsWithIgnoreCase ("http")
+            && value.fromFirstOccurrenceOf (":", false, false).trimStart() == value.fromFirstOccurrenceOf (":", false, false))
             { hasValueMessages = true; break; }
     }
 

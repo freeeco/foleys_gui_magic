@@ -286,6 +286,17 @@ void PropertiesEditor::addNodeProperties()
     properties.addSection ("Node", array, false);
 }
 
+juce::String PropertiesEditor::sectionName (const juce::String& name, const juce::Array<juce::PropertyComponent*>& array) const
+{
+    for (auto* p : array)
+    {
+        auto val = styleItem.getProperty (juce::Identifier (p->getName())).toString();
+        if (val.contains (":") && !val.startsWithIgnoreCase ("http")
+            && val.fromFirstOccurrenceOf (":", false, false).trimStart() == val.fromFirstOccurrenceOf (":", false, false))            return name + "\\has_value_messages";
+    }
+    return name;
+}
+
 void PropertiesEditor::addDecoratorProperties()
 {
     juce::Array<juce::PropertyComponent*> array;
@@ -315,7 +326,7 @@ void PropertiesEditor::addDecoratorProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::backgroundAlpha, styleItem));
     array.add (new StyleGradientPropertyComponent (builder, IDs::backgroundGradient, styleItem));
 
-    properties.addSection ("Decorator", array, false);
+    properties.addSection (sectionName ("Decorator", array), array, false);
 }
 
 void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juce::PropertyComponent*> additional)
@@ -349,7 +360,8 @@ void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juc
         }
     }
 
-    properties.addSection (type.toString(), array, false);
+    if (!array.isEmpty())
+        properties.addSection (sectionName (type.toString(), array), array, false);
 }
 
 void PropertiesEditor::addFlexItemProperties()
@@ -395,7 +407,7 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleChoicePropertyComponent (builder, IDs::originY, styleItem, { "top", "centre", "bottom" }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue, styleItem, builder.createPropertiesMenuLambda()));
 
-    properties.addSection ("Item", array, false);
+    properties.addSection (sectionName ("Item", array), array, false);
 }
 
 void PropertiesEditor::addContainerProperties()
@@ -421,7 +433,7 @@ void PropertiesEditor::addContainerProperties()
     
     array.add (new StyleChoicePropertyComponent (builder, IDs::focusContainerType, styleItem, { IDs::focusNone, IDs::focusContainer, IDs::focusKeyContainer }));
 
-    properties.addSection ("Container", array, false);
+    properties.addSection (sectionName ("Container", array), array, false);
 }
 
 void PropertiesEditor::addPaletteColours()

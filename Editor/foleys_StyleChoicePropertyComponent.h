@@ -54,7 +54,7 @@ public:
 private:
     void initialiseComboBox (bool editable);
 
-    static bool isPropertiesMenu (juce::ComboBox& combo);
+    bool isPropertiesMenu (juce::ComboBox& combo);
 
     void valueChanged (juce::Value& value) override;
 

@@ -264,7 +264,7 @@ public:
         }
 
         // Highlighted background — rounded rect with inset padding
-        auto textColourToUse = ToolBoxColours::text;
+        auto textColourToUse = isActive ? ToolBoxColours::text : ToolBoxColours::textDim;
 
         if (isHighlighted && isActive)
         {
@@ -379,7 +379,24 @@ public:
         g.fillPath (arrow);
 
         g.setColour (ToolBoxColours::text);
-        g.drawText (name, area.withTrimmedLeft (4.0f), juce::Justification::centredLeft);
+        
+        bool hasValueMessages = name.contains ("\\has_value_messages");
+        auto displayName = name.replace ("\\has_value_messages", "");
+
+        g.setColour (ToolBoxColours::text);
+        g.drawText (displayName, area.withTrimmedLeft (4.0f), juce::Justification::centredLeft);
+
+        if (hasValueMessages)
+        {
+            const float circleSize = (float) height * 0.29f;
+            juce::Font font (juce::FontOptions().withHeight ((float) height * 0.6f));
+            juce::GlyphArrangement ga;
+            ga.addLineOfText (font, displayName, 0, 0);
+            const float cx = (float) height + 4.0f + ga.getBoundingBox (0, -1, true).getWidth() + 9.0f;
+            const float cy = ((float) height - circleSize) * 0.5f;
+            g.setColour (juce::Colour (0xff4a9eff).withAlpha (0.8f).darker (0.2f));
+            g.fillEllipse (cx, cy, circleSize, circleSize);
+        }
     }
 
     void drawPropertyComponentBackground (juce::Graphics& g,
