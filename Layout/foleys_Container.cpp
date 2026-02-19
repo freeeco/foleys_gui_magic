@@ -388,6 +388,9 @@ void Container::updateTabbedButtons()
 
     for (auto& child : children)
     {
+        if (!child->getStaticVisibility())
+                    continue;
+        
         tabbedButtons->addTab (child->getTabCaption ("Tab " + juce::String (tabbedButtons->getNumTabs())),
                                child->getTabColour(), -1);
     }
@@ -486,9 +489,16 @@ void Container::valueChanged (juce::Value& source)
 
 void Container::updateSelectedTab()
 {
-    int index = 0;
+    int tabIndex = 0;
     for (auto& child : children)
-        child->setVisible (currentTab == index++);
+    {
+        if (!child->getStaticVisibility())
+        {
+            child->setVisible (false);
+            continue;
+        }
+        child->setVisible (currentTab == tabIndex++);
+    }
 }
 
 std::vector<std::unique_ptr<GuiItem>>::iterator Container::begin()

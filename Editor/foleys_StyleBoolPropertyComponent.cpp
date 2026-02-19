@@ -67,13 +67,14 @@ void StyleBoolPropertyComponent::refresh()
 
     if (auto* toggle = dynamic_cast<juce::ToggleButton*>(editor.get()))
    {
-       if (node == inheritedFrom)
+       if (node == inheritedFrom && node.hasProperty (property))
        {
            toggle->getToggleStateValue().referTo (node.getPropertyAsValue (property, &builder.getUndoManager()));
        }
        else
        {
-           toggle->getToggleStateValue().referTo (toggle->getToggleStateValue());
+//           toggle->getToggleStateValue().referTo (toggle->getToggleStateValue()); // Wrong way to clear the referral?
+           toggle->getToggleStateValue().referTo (juce::Value());
 
            bool state = value;
            // Hack to set the default state for the 'visible' property
