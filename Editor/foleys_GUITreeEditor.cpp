@@ -185,7 +185,7 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
 
 void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
 {
-    if (property == IDs::id || property == IDs::caption)
+    if (property == IDs::id || property == IDs::caption || property == IDs::visible)
         updateTree();
 }
 
@@ -239,8 +239,26 @@ void GUITreeEditor::GuiTreeItem::paintItem (juce::Graphics& g, int width, int he
     if (isSelected())
         g.fillAll (EditorColours::selectedBackground.withAlpha (0.5f));
 
-    g.setColour (EditorColours::text);
-    g.setFont (height * 0.7f);
+    bool isVisible = true;
+    if (itemNode.hasProperty (IDs::visible))
+        isVisible = (bool) itemNode.getProperty (IDs::visible);
+    else if (auto item = builder.createGuiItem (juce::ValueTree (itemNode.getType()), true))
+        isVisible = item->isVisibleByDefault();
+
+    bool hasValueMessages = false;
+    for (int i = 0; i < itemNode.getNumProperties(); ++i)
+    {
+        auto value = itemNode.getPropertyAsValue (itemNode.getPropertyName (i), nullptr).toString();
+        if (value.contains (":") && !value.contains ("://"))
+            { hasValueMessages = true; break; }
+    }
+
+    const float circleSize = height * 0.29f;
+    const float textX      = 4.0f;
+
+    g.setColour (EditorColours::text.darker (isVisible ? 0.0f : 0.2f));
+    g.setFont (juce::Font (juce::FontOptions().withHeight (height * 0.7f)
+                                              .withStyle (isVisible ? "Regular" : "Italic")));
 
     juce::String name = itemNode.getType().toString();
 
@@ -250,7 +268,18 @@ void GUITreeEditor::GuiTreeItem::paintItem (juce::Graphics& g, int width, int he
     if (itemNode.hasProperty (IDs::caption))
         name += ": " + itemNode.getProperty (IDs::caption).toString();
 
-    g.drawText (name, 4, 0, width - 4, height, juce::Justification::centredLeft, true);
+    g.drawText (name, (int)textX, 0, width - (int)textX - 4, height, juce::Justification::centredLeft, true);
+
+    if (hasValueMessages)
+    {
+        juce::GlyphArrangement ga;
+        ga.addLineOfText (g.getCurrentFont(), name, 0, 0);
+        const float cx = textX + ga.getBoundingBox (0, -1, true).getWidth() + 7.0f;
+        const float cy = (height - circleSize) * 0.6f;
+//        g.setColour (EditorColours::text.darker (0.2f));
+        g.setColour (juce::Colour (0xff4a9eff).withAlpha (0.8f).darker (0.2f));
+        g.fillEllipse (cx, cy, circleSize, circleSize);
+    }
 }
 
 void GUITreeEditor::GuiTreeItem::itemOpennessChanged (bool isNowOpen)
