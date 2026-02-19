@@ -576,6 +576,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     addToDesktop (getLookAndFeel().getMenuWindowFlags());
 
     startTimer (Timers::WindowDrag, 100);
+    startTimer (ModifierKeys, 10);
 
     setVisible (true);
 
@@ -1489,6 +1490,22 @@ void ToolBox::timerCallback (int timer)
         updateToolboxPosition();
     else if (timer == Timers::AutoSave)
         saveGUI (autoSaveFile);
+    else if (timer == ModifierKeys)
+    {
+        auto mods = juce::ModifierKeys::getCurrentModifiersRealtime();
+        bool shouldTempEdit = mods.isCommandDown() && mods.isShiftDown() && mods.isAltDown();
+
+        if (shouldTempEdit && !builder.isEditModeOn())
+        {
+            builder.setEditMode (true);
+            temporaryEditMode = true;
+        }
+        else if (!shouldTempEdit && temporaryEditMode)
+        {
+            builder.setEditMode (false, false);
+            temporaryEditMode = false;
+        }
+    }
 }
 
 void ToolBox::setToolboxPosition (PositionOption position)

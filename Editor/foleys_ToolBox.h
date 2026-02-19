@@ -112,8 +112,9 @@ private:
 
     enum Timers : int
     {
-        WindowDrag=1,
-        AutoSave
+        WindowDrag = 1,
+        AutoSave,
+        ModifierKeys
     };
 
     static juce::String positionOptionToString (PositionOption option);
@@ -197,6 +198,7 @@ private:
     bool lastShowItemsPanel = true;
     int savedTreeHeightShowing = -1;
     int savedTreeHeightHidden = -1;
+    bool temporaryEditMode = false;
 
     void updateToolboxPosition();
     juce::ResizableCornerComponent resizeCorner { this, nullptr };

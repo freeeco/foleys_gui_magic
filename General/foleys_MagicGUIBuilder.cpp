@@ -425,7 +425,7 @@ juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
-void MagicGUIBuilder::setEditMode (bool shouldEdit)
+void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)
 {
     editMode = shouldEdit;
 
@@ -435,7 +435,7 @@ void MagicGUIBuilder::setEditMode (bool shouldEdit)
     if (root.get() != nullptr)
         root->setEditMode (shouldEdit);
 
-    if (shouldEdit == false)
+    if (shouldEdit == false && shouldDeselect)
         setSelectedNode (juce::ValueTree());
 
     parent->repaint();
