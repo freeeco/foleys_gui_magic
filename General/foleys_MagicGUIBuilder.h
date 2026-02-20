@@ -221,6 +221,8 @@ public:
     juce::UndoManager& getUndoManager();
     
     juce::TooltipWindow*  getTooltipWindow();
+    
+    void refreshColours();
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void attachToolboxToWindow (juce::Component& window);

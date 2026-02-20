@@ -71,14 +71,12 @@ void Container::update()
     setTitle (magicBuilder.getStyleProperty (IDs::accessibilityTitle, configNode).toString());
 
     const auto display = magicBuilder.getStyleProperty (IDs::display, configNode).toString();
-    LayoutType newLayout = LayoutType::FlexBox;
     if (display == IDs::contents)
-        newLayout = LayoutType::Contents;
+        setLayoutMode (LayoutType::Contents);
     else if (display == IDs::tabbed)
-        newLayout = LayoutType::Tabbed;
-
-    if (newLayout != layout)
-        setLayoutMode (newLayout);
+        setLayoutMode (LayoutType::Tabbed);
+    else
+        setLayoutMode (LayoutType::FlexBox);
 
 //    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
 //    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
@@ -373,8 +371,8 @@ void Container::updateColours()
 {
     decorator.updateColours (magicBuilder, configNode);
 
-//    for (auto& child : children)
-//        child->updateColours();
+    for (auto& child : children)
+        child->updateColours();
 }
 
 void Container::updateContinuousRedraw()

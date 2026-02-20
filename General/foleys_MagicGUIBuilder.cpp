@@ -423,6 +423,13 @@ juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
         return nullptr;
 }
 
+void MagicGUIBuilder::refreshColours()
+{
+    updateColours();
+    if (parent != nullptr)
+        parent->repaint();
+}
+
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
 void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)

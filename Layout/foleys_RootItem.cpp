@@ -60,6 +60,7 @@ void RootItem::updateColours()
     
 //    for (const auto& child : *this)
 //        child->updateColours();
+    Container::updateColours();
 }
 
 bool RootItem::keyPressed(const juce::KeyPress& key)

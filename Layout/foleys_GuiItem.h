@@ -278,6 +278,14 @@ private:
     bool shadowEnable = false;
     bool redrawAll = false;
     bool blurNeedsRepaint = true;
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    int  lastOriginLocalX  { 0 };
+    int  lastOriginLocalY  { 0 };
+    bool  hasOriginOffset       { false };
+    bool  isDraggingOrigin      { false };
+    int   originDragStartY      { 0 };
+    float originDragStartRotate { 0.0f };
+#endif
     
     juce::Value     visibility { true };
     juce::Value     scaleValue { 1.0f };

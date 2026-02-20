@@ -108,9 +108,11 @@ juce::ValueTree Stylesheet::getCurrentPalette()
     return currentPalette;
 }
 
-void Stylesheet::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& name)
+void Stylesheet::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& name)
 {
-    if (name.toString().contains("color"))
+    if (isColourPaletteNode (tree))
+        builder.updateColours();
+    else if (name.toString().contains ("color"))
         builder.updateColours();
     else
         builder.updateComponents();
@@ -259,7 +261,8 @@ juce::Colour Stylesheet::parseColour (const juce::String& name)
     if (name.startsWithIgnoreCase ("transparent"))
         return juce::Colours::transparentBlack;
 
-    return juce::Colours::findColourForName (name, juce::Colour::fromString (name.length() < 8 ? "ff" + name : name));
+    auto padded = name.paddedLeft ('0', 8);
+    return juce::Colours::findColourForName (name, juce::Colour::fromString (padded.length() < 8 ? "ff" + padded : padded));
 }
 
 juce::LookAndFeel* Stylesheet::getLookAndFeel (const juce::ValueTree& node) const

@@ -306,14 +306,58 @@ void GuiItem::componentTransform()
     
     float scale = magicBuilder.getStyleProperty (IDs::scale, configNode);
     float widthScale = magicBuilder.getStyleProperty (IDs::widthScale, configNode);
-    juce::String originXString = magicBuilder.getStyleProperty (IDs::originX, configNode).toString();
+    juce::String originXString    = magicBuilder.getStyleProperty (IDs::originX,       configNode).toString();
+    juce::String originXOffsetStr = magicBuilder.getStyleProperty (IDs::originXOffset, configNode).toString();
     float heightScale = magicBuilder.getStyleProperty (IDs::heightScale, configNode);
-    juce::String originYString = magicBuilder.getStyleProperty (IDs::originY, configNode).toString();
+    juce::String originYString    = magicBuilder.getStyleProperty (IDs::originY,       configNode).toString();
+    juce::String originYOffsetStr = magicBuilder.getStyleProperty (IDs::originYOffset, configNode).toString();
     float horizontal = magicBuilder.getStyleProperty (IDs::horizontal, configNode);
     float vertical = magicBuilder.getStyleProperty (IDs::vertical, configNode);
     float rotate = magicBuilder.getStyleProperty (IDs::rotate, configNode);
     float opacity = magicBuilder.getStyleProperty (IDs::opacity, configNode);
     bool dontSnap = magicBuilder.getStyleProperty (IDs::dontSnapToPixels, configNode);
+    
+    int originX;
+    if (originXString == "left")
+        originX = getBounds().getX();
+    else if (originXString == "right")
+        originX = getBounds().getRight();
+    else if (originXString == "centre")
+        originX = getBounds().getCentreX();
+    else
+        originX = originXOffsetStr.isNotEmpty() ? getBounds().getX() : getBounds().getCentreX();
+
+    int originY;
+    if (originYString == "top")
+        originY = getBounds().getY();
+    else if (originYString == "bottom")
+        originY = getBounds().getBottom();
+    else if (originYString == "centre")
+        originY = getBounds().getCentreY();
+    else
+        originY = originYOffsetStr.isNotEmpty() ? getBounds().getY() : getBounds().getCentreY();
+
+    if (originXOffsetStr.isNotEmpty())
+    {
+        float offsetX = originXOffsetStr.endsWith ("%")
+            ? originXOffsetStr.getFloatValue() * 0.01f * (float)getWidth()
+            : originXOffsetStr.getFloatValue();
+        originX += juce::roundToInt (offsetX);
+    }
+
+    if (originYOffsetStr.isNotEmpty())
+    {
+        float offsetY = originYOffsetStr.endsWith ("%")
+            ? originYOffsetStr.getFloatValue() * 0.01f * (float)getHeight()
+            : originYOffsetStr.getFloatValue();
+        originY += juce::roundToInt (offsetY);
+    }
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    lastOriginLocalX = originX - getBounds().getX();
+    lastOriginLocalY = originY - getBounds().getY();
+    hasOriginOffset  = originXOffsetStr.isNotEmpty() || originYOffsetStr.isNotEmpty();
+#endif
     
     float componentHeight = (float)getHeight();
 
@@ -382,23 +426,7 @@ void GuiItem::componentTransform()
         
         if (widthScale > -0.00001f && widthScale < 0.00001f)
             widthScale = 0.00001f;
-        
-        int originX;
-        if (originXString == "left")
-            originX = getBounds().getX();
-        else if (originXString == "right")
-            originX = getBounds().getRight();
-        else
-            originX = getBounds().getCentreX();
-            
-        int originY;
-        if (originYString == "top")
-            originY = getBounds().getY();
-        else if (originYString == "bottom")
-            originY = getBounds().getBottom();
-        else
-            originY = getBounds().getCentreY();
-            
+                    
         transform = transform.rotated((juce::MathConstants<float>::pi * 2.0f) * (rotate), originX, originY);
         transform = transform.scaled (scale * widthScale, scale * heightScale, originX, originY);
         transform = transform.translated (horizontal * getWidth(), vertical * getHeight());
@@ -699,8 +727,8 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
         g.drawRect (bounds, lineThickness);
 
         // Only show resize handles in Contents layout (free positioning)
-        if (getParentsLayoutType() == LayoutType::Contents){
-            // 8 handles: 4 corners + 4 edge midpoints
+        if (getParentsLayoutType() == LayoutType::Contents)
+        {
             const juce::Point<float> handlePositions[] = {
                 handleBounds.getTopLeft(),
                 handleBounds.getTopRight(),
@@ -711,7 +739,7 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
                 { handleBounds.getX(),       handleBounds.getCentreY() },
                 { handleBounds.getRight(),   handleBounds.getCentreY() }
             };
-            
+
             for (auto& pos : handlePositions)
             {
                 auto handle = juce::Rectangle<float> (handleSize, handleSize).withCentre (pos);
@@ -720,6 +748,21 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
                 g.setColour (lineColour);
                 g.drawEllipse (handle, lineThickness);
             }
+        }
+
+        // Draw origin cross if an offset is active
+        if (hasOriginOffset)
+        {
+            const float crossSize  = 6.0f;
+            const float crossThick = 1.5f;
+            const auto  crossCol   = juce::Colour (0xff5ba6d6);
+            const float cx = (float) lastOriginLocalX;
+            const float cy = (float) lastOriginLocalY;
+
+            g.setColour (crossCol);
+            g.drawLine (cx - crossSize, cy, cx + crossSize, cy, crossThick);
+            g.drawLine (cx, cy - crossSize, cx, cy + crossSize, crossThick);
+            g.drawEllipse (cx - 2.0f, cy - 2.0f, 4.0f, 4.0f, crossThick);
         }
     }
 #endif
@@ -859,6 +902,32 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
     {
         magicBuilder.setSelectedNode (configNode);
     }
+    
+    if (magicBuilder.isEditModeOn())
+    {
+        originDragStartY      = event.getScreenPosition().y;
+        originDragStartRotate = (float) magicBuilder.getStyleProperty (IDs::rotate, configNode);
+
+        if (event.mods.isCommandDown() && !event.mods.isShiftDown() && !event.mods.isAltDown() && !event.mods.isCtrlDown())
+        {
+            magicBuilder.getUndoManager().beginNewTransaction ("Rotate component");
+            return;
+        }
+    }
+    
+    if (magicBuilder.isEditModeOn() && hasOriginOffset)
+    {
+        const float hitRadius = 8.0f;
+        auto localPos = event.getPosition().toFloat();
+        auto originPos = juce::Point<float> ((float)lastOriginLocalX, (float)lastOriginLocalY);
+
+        if (localPos.getDistanceFrom (originPos) <= hitRadius)
+        {
+            isDraggingOrigin = true;
+            magicBuilder.getUndoManager().beginNewTransaction ("Drag origin offset");
+            return;
+        }
+    }
 
     if (componentDragger)
     {
@@ -867,6 +936,45 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
         hasDuplicatedOnDrag = false;
         dragStartPosX = configNode.getProperty (IDs::posX).toString();
         dragStartPosY = configNode.getProperty (IDs::posY).toString();
+        
+    if (isDraggingOrigin)
+    {
+        auto localPos = event.getPosition();
+
+        juce::String originXString = magicBuilder.getStyleProperty (IDs::originX, configNode).toString();
+        juce::String originYString = magicBuilder.getStyleProperty (IDs::originY, configNode).toString();
+        auto existingX = configNode.getProperty (IDs::originXOffset).toString();
+        auto existingY = configNode.getProperty (IDs::originYOffset).toString();
+
+        int baseX;
+        if (originXString == "left")        baseX = 0;
+        else if (originXString == "right")  baseX = getWidth();
+        else if (originXString == "centre") baseX = getWidth() / 2;
+        else                                baseX = existingX.isNotEmpty() ? 0 : getWidth() / 2;
+
+        int baseY;
+        if (originYString == "top")         baseY = 0;
+        else if (originYString == "bottom") baseY = getHeight();
+        else if (originYString == "centre") baseY = getHeight() / 2;
+        else                                baseY = existingY.isNotEmpty() ? 0 : getHeight() / 2;
+
+        int offsetX = localPos.x - baseX;
+        int offsetY = localPos.y - baseY;
+
+        auto* undo = &magicBuilder.getUndoManager();
+
+        if (existingX.endsWith ("%"))
+            configNode.setProperty (IDs::originXOffset, juce::String (offsetX * 100.0f / (float)getWidth(),  2) + "%", undo);
+        else
+            configNode.setProperty (IDs::originXOffset, offsetX, undo);
+
+        if (existingY.endsWith ("%"))
+            configNode.setProperty (IDs::originYOffset, juce::String (offsetY * 100.0f / (float)getHeight(), 2) + "%", undo);
+        else
+            configNode.setProperty (IDs::originYOffset, offsetY, undo);
+
+        return;
+    }
 
         magicBuilder.getUndoManager().beginNewTransaction ("Drag component position");
         componentDragger->startDraggingComponent (this, event);
@@ -875,6 +983,55 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
 
 void GuiItem::mouseDrag (const juce::MouseEvent& event)
 {
+    if (magicBuilder.isEditModeOn() && event.mods.isCommandDown()
+        && !event.mods.isShiftDown() && !event.mods.isAltDown() && !event.mods.isCtrlDown())
+    {
+        int deltaY = originDragStartY - event.getScreenPosition().y;
+        float deltaRotate = (float)deltaY / ((float)getHeight() * 10.0f);
+        configNode.setProperty (IDs::rotate, originDragStartRotate + deltaRotate, &magicBuilder.getUndoManager());
+        setMouseCursor (juce::MouseCursor::CrosshairCursor);
+        return;
+    }
+    
+    if (isDraggingOrigin)
+    {
+        auto localPos = event.getPosition();
+
+        juce::String originXString = magicBuilder.getStyleProperty (IDs::originX, configNode).toString();
+        juce::String originYString = magicBuilder.getStyleProperty (IDs::originY, configNode).toString();
+        auto existingX = configNode.getProperty (IDs::originXOffset).toString();
+        auto existingY = configNode.getProperty (IDs::originYOffset).toString();
+
+        int baseX;
+        if (originXString == "left")        baseX = 0;
+        else if (originXString == "right")  baseX = getWidth();
+        else if (originXString == "centre") baseX = getWidth() / 2;
+        else                                baseX = existingX.isNotEmpty() ? 0 : getWidth() / 2;
+
+        int baseY;
+        if (originYString == "top")         baseY = 0;
+        else if (originYString == "bottom") baseY = getHeight();
+        else if (originYString == "centre") baseY = getHeight() / 2;
+        else                                baseY = existingY.isNotEmpty() ? 0 : getHeight() / 2;
+
+        int offsetX = localPos.x - baseX;
+        int offsetY = localPos.y - baseY;
+
+        auto* undo = &magicBuilder.getUndoManager();
+
+        if (existingX.endsWith ("%"))
+            configNode.setProperty (IDs::originXOffset, juce::String (offsetX * 100.0f / (float)getWidth(),  2) + "%", undo);
+        else
+            configNode.setProperty (IDs::originXOffset, offsetX, undo);
+
+        if (existingY.endsWith ("%"))
+            configNode.setProperty (IDs::originYOffset, juce::String (offsetY * 100.0f / (float)getHeight(), 2) + "%", undo);
+        else
+            configNode.setProperty (IDs::originYOffset, offsetY, undo);
+
+        return;
+    }
+
     if (componentDragger)
     {
         if (!hasDuplicatedOnDrag &&
@@ -938,6 +1095,14 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 
 void GuiItem::mouseUp (const juce::MouseEvent& event)
 {
+    setMouseCursor (juce::MouseCursor::NormalCursor);
+    
+    if (isDraggingOrigin)
+    {
+        isDraggingOrigin = false;
+        return;
+    }
+    
     if (hasDuplicatedOnDrag)
     {
         // Capture everything by value before the delay

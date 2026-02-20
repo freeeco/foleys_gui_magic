@@ -747,6 +747,8 @@ void ToolBox::performPasteItemProperties()
         juce::Identifier ("rotate-value"),
         juce::Identifier ("origin-x"),
         juce::Identifier ("origin-y"),
+        juce::Identifier ("origin-x-offset"),
+        juce::Identifier ("origin-y-offset"),
         juce::Identifier ("opacity-value")
     };
 

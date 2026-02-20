@@ -196,8 +196,10 @@ namespace IDs
     static juce::Identifier scaleValue       { "scale-value" };
     static juce::Identifier widthScaleValue  { "width-scale-value" };
     static juce::Identifier originX  { "origin-x" };
+    static juce::Identifier originXOffset { "origin-x-offset" };
     static juce::Identifier heightScaleValue { "height-scale-value" };
     static juce::Identifier originY  { "origin-y" };
+    static juce::Identifier originYOffset { "origin-y-offset" };
     static juce::Identifier horizontalValue  { "horizontal-position-value" };
     static juce::Identifier verticalValue    { "vertical-position-value" };
     static juce::Identifier rotateValue      { "rotate-value" };
