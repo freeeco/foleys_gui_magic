@@ -319,6 +319,7 @@ private:
 
     void configurePosition (const juce::var& v, Position& p, double d);
     void savePosition ();
+    juce::Rectangle<int> mouseDownBounds;
     
     melatonin::CachedBlur blur { 8 };
 

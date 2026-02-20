@@ -295,6 +295,33 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         }
         
         edit.addSeparator();
+        
+        {
+            juce::PopupMenu insertMenu;
+
+            {
+                juce::PopupMenu::Item it ("View (Contents)");
+                it.action = [&] { performInsertViewContents(); };
+                it.shortcutKeyDescription = "Cmd+N";
+                insertMenu.addItem (it);
+            }
+            {
+                juce::PopupMenu::Item it ("View (Flexbox)");
+                it.action = [&] { performInsertViewFlexbox(); };
+                it.shortcutKeyDescription = "Shift+Cmd+N";
+                insertMenu.addItem (it);
+            }
+            {
+                juce::PopupMenu::Item it ("View (Tabbed)");
+                it.action = [&] { performInsertViewTabbed(); };
+                it.shortcutKeyDescription = "Opt+Cmd+N";
+                insertMenu.addItem (it);
+            }
+
+            edit.addSubMenu ("Insert", insertMenu);
+        }
+        
+        edit.addSeparator();
 
         {
             juce::PopupMenu::Item it ("Send to Back");
@@ -784,8 +811,9 @@ void ToolBox::performDuplicate()
     {
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
-                                 selected.getParent().indexOf (selected));
-
+                                 selected.getParent().indexOf (selected) + 1);
+        
+        this->setSelectedNode (paste);
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
             if (auto* item = this->treeEditor.getItemForNode (paste))
@@ -807,7 +835,6 @@ void ToolBox::performDuplicateUnique()
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
 
-        
         this->setSelectedNode (paste);
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
@@ -971,6 +998,68 @@ void ToolBox::performWrapInView()
     builder.draggedItemOnto (selected, wrapper);
 
     setSelectedNode (wrapper);
+}
+
+void ToolBox::performInsertViewContents()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid()) return;
+
+    undo.beginNewTransaction ("Insert View (Contents)");
+    juce::ValueTree newView ("View");
+    newView.setProperty ("display", "contents", &undo);
+
+    if (selected == builder.getGuiRootNode())
+        selected.appendChild (newView, &undo);
+    else
+    {
+        auto parent = selected.getParent();
+        if (!parent.isValid()) return;
+        parent.addChild (newView, parent.indexOf (selected) + 1, &undo);
+    }
+
+    builder.setSelectedNode (newView);
+}
+
+void ToolBox::performInsertViewFlexbox()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid()) return;
+
+    undo.beginNewTransaction ("Insert View (Flexbox)");
+    juce::ValueTree newView ("View");
+
+    if (selected == builder.getGuiRootNode())
+        selected.appendChild (newView, &undo);
+    else
+    {
+        auto parent = selected.getParent();
+        if (!parent.isValid()) return;
+        parent.addChild (newView, parent.indexOf (selected) + 1, &undo);
+    }
+
+    builder.setSelectedNode (newView);
+}
+
+void ToolBox::performInsertViewTabbed()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid()) return;
+
+    undo.beginNewTransaction ("Insert View (Tabbed)");
+    juce::ValueTree newView ("View");
+    newView.setProperty ("display", "tabbed", &undo);
+
+    if (selected == builder.getGuiRootNode())
+        selected.appendChild (newView, &undo);
+    else
+    {
+        auto parent = selected.getParent();
+        if (!parent.isValid()) return;
+        parent.addChild (newView, parent.indexOf (selected) + 1, &undo);
+    }
+
+    builder.setSelectedNode (newView);
 }
 
 //==============================================================================
@@ -1478,6 +1567,27 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
             }
         }
 
+        return true;
+    }
+    
+    // Cmd+N - Insert View (Contents)
+    if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && !key.getModifiers().isShiftDown() && !key.getModifiers().isAltDown())
+    {
+        performInsertViewContents();
+        return true;
+    }
+
+    // Shift+Cmd+N - Insert View (Flexbox)
+    if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown() && !key.getModifiers().isAltDown())
+    {
+        performInsertViewFlexbox();
+        return true;
+    }
+
+    // Opt+Cmd+N - Insert View (Tabbed)
+    if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && key.getModifiers().isAltDown() && !key.getModifiers().isShiftDown())
+    {
+        performInsertViewTabbed();
         return true;
     }
 

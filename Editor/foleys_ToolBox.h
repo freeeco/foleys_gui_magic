@@ -159,6 +159,9 @@ private:
     void performPasteStyling();
     void performClearDimensions();
     void performWrapInView();
+    void performInsertViewContents();
+    void performInsertViewFlexbox();
+    void performInsertViewTabbed();
 
     juce::Component::SafePointer<juce::Component> parent;
 

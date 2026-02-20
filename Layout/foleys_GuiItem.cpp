@@ -853,8 +853,17 @@ void GuiItem::savePosition ()
 
 void GuiItem::mouseDown (const juce::MouseEvent& event)
 {
+    if (getParentsLayoutType() == LayoutType::Contents &&
+        configNode != magicBuilder.getGuiRootNode() &&
+        magicBuilder.getSelectedNode() != configNode)
+    {
+        magicBuilder.setSelectedNode (configNode);
+        // setDraggable will have been called, so fall through
+    }
+
     if (componentDragger)
     {
+        mouseDownBounds = getBounds();
         magicBuilder.getUndoManager().beginNewTransaction ("Drag component position");
         componentDragger->startDraggingComponent (this, event);
     }
@@ -865,6 +874,21 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
     if (componentDragger)
     {
         componentDragger->dragComponent (this, event, nullptr);
+
+#if defined ENABLE_CONSTRAINED_DRAG
+        auto bounds = getBounds();
+        if (event.mods.isAltDown())
+        {
+            bounds.setX ((bounds.getX() / 4) * 4);
+            bounds.setY ((bounds.getY() / 4) * 4);
+        }
+        if (event.mods.isShiftDown() && !event.mods.isAltDown() && !event.mods.isCtrlDown() && !event.mods.isCommandDown())
+            bounds.setX (mouseDownBounds.getX());
+        if (event.mods.isCtrlDown() && !event.mods.isAltDown() && !event.mods.isShiftDown() && !event.mods.isCommandDown())
+            bounds.setY (mouseDownBounds.getY());
+        setBounds (bounds);
+#endif
+
         savePosition();
     }
     else if (event.mouseWasDraggedSinceMouseDown())
