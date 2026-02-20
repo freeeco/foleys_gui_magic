@@ -858,12 +858,16 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
         magicBuilder.getSelectedNode() != configNode)
     {
         magicBuilder.setSelectedNode (configNode);
-        // setDraggable will have been called, so fall through
     }
 
     if (componentDragger)
     {
         mouseDownBounds = getBounds();
+        lockedDragAxis = DragAxis::None;
+        hasDuplicatedOnDrag = false;
+        dragStartPosX = configNode.getProperty (IDs::posX).toString();
+        dragStartPosY = configNode.getProperty (IDs::posY).toString();
+
         magicBuilder.getUndoManager().beginNewTransaction ("Drag component position");
         componentDragger->startDraggingComponent (this, event);
     }
@@ -873,19 +877,53 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 {
     if (componentDragger)
     {
+        if (!hasDuplicatedOnDrag &&
+            event.mouseWasDraggedSinceMouseDown() &&
+            event.mods.isAltDown())
+        {
+            hasDuplicatedOnDrag = true;
+        }
+
         componentDragger->dragComponent (this, event, nullptr);
 
 #if defined ENABLE_CONSTRAINED_DRAG
         auto bounds = getBounds();
-        if (event.mods.isAltDown())
+
+        if (event.mods.isShiftDown())
         {
-            bounds.setX ((bounds.getX() / 4) * 4);
-            bounds.setY ((bounds.getY() / 4) * 4);
+            auto drag = event.getOffsetFromDragStart();
+            const int lockThreshold = 8;
+            const int hysteresis = 20;
+
+            if (lockedDragAxis == DragAxis::None)
+            {
+                if (std::abs (drag.x) >= std::abs (drag.y))
+                    bounds.setY (mouseDownBounds.getY());
+                else
+                    bounds.setX (mouseDownBounds.getX());
+
+                if (std::abs (drag.x) >= lockThreshold || std::abs (drag.y) >= lockThreshold)
+                {
+                    if (std::abs (drag.x) >= std::abs (drag.y))
+                        lockedDragAxis = DragAxis::Horizontal;
+                    else
+                        lockedDragAxis = DragAxis::Vertical;
+                }
+            }
+            else if (lockedDragAxis == DragAxis::Horizontal)
+            {
+                if (std::abs (drag.y) > std::abs (drag.x) + hysteresis)
+                    lockedDragAxis = DragAxis::Vertical;
+                bounds.setY (mouseDownBounds.getY());
+            }
+            else if (lockedDragAxis == DragAxis::Vertical)
+            {
+                if (std::abs (drag.x) > std::abs (drag.y) + hysteresis)
+                    lockedDragAxis = DragAxis::Horizontal;
+                bounds.setX (mouseDownBounds.getX());
+            }
         }
-        if (event.mods.isShiftDown() && !event.mods.isAltDown() && !event.mods.isCtrlDown() && !event.mods.isCommandDown())
-            bounds.setX (mouseDownBounds.getX());
-        if (event.mods.isCtrlDown() && !event.mods.isAltDown() && !event.mods.isShiftDown() && !event.mods.isCommandDown())
-            bounds.setY (mouseDownBounds.getY());
+
         setBounds (bounds);
 #endif
 
@@ -900,6 +938,34 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 
 void GuiItem::mouseUp (const juce::MouseEvent& event)
 {
+    if (hasDuplicatedOnDrag)
+    {
+        // Capture everything by value before the delay
+        auto configCopy = configNode;
+        auto posX = dragStartPosX;
+        auto posY = dragStartPosY;
+        auto* undo = &magicBuilder.getUndoManager();
+        auto* builderPtr = &magicBuilder;
+
+        juce::Timer::callAfterDelay (100, [configCopy, posX, posY, undo, builderPtr]() mutable
+        {
+            auto copy = juce::ValueTree::fromXml (configCopy.toXmlString());
+            if (copy.isValid())
+            {
+                copy.setProperty (IDs::posX, posX, nullptr);
+                copy.setProperty (IDs::posY, posY, nullptr);
+                auto parent = configCopy.getParent();
+                auto index  = parent.indexOf (configCopy);
+                parent.addChild (copy, index, undo);
+            }
+
+            // Re-select the original to restore proper drag state
+            builderPtr->setSelectedNode (juce::ValueTree());
+            builderPtr->setSelectedNode (configCopy);
+        });
+    }
+    hasDuplicatedOnDrag = false;
+    
     if (! event.mouseWasDraggedSinceMouseDown())
     {
         if (isContainer())

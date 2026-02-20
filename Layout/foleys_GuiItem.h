@@ -320,6 +320,11 @@ private:
     void configurePosition (const juce::var& v, Position& p, double d);
     void savePosition ();
     juce::Rectangle<int> mouseDownBounds;
+    enum class DragAxis { None, Horizontal, Vertical };
+    DragAxis lockedDragAxis = DragAxis::None;
+    bool hasDuplicatedOnDrag = false;
+    juce::String dragStartPosX;
+    juce::String dragStartPosY;
     
     melatonin::CachedBlur blur { 8 };
 
