@@ -576,7 +576,7 @@ private:
 };
 const juce::Identifier TextButtonItem::pText     { "text" };
 const juce::Identifier TextButtonItem::pOnClick  { "onClick" };
-const juce::Identifier TextButtonItem::pProperty { "property" };
+const juce::Identifier TextButtonItem::pProperty { "value" };
 
 
 //==============================================================================
@@ -654,7 +654,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToggleButtonItem)
 };
 const juce::Identifier ToggleButtonItem::pText     { "text" };
-const juce::Identifier ToggleButtonItem::pProperty { "property" };
+const juce::Identifier ToggleButtonItem::pProperty { "vaue" };
 
 
 //==============================================================================
