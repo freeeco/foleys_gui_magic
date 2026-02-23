@@ -290,8 +290,8 @@ void StyleChoicePropertyComponent::resized()
     {
         const auto buttonW = juce::roundToInt (getHeight() * 0.6f);
         auto buttonsArea = juce::Rectangle<int> (b.getX() - buttonW * 2, b.getY(), buttonW * 2, b.getHeight());
-        copyButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
-        pasteButton.setBounds (buttonsArea);
+        pasteButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
+        copyButton.setBounds (buttonsArea);
     }
 
     if (editor)
