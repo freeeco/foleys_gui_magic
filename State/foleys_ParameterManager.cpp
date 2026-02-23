@@ -74,6 +74,7 @@ juce::StringArray ParameterManager::getParameterNames() const
     for (auto& parameter : parameterLookup)
         names.add (parameter.second->paramID);
 
+    names.sortNatural();
     return names;
 }
 

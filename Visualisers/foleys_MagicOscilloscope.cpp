@@ -45,44 +45,69 @@ MagicOscilloscope::MagicOscilloscope (int channelToDisplay)
 {
 }
 
+
+void MagicOscilloscope::setSidechainChannel (int channel)
+{
+    sidechainChannel = channel;
+}
+
+
 void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
 {
     auto w = writePosition.load();
     const auto numSamples = buffer.getNumSamples();
     const auto available  = samples.getNumSamples() - w;
-
-    if (channel < 0)
-    {
-        // mono summing all channels and average
-        const auto gain = 1.0f / buffer.getNumChannels();
+    
+    if (sidechainChannel >= 0){
+        
         if (available >= numSamples)
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples, gain);
-            for (int c = 1; c < buffer.getNumChannels(); ++c)
-                samples.addFrom (0, w, buffer.getReadPointer (c), numSamples, gain);
+            samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples);
+            syncSamples.copyFrom (0, w, buffer.getReadPointer (1), numSamples);
         }
         else
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (0),            available, gain);
-            samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available, gain);
-            for (int c = 1; c < buffer.getNumChannels(); ++c)
-            {
-                samples.addFrom (0, w, buffer.getReadPointer (c),            available, gain);
-                samples.addFrom (0, 0, buffer.getReadPointer (c, available), numSamples - available, gain);
-            }
+            samples.copyFrom (0, w, buffer.getReadPointer (0),            available);
+            samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available);
+            
+            syncSamples.copyFrom (0, w, buffer.getReadPointer (1),            available);
+            syncSamples.copyFrom (0, 0, buffer.getReadPointer (1, available), numSamples - available);
         }
     }
-    else
-    {
-        // plotting individual channel
-        if (available >= numSamples)
+    else{
+        if (channel < 0)
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (channel), numSamples);
+            // mono summing all channels and average
+            const auto gain = 1.0f / buffer.getNumChannels();
+            if (available >= numSamples)
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (0), numSamples, gain);
+                for (int c = 1; c < buffer.getNumChannels(); ++c)
+                    samples.addFrom (0, w, buffer.getReadPointer (c), numSamples, gain);
+            }
+            else
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (0),            available, gain);
+                samples.copyFrom (0, 0, buffer.getReadPointer (0, available), numSamples - available, gain);
+                for (int c = 1; c < buffer.getNumChannels(); ++c)
+                {
+                    samples.addFrom (0, w, buffer.getReadPointer (c),            available, gain);
+                    samples.addFrom (0, 0, buffer.getReadPointer (c, available), numSamples - available, gain);
+                }
+            }
         }
         else
         {
-            samples.copyFrom (0, w, buffer.getReadPointer (channel),            available);
-            samples.copyFrom (0, 0, buffer.getReadPointer (channel, available), numSamples - available);
+            // plotting individual channel
+            if (available >= numSamples)
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (channel), numSamples);
+            }
+            else
+            {
+                samples.copyFrom (0, w, buffer.getReadPointer (channel),            available);
+                samples.copyFrom (0, 0, buffer.getReadPointer (channel, available), numSamples - available);
+            }
         }
     }
 
@@ -94,36 +119,75 @@ void MagicOscilloscope::pushSamples (const juce::AudioBuffer<float>& buffer)
     resetLastDataFlag();
 }
 
+
+void MagicOscilloscope::setRate (const double _rate)
+{
+    rate = _rate;
+}
+
+
 void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPath, juce::Rectangle<float> bounds, MagicPlotComponent&)
 {
     if (sampleRate < 20.0f)
         return;
 
-    const auto  numToDisplay = int (0.01 * sampleRate) - 1;
+    const auto  numToDisplay = int (rate * sampleRate) - 1; // scope frequency
     const auto* data = samples.getReadPointer (0);
-
+    
     auto pos = writePosition.load() - numToDisplay;
-    if (pos < 0)
-        pos += samples.getNumSamples();
+    
+    if (sidechainChannel >= 0){
+        
+        const auto* syncData = syncSamples.getReadPointer (0);
 
-    // trigger
-    auto sign = data [pos] > 0.0f;
-    auto bail = int (sampleRate / 20.0f);
-
-    while (sign == false && --bail > 0)
-    {
-        if (--pos < 0)
+        if (pos < 0)
             pos += samples.getNumSamples();
-
-        sign = data [pos] > 0.0f;
+        
+        // trigger
+        auto sign = syncData [pos] > 0.0f;
+        auto bail = int (sampleRate / 20.0f);
+        
+        while (sign == false && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = syncData [pos] > 0.0f;
+        }
+        
+        while (sign == true && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = syncData [pos] > 0.0f;
+        }
     }
+    
+    else{
 
-    while (sign == true && --bail > 0)
-    {
-        if (--pos < 0)
+        if (pos < 0)
             pos += samples.getNumSamples();
-
-        sign = data [pos] > 0.0f;
+        
+        // trigger
+        auto sign = data [pos] > 0.0f;
+        auto bail = int (sampleRate / 20.0f);
+        
+        while (sign == false && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = data [pos] > 0.0f;
+        }
+        
+        while (sign == true && --bail > 0)
+        {
+            if (--pos < 0)
+                pos += samples.getNumSamples();
+            
+            sign = data [pos] > 0.0f;
+        }
     }
 
     path.clear();
@@ -141,10 +205,23 @@ void MagicOscilloscope::createPlotPaths (juce::Path& path, juce::Path& filledPat
     }
 
     filledPath = path;
-    filledPath.lineTo (bounds.getBottomRight());
-    filledPath.lineTo (bounds.getBottomLeft());
+    
+    if (getFillStyle() == upwards){
+        filledPath.lineTo (bounds.getTopRight());
+        filledPath.lineTo (bounds.getTopLeft());
+    } else if (getFillStyle() == centre){
+        juce::Point centreLeft(bounds.getX(), bounds.getCentreY());
+        juce::Point centreRight(bounds.getRight(), bounds.getCentreY());
+        filledPath.lineTo (centreRight);
+        filledPath.lineTo (centreLeft);
+    } else {
+        filledPath.lineTo (bounds.getBottomRight());
+        filledPath.lineTo (bounds.getBottomLeft());
+    }
+    
     filledPath.closeSubPath();
 }
+
 
 void MagicOscilloscope::prepareToPlay (double sampleRateToUse, int)
 {
@@ -152,6 +229,9 @@ void MagicOscilloscope::prepareToPlay (double sampleRateToUse, int)
 
     samples.setSize (1, static_cast<int> (sampleRate));
     samples.clear();
+    
+    syncSamples.setSize (1, static_cast<int> (sampleRate));
+    syncSamples.clear();
 
     writePosition.store (0);
 }

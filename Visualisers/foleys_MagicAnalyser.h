@@ -85,10 +85,45 @@ public:
      */
     juce::TimeSliceClient* getBackgroundJob() override;
 
+    void setDisplayRangeMinDb (float newMinDb) { displayRangeMinDb = newMinDb; }
+
+    void setDisplayCurveFactor (float newFactor) { displayCurveFactor = newFactor; }
+    
+    void setDisplayRangeMaxFreq (float newMaxFreq) { displayRangeMaxFreq = newMaxFreq; }
+
+    void setDecayMilliseconds (float newDecayMs)
+    {
+        decayMilliseconds = newDecayMs;
+        analyserJob.setupAnalyser (static_cast<int>(sampleRate));
+    }
+
 private:
 
     float indexToX (int index, float minFreq) const;
     float binToY (float bin, juce::Rectangle<float> bounds) const;
+    int   channel = -1; // Moved declaration here
+
+#ifndef ANALYSER_RANGE_DB_MIN
+#define ANALYSER_RANGE_DB_MIN -90.0f
+#endif
+
+#ifndef ANALYSER_CURVE_FACTOR
+#define ANALYSER_CURVE_FACTOR 0.6f
+#endif
+
+#ifndef ANALYSER_DECAY_MS
+#define ANALYSER_DECAY_MS 2000.0f
+#endif
+
+#ifndef ANALYSER_MAX_FREQ
+#define ANALYSER_MAX_FREQ 20000.0f
+#endif
+    
+    float displayRangeMinDb = ANALYSER_RANGE_DB_MIN; // Minimum dB value displayed on the analyser
+    float displayCurveFactor = ANALYSER_CURVE_FACTOR; // Factor for non-linear scaling of the display
+    float decayMilliseconds = ANALYSER_DECAY_MS; // Default decay time in milliseconds
+    float displayRangeMaxFreq = ANALYSER_MAX_FREQ; // New: Default maximum frequency displayed (20kHz)
+
 
     class AnalyserJob : public juce::TimeSliceClient
     {
@@ -98,11 +133,16 @@ private:
 
         void pushSamples (const juce::AudioBuffer<float>& buffer, int channel);
 
-        void setupAnalyser (int audioFifoSize);
+        void setupAnalyser (int audioFifoSize); // Made public so MagicAnalyser can call it
+        
+        void clearValues() { values.clear(); }
 
         const juce::AudioBuffer<float> getAnalyserData() const;
-
-        juce::dsp::FFT fft                            { 12 };
+        
+#ifndef ANALYSER_FFT_ORDER
+#define ANALYSER_FFT_ORDER 9 // 9 =  FFT size of 512 (2^9)
+#endif
+        juce::dsp::FFT fft                            { ANALYSER_FFT_ORDER }; // 10 =  FFT size of 1024 (2^10)
 
     private:
         MagicAnalyser& owner;
@@ -112,7 +152,6 @@ private:
 
         juce::dsp::WindowingFunction<float> windowing { size_t (fft.getSize()), juce::dsp::WindowingFunction<float>::hann, true };
         juce::AudioBuffer<float> fftBuffer            { 1, fft.getSize() * 2 };
-
         juce::AudioBuffer<float> values               { 1, fft.getSize() / 2 };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalyserJob)
@@ -120,10 +159,12 @@ private:
 
     double            sampleRate {};
 
-    int               channel = -1;
-
     juce::CriticalSection pathCreationLock;
+    juce::AudioBuffer<float> displayValues;
+    double lastRepaintTime = 0.0;
     AnalyserJob analyserJob { *this };
+
+    juce::WaitableEvent lastDataReady;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicAnalyser)
 };

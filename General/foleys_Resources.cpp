@@ -56,6 +56,36 @@ juce::StringArray Resources::getResourceFileNames()
     for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
         names.add (juce::String::fromUTF8 (BinaryData::namedResourceList [i]));
 
+    names.sortNatural();
+    
+    return names;
+}
+
+juce::StringArray Resources::getResourceImageFileNames()
+{
+    juce::StringArray names;
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i){
+        juce::String filename = juce::String::fromUTF8 (BinaryData::namedResourceList [i]);
+        if (filename.endsWithIgnoreCase("_png") || filename.endsWithIgnoreCase("_jpg") || filename.endsWithIgnoreCase("_svg")){
+            names.add (juce::String::fromUTF8 (BinaryData::namedResourceList [i]));
+        }
+    }
+    names.sortNatural();
+    
+    return names;
+}
+
+juce::StringArray Resources::getResourceFileNamesWithExtension(juce::String extension)
+{
+    juce::StringArray names;
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i){
+        juce::String filename = juce::String::fromUTF8 (BinaryData::namedResourceList [i]);
+        if (filename.endsWithIgnoreCase("_" + extension)){
+            names.add (juce::String::fromUTF8 (BinaryData::namedResourceList [i]));
+        }
+    }
+    names.sortNatural();
+    
     return names;
 }
 

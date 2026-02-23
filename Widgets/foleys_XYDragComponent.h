@@ -47,13 +47,17 @@ namespace foleys
  This is a 2D parameter dragging component.
  */
 class XYDragComponent  : public juce::Component,
-                         public juce::SettableTooltipClient
+                         public juce::SettableTooltipClient,
+                         private juce::Timer
 {
 public:
 
     enum ColourIds
     {
         xyDotColourId = 0x2002000,
+        xyDotRingColourId,
+        xyDotOuterRingColourId,
+        xyDotSelectedColourId,
         xyDotOverColourId,
         xyHorizontalColourId,
         xyHorizontalOverColourId,
@@ -69,18 +73,29 @@ public:
 
     void setParameterX (juce::RangedAudioParameter* parameter);
     void setParameterY (juce::RangedAudioParameter* parameter);
+    void setParameterZ (juce::RangedAudioParameter* parameter);
+    void setWheelParameter (juce::RangedAudioParameter* parameter);
 
     void setRightClickParameter (juce::RangedAudioParameter* parameter);
 
     void setRadius (float radius);
+    void setMenuItemHeight (int height);
     void setSenseFactor (float factor);
     void setJumpToClick (bool shouldJumpToClick);
+    void setDoubleClickResets (bool shouldReset);
+    void referValueX (juce::Value &value);
+    void referValueY (juce::Value &value);
+    void referValueZ (juce::Value &value);
+    void referTouched (juce::Value &value);
+    void setTouchedIndex (int index) {touchedIndex = index; };
 
     bool hitTest (int x, int y) override;
     void mouseDown (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseEnter (const juce::MouseEvent&) override;
     void mouseExit (const juce::MouseEvent&) override;
 
@@ -90,6 +105,8 @@ private:
 
     int getXposition() const;
     int getYposition() const;
+    
+    void timerCallback() final;
 
     bool mouseOverDot = false;
     bool mouseOverX   = false;
@@ -100,12 +117,29 @@ private:
 
     ParameterAttachment<float> xAttachment;
     ParameterAttachment<float> yAttachment;
+    ParameterAttachment<float> zAttachment;
 
+    juce::RangedAudioParameter* wheelParameter = nullptr;
     juce::RangedAudioParameter* contextMenuParameter = nullptr;
 
     bool  jumpToClick = false;
+    bool  doubleClickResets = false;
     float radius      = 4.0f;
     float senseFactor = 2.0f;
+    int menuItemHeight = 25;
+    int touchedIndex = 0;
+    bool selected = false;
+    
+    juce::Value valueX;
+    juce::Value valueY;
+    juce::Value valueZ;
+    juce::Value valueTouched;
+    
+    float xDefault = 0;
+    float yDefault = 0;
+    float zDefault = 0;
+    float wheelDefault = 0;
+    float menuDefault = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XYDragComponent)
 };

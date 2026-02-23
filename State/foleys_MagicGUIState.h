@@ -41,6 +41,10 @@
 #include "../Visualisers/foleys_MagicPlotSource.h"
 #include "../General/foleys_StringDefinitions.h"
 
+
+class ToyboxPluginAudioProcessor;
+
+
 namespace foleys
 {
 
@@ -96,6 +100,11 @@ public:
      Set a file to save common settings for all instances
      */
     void setApplicationSettingsFile (juce::File file);
+    
+    /**
+     Returns path to settings file
+     */
+    juce::File getApplicationSettingsFile();
 
     /**
      This is a settings ValueTree that is stored globally for all plugin instances
@@ -137,7 +146,7 @@ public:
      Returns a property as value inside the ValueTreeState. The nodes are a colon separated list, the last component is the property name
      */
     juce::Value getPropertyAsValue (const juce::String& pathToProperty);
-
+    
     /**
      Populates a menu with properties found in the persistent ValueTree
      */
@@ -159,7 +168,7 @@ public:
         if (present != advertisedObjects.cend())
         {
             // You tried to add two MagicPlotSources with the same sourceID
-            jassertfalse;
+//            jassertfalse;
             return nullptr;
         }
 
@@ -220,6 +229,30 @@ public:
      Return the referenced AudioProcessor, if this state can provide one
      */
     virtual juce::AudioProcessor* getProcessor() { return nullptr; }
+    
+    ToyboxPluginAudioProcessor& getToyboxProcessor() { return *processor; }
+    void setToyboxProcessor(ToyboxPluginAudioProcessor* p) { processor = p; }
+    
+    void setWindowNeedsUpdate(bool flag) { needsUpdate = flag; }
+    bool getWindowNeedsUpdate() {
+        if (needsUpdate){
+            needsUpdate = false;
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    
+    bool getWindowSizeInitialized() {
+        if (windowSizeInitialized){
+            return true;
+        }
+        else{
+            windowSizeInitialized = true;
+            return false;
+        }
+    }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
@@ -249,6 +282,10 @@ private:
     std::map<juce::Identifier, std::unique_ptr<ObjectBase>> advertisedObjects;
 
     juce::TimeSliceThread visualiserThread { "Visualiser Thread" };
+    
+    ToyboxPluginAudioProcessor* processor;
+    bool needsUpdate = false;
+    bool windowSizeInitialized = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

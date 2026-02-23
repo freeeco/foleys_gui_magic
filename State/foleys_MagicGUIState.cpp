@@ -53,7 +53,7 @@ void MagicGUIState::addBackgroundProcessing (MagicPlotSource* source)
     if (auto* job = source->getBackgroundJob())
     {
         visualiserThread.addTimeSliceClient (job);
-        visualiserThread.startThread (3);
+        visualiserThread.startThread();
     }
 }
 
@@ -116,6 +116,11 @@ juce::ValueTree& MagicGUIState::getValueTree()
 void MagicGUIState::setApplicationSettingsFile (juce::File file)
 {
     settings->setFileName (file);
+}
+
+juce::File MagicGUIState::getApplicationSettingsFile()
+{
+    return settings->getFileName();
 }
 
 juce::ValueTree& MagicGUIState::getSettings()
@@ -211,16 +216,20 @@ void MagicGUIState::addPropertiesToMenu (const juce::ValueTree& tree, juce::Comb
     for (int i=0; i < tree.getNumProperties(); ++i)
     {
         const auto name = tree.getPropertyName (i).toString();
-        menu.addItem (name, [&combo, t = path + name]
+        menu.addItem (name, true, false, [&combo, t = path + name]
         {
             combo.setText (t);
         });
     }
 
     menu.addSeparator();
-    menu.addItem (NEEDS_TRANS ("New property"), [&combo, t = path]
+    menu.addItem (NEEDS_TRANS ("New / Edit Value"), [&combo, t = path]
     {
-        combo.setText (t + ":");
+        auto currentString = combo.getText();
+        if (currentString.isEmpty()){
+//            combo.setText (t + ":");
+            combo.setText (t);
+        }
         combo.setEditableText (true);
         combo.showEditor();
     });

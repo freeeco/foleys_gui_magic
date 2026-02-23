@@ -77,8 +77,19 @@ void MidiDrumpadComponent::updateButtons()
 {
     pads.clear();
 
-    for (int i = 0; i < numRows * numColumns; ++i)
-        pads.push_back (std::make_unique<Pad>(*this, rootNote + i));
+    for (int i = 0; i < numRows * numColumns; ++i){
+        int noteNum;
+        int idx = i;
+        if(mpcStylePads){
+            int padH = i % numColumns;
+            int rowNum = floor (i / numColumns);
+            int invRow = (numRows - 1) - rowNum;
+            idx = (invRow * numColumns) + padH;
+        }
+        noteNum = rootNote + idx;
+        pads.push_back (std::make_unique<Pad>(*this, noteNum));
+        pads[i]->setIndex (idx);
+    }
 
     for (auto& pad : pads)
         addAndMakeVisible (pad.get());
@@ -88,7 +99,9 @@ void MidiDrumpadComponent::updateButtons()
 
 void MidiDrumpadComponent::paint (juce::Graphics& g)
 {
-    g.fillAll (findColour (MidiDrumpadComponent::background));
+    if (!invisible){
+        g.fillAll (findColour (MidiDrumpadComponent::background));
+    }
 }
 
 void MidiDrumpadComponent::resized()
@@ -109,7 +122,9 @@ void MidiDrumpadComponent::timerCallback()
     if (needsPaint)
     {
         needsPaint = false;
-        repaint();
+        if (!invisible){
+            repaint();
+        }
     }
 }
 
@@ -129,17 +144,19 @@ MidiDrumpadComponent::Pad::~Pad()
 
 void MidiDrumpadComponent::Pad::paint (juce::Graphics& g)
 {
-    g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownFill : MidiDrumpadComponent::padFill));
-    g.fillRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f);
-
-    g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownOutline : MidiDrumpadComponent::padOutline));
-    g.drawRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f, 1.0f);
-
-    if (isDown)
-    {
-        auto radius = pressure * 20.0f;
-        g.setColour (owner.findColour (MidiDrumpadComponent::touch));
-        g.fillEllipse (juce::Rectangle<float>(lastPos.x - 0.5f * radius, lastPos.y - 0.5f * radius, radius, radius));
+    if (!owner.invisible){
+        g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownFill : MidiDrumpadComponent::padFill));
+        g.fillRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f);
+        
+        g.setColour (owner.findColour (isDown ? MidiDrumpadComponent::padDownOutline : MidiDrumpadComponent::padOutline));
+        g.drawRoundedRectangle (getLocalBounds().reduced (3).toFloat(), 3.0f, 1.0f);
+        
+        if (isDown)
+        {
+            auto radius = pressure * 20.0f;
+            g.setColour (owner.findColour (MidiDrumpadComponent::touch));
+            g.fillEllipse (juce::Rectangle<float>(lastPos.x - 0.5f * radius, lastPos.y - 0.5f * radius, radius, radius));
+        }
     }
 }
 
@@ -148,6 +165,8 @@ void MidiDrumpadComponent::Pad::mouseDown (const juce::MouseEvent& event)
     pressure = event.isPressureValid() ? event.pressure : 1.0f;
     owner.keyboardState.noteOn (1, noteNumber, pressure);
     lastPos = event.getPosition();
+    owner.setLastClicked (index);
+    owner.setClickedFlag(true);
     owner.needsPaint = true;
 }
 
@@ -175,6 +194,9 @@ void MidiDrumpadComponent::Pad::handleNoteOn (juce::MidiKeyboardState* source,
         return;
 
     isDown = true;
+    
+    owner.setLastPlayed (index);
+    owner.setPlayedFlag(true);
 
     owner.needsPaint = true;
 }

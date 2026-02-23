@@ -69,9 +69,11 @@ void GUITreeEditor::resized()
 
 void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
 {
+    auto scrollPosition = treeView.getViewport()->getViewPositionY();
+    
     auto restorer = treeView.getRootItem() != nullptr ? treeView.getOpennessState (true)
                                                       : std::unique_ptr<juce::XmlElement>();
-
+    
     tree = refTree;
     tree.addListener (this);
 
@@ -84,12 +86,70 @@ void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
 
     if (restorer.get() != nullptr)
         treeView.restoreOpennessState (*restorer, true);
+    
+    juce::MessageManager::callAsync ([=, this]() {
+        treeView.getViewport()->setViewPosition(0, scrollPosition);
+    });
 }
 
 void GUITreeEditor::updateTree()
 {
+    int viewY = 0;
+    if (auto* vp = treeView.getViewport())
+    {
+        viewY = vp->getViewPositionY();
+    }
+
+    auto selected = builder.getSelectedNode();
     auto guiNode = builder.getConfigTree().getChildWithName (IDs::view);
     setValueTree (guiNode);
+    
+    if (auto* vp = treeView.getViewport())
+        vp->setViewPosition (0, viewY);
+
+    if (selected.isValid())
+        setSelectedNode (selected);
+}
+
+juce::TreeViewItem* GUITreeEditor::getItemForNode (const juce::ValueTree& node)
+{
+    if (rootItem.get() == nullptr || node.isAChildOf (tree) == false)
+        return nullptr;
+
+    std::stack<int> path;
+    auto probe = node;
+
+    while (probe != tree)
+    {
+        auto parent = probe.getParent();
+        const int idx = parent.indexOf (probe);
+        if (idx < 0)
+            return nullptr;
+
+        path.push (idx);
+        probe = parent;
+    }
+
+    juce::TreeViewItem* item = rootItem.get();
+
+    while (! path.empty())
+    {
+        item->setOpen (true);
+
+        const int childIndex = path.top();
+        path.pop();
+
+        if (item->getNumSubItems() == 0 && item->mightContainSubItems())
+            item->setOpen (true);
+
+        auto* child = item->getSubItem (childIndex);
+        if (child == nullptr)
+            return nullptr;
+
+        item = child;
+    }
+
+    return item;
 }
 
 void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
@@ -116,12 +176,19 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
     }
 
     itemToSelect->setSelected (true, true, juce::dontSendNotification);
-    treeView.scrollToKeepItemVisible (itemToSelect);
+    juce::MessageManager::callAsync ([this, itemToSelect]()
+    {
+        if (itemToSelect != nullptr)
+            treeView.scrollToKeepItemVisible (itemToSelect);
+    });
 }
 
-void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)
+void GUITreeEditor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
 {
-    updateTree();
+    if (property == IDs::id || property == IDs::caption || property == IDs::visible)
+        updateTree();
+    else
+        treeView.repaint();
 }
 
 void GUITreeEditor::valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&)
@@ -174,8 +241,27 @@ void GUITreeEditor::GuiTreeItem::paintItem (juce::Graphics& g, int width, int he
     if (isSelected())
         g.fillAll (EditorColours::selectedBackground.withAlpha (0.5f));
 
-    g.setColour (EditorColours::text);
-    g.setFont (height * 0.7f);
+    bool isVisible = true;
+    if (itemNode.hasProperty (IDs::visible))
+        isVisible = (bool) itemNode.getProperty (IDs::visible);
+    else if (auto item = builder.createGuiItem (juce::ValueTree (itemNode.getType()), true))
+        isVisible = item->isVisibleByDefault();
+
+    bool hasValueMessages = false;
+    for (int i = 0; i < itemNode.getNumProperties(); ++i)
+    {
+        auto value = itemNode.getPropertyAsValue (itemNode.getPropertyName (i), nullptr).toString();
+        if (value.contains (":") && !value.startsWithIgnoreCase ("http")
+            && value.fromFirstOccurrenceOf (":", false, false).trimStart() == value.fromFirstOccurrenceOf (":", false, false))
+            { hasValueMessages = true; break; }
+    }
+
+    const float circleSize = height * 0.29f;
+    const float textX      = 4.0f;
+
+    g.setColour (EditorColours::text.darker (isVisible ? 0.0f : 0.2f));
+    g.setFont (juce::Font (juce::FontOptions().withHeight (height * 0.7f)
+                                              .withStyle (isVisible ? "Regular" : "Italic")));
 
     juce::String name = itemNode.getType().toString();
 
@@ -185,7 +271,18 @@ void GUITreeEditor::GuiTreeItem::paintItem (juce::Graphics& g, int width, int he
     if (itemNode.hasProperty (IDs::caption))
         name += ": " + itemNode.getProperty (IDs::caption).toString();
 
-    g.drawText (name, 4, 0, width - 4, height, juce::Justification::centredLeft, true);
+    g.drawText (name, (int)textX, 0, width - (int)textX - 4, height, juce::Justification::centredLeft, true);
+
+    if (hasValueMessages)
+    {
+        juce::GlyphArrangement ga;
+        ga.addLineOfText (g.getCurrentFont(), name, 0, 0);
+        const float cx = textX + ga.getBoundingBox (0, -1, true).getWidth() + 7.0f;
+        const float cy = (height - circleSize) * 0.6f;
+//        g.setColour (EditorColours::text.darker (0.2f));
+        g.setColour (juce::Colour (0xff4a9eff).withAlpha (0.8f).darker (0.2f));
+        g.fillEllipse (cx, cy, circleSize, circleSize);
+    }
 }
 
 void GUITreeEditor::GuiTreeItem::itemOpennessChanged (bool isNowOpen)
@@ -219,7 +316,11 @@ void GUITreeEditor::GuiTreeItem::itemDropped (const juce::DragAndDropTarget::Sou
     if (text == IDs::dragSelected)
     {
         auto selectedNode = builder.getSelectedNode();
-        builder.draggedItemOnto (selectedNode, itemNode, index);
+        if (selectedNode.getParent() == itemNode && selectedNode.getParent().indexOf (selectedNode) < index) {
+                builder.draggedItemOnto (selectedNode, itemNode, index - 1);
+        } else {
+            builder.draggedItemOnto (selectedNode, itemNode, index);
+        }
         return;
     }
 
@@ -229,6 +330,43 @@ void GUITreeEditor::GuiTreeItem::itemDropped (const juce::DragAndDropTarget::Sou
         builder.draggedItemOnto (node, itemNode, index);
         return;
     }
+}
+
+void GUITreeEditor::collapseAll()
+{
+    if (rootItem == nullptr)
+        return;
+
+    std::function<void(juce::TreeViewItem*)> collapseRecursive;
+    collapseRecursive = [&](juce::TreeViewItem* item)
+    {
+        for (int i = 0; i < item->getNumSubItems(); ++i)
+            collapseRecursive (item->getSubItem (i));
+
+        item->setOpen (false);
+    };
+
+    collapseRecursive (rootItem.get());
+
+    // Re-open root so it's always visible
+    rootItem->setOpen (true);
+}
+
+void GUITreeEditor::expandAll()
+{
+    if (rootItem == nullptr)
+        return;
+
+    std::function<void(juce::TreeViewItem*)> expandRecursive;
+    expandRecursive = [&](juce::TreeViewItem* item)
+    {
+        item->setOpen (true);
+
+        for (int i = 0; i < item->getNumSubItems(); ++i)
+            expandRecursive (item->getSubItem (i));
+    };
+
+    expandRecursive (rootItem.get());
 }
 
 

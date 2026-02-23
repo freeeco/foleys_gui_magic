@@ -55,11 +55,19 @@ public:
      @param channel lets you select the channel to analyse. -1 means summing all together (the default)
      */
     MagicOscilloscope (int channel=-1);
+    
+    /**
+    If this is set then the oscilloscope will use this channel for synchronization.
+     */
+    void setSidechainChannel (int channel);
 
     /**
      Push samples to a buffer to be visualised.
      */
     void pushSamples (const juce::AudioBuffer<float>& buffer) override;
+
+    
+    void setRate (const double _rate);
 
     /**
      This is the callback that creates the frequency plot for drawing.
@@ -75,10 +83,14 @@ public:
 
 private:
     int                      channel = -1;
+    int                      sidechainChannel = -1;
     double                   sampleRate = 0.0;
 
     juce::AudioBuffer<float> samples;
+    juce::AudioBuffer<float> syncSamples;
     std::atomic<int>         writePosition;
+    
+    double rate = 0.01;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicOscilloscope)
 };

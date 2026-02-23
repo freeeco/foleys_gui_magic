@@ -42,6 +42,15 @@ namespace foleys
 Stylesheet::Stylesheet (MagicGUIBuilder& builderToUse) : builder (builderToUse)
 {
     setColourPalette();
+    
+    currentStyle.addListener(this);
+    currentPalette.addListener(this);
+}
+
+Stylesheet::~Stylesheet()
+{
+    currentStyle.removeListener(this);
+    currentPalette.removeListener(this);
 }
 
 void Stylesheet::setStyle (const juce::ValueTree& node)
@@ -99,9 +108,14 @@ juce::ValueTree Stylesheet::getCurrentPalette()
     return currentPalette;
 }
 
-void Stylesheet::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)
+void Stylesheet::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& name)
 {
-    builder.updateColours();
+    if (isColourPaletteNode (tree))
+        builder.updateColours();
+    else if (name.toString().contains ("color"))
+        builder.updateColours();
+    else
+        builder.updateComponents();
 }
 
 void Stylesheet::updateValidRanges()
@@ -247,7 +261,8 @@ juce::Colour Stylesheet::parseColour (const juce::String& name)
     if (name.startsWithIgnoreCase ("transparent"))
         return juce::Colours::transparentBlack;
 
-    return juce::Colours::findColourForName (name, juce::Colour::fromString (name.length() < 8 ? "ff" + name : name));
+    auto padded = name.paddedLeft ('0', 8);
+    return juce::Colours::findColourForName (name, juce::Colour::fromString (padded.length() < 8 ? "ff" + padded : padded));
 }
 
 juce::LookAndFeel* Stylesheet::getLookAndFeel (const juce::ValueTree& node) const
@@ -279,10 +294,19 @@ juce::StringArray Stylesheet::getLookAndFeelNames() const
 juce::Image Stylesheet::getBackgroundImage (const juce::ValueTree& node) const
 {
     auto name = getStyleProperty (IDs::backgroundImage, node);
-    if (name.isVoid())
+    if (name.isVoid() || name.toString().endsWithIgnoreCase("_svg"))
         return {};
 
     return Resources::getImage (name.toString());
+}
+
+juce::String Stylesheet::getBackgroundImageSvg  (const juce::ValueTree& node) const
+{
+    auto name = getStyleProperty (IDs::backgroundImage, node);
+    if (name.toString().endsWithIgnoreCase("_svg"))
+        return name.toString();
+    else
+        return {};
 }
 
 juce::ValueTree Stylesheet::getCurrentStyle() const

@@ -74,16 +74,22 @@ public:
     juce::Colour getTabColour() const;
 
     juce::Colour getBackgroundColour() const;
+    juce::Image getBackgroundImage() const;
 
 private:
 
-    juce::Colour backgroundColour { juce::Colours::darkgrey };
+//    juce::Colour backgroundColour { juce::Colours::darkgrey };
+    juce::Colour backgroundColour { juce::Colours::transparentBlack };
     juce::Colour borderColour     { juce::Colours::silver };
 
-    Box<float> margin  { 5.0f };
-    Box<float> padding { 5.0f };
+//    Box<float> margin  { 5.0f };
+    Box<float> margin  { 0.0f };
+//    Box<float> padding { 5.0f };
+    Box<float> padding { 0.0f };
+    juce::String paddingString;
     float border  = 0.0f;
-    float radius  = 5.0f;
+//    float radius  = 5.0f;
+    float radius  = 0.0f;
 
     juce::String        caption;
     juce::Justification justification = juce::Justification::centredTop;
@@ -94,6 +100,7 @@ private:
     juce::Colour        tabColour;
 
     juce::Image                 backgroundImage;
+    std::unique_ptr<juce::Drawable> backgroundImageSvg;
     float                       backgroundAlpha = 1.0f;
     juce::RectanglePlacement    backgroundPlacement = juce::RectanglePlacement::centred;
     GradientBackground          backgroundGradient;

@@ -54,10 +54,12 @@ MagicGUIBuilder::MagicGUIBuilder (MagicGUIState& state)
   : magicState (state)
 {
     updateStylesheet();
+    getConfigTree().addListener (this);
 }
 
 MagicGUIBuilder::~MagicGUIBuilder()
 {
+    getConfigTree().removeListener (this);
 }
 
 Stylesheet& MagicGUIBuilder::getStylesheet()
@@ -75,7 +77,7 @@ juce::ValueTree MagicGUIBuilder::getGuiRootNode()
     return getConfigTree().getOrCreateChildWithName (IDs::view, &undo);
 }
 
-std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& node)
+std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& node, bool dontUpdate)
 {
     if (node.getType() == IDs::view)
     {
@@ -90,12 +92,22 @@ std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& 
     if (factory != factories.end())
     {
         auto item = factory->second (*this, node);
-        item->updateInternal();
+        if (!dontUpdate)
+            item->updateInternal();
+        
         return item;
     }
 
     DBG ("No factory for: " << node.getType().toString());
     return {};
+}
+
+std::unique_ptr<RootItem> MagicGUIBuilder::createRootItem (const juce::ValueTree& node)
+{
+    std::unique_ptr<RootItem> item = std::make_unique<RootItem>(*this, node);
+    item->updateInternal();
+    item->createSubComponents();
+    return item;
 }
 
 void MagicGUIBuilder::updateStylesheet()
@@ -136,7 +148,7 @@ void MagicGUIBuilder::showOverlayDialog (std::unique_ptr<juce::Component> dialog
     overlayDialog = std::move (dialog);
     parent->addAndMakeVisible (overlayDialog.get());
 
-    updateLayout();
+    parent->resized();
 }
 
 void MagicGUIBuilder::closeOverlayDialog()
@@ -163,7 +175,7 @@ void MagicGUIBuilder::updateComponents()
 
     updateStylesheet();
 
-    root = createGuiItem (getGuiRootNode());
+    root = createRootItem (getGuiRootNode());
     parent->addAndMakeVisible (root.get());
 
     root->setBounds (parent->getLocalBounds());
@@ -174,31 +186,31 @@ void MagicGUIBuilder::updateComponents()
 #endif
 }
 
-void MagicGUIBuilder::updateLayout()
+void MagicGUIBuilder::updateLayout (juce::Rectangle<int> bounds)
 {
     if (parent == nullptr)
         return;
 
     if (root.get() != nullptr)
     {
-        if (! stylesheet.setMediaSize (parent->getWidth(), parent->getHeight()))
+        if (!stylesheet.setMediaSize (bounds.getWidth(), bounds.getHeight()))
         {
             stylesheet.updateValidRanges();
             root->updateInternal();
         }
 
-        if (root->getBounds() == parent->getLocalBounds())
+        if (root->getBounds() == bounds)
             root->updateLayout();
         else
-            root->setBounds (parent->getLocalBounds());
+            root->setBounds (bounds);
     }
 
     if (overlayDialog)
     {
-        if (overlayDialog->getBounds() == parent->getLocalBounds())
+        if (overlayDialog->getBounds() == bounds)
             overlayDialog->resized();
         else
-            overlayDialog->setBounds (parent->getLocalBounds());
+            overlayDialog->setBounds (bounds);
     }
 
     parent->repaint();
@@ -241,12 +253,32 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<Gu
 
 juce::StringArray MagicGUIBuilder::getFactoryNames() const
 {
-    juce::StringArray names { IDs::view.toString() };
+    juce::StringArray names {
+        "Favourites:",
+        IDs::view.toString(),
+        IDs::slider.toString(),
+        "ImageButton",
+        "PopupMenu",
+        "ParameterLabel",
+        "Image",
+        "ImageMeter",
+        "Text",
+        "Rectangle",
+        "Evaluate",
+        "Trigger",
+        "GuiProperty",
+        "Gui Items:"
+    };
 
-    names.ensureStorageAllocated (int (factories.size()));
+    juce::StringArray restOfNames { IDs::view.toString() };
+    
+    restOfNames.ensureStorageAllocated (int (factories.size()));
     for (const auto& f : factories)
-        names.add (f.first.toString());
+        restOfNames.add (f.first.toString());
 
+    restOfNames.sortNatural();
+    names.mergeArray(restOfNames);
+    
     return names;
 }
 
@@ -348,6 +380,8 @@ juce::var MagicGUIBuilder::getPropertyDefaultValue (juce::Identifier property) c
     if (property == IDs::lookAndFeel) return "FoleysFinest";
 
     if (property == juce::Identifier ("font-size")) return 12.0;
+    if (property == IDs::opacity) return 1.0;
+    if (property == IDs::glowOpacity) return 1.0;
 
     return {};
 }
@@ -362,7 +396,13 @@ void MagicGUIBuilder::changeListenerCallback (juce::ChangeBroadcaster*)
     if (root.get() != nullptr)
         root->updateInternal();
 
-    updateLayout();
+    root->resized();
+}
+
+void MagicGUIBuilder::valueTreeRedirected (juce::ValueTree& treeWhichHasBeenChanged)
+{
+    juce::ignoreUnused (treeWhichHasBeenChanged);
+    updateComponents();
 }
 
 MagicGUIState& MagicGUIBuilder::getMagicState()
@@ -375,9 +415,24 @@ juce::UndoManager& MagicGUIBuilder::getUndoManager()
     return undo;
 }
 
+juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
+{
+    if (root)
+        return root->getTooltipWindow();
+    else
+        return nullptr;
+}
+
+void MagicGUIBuilder::refreshColours()
+{
+    updateColours();
+    if (parent != nullptr)
+        parent->repaint();
+}
+
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
-void MagicGUIBuilder::setEditMode (bool shouldEdit)
+void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)
 {
     editMode = shouldEdit;
 
@@ -387,7 +442,7 @@ void MagicGUIBuilder::setEditMode (bool shouldEdit)
     if (root.get() != nullptr)
         root->setEditMode (shouldEdit);
 
-    if (shouldEdit == false)
+    if (shouldEdit == false && shouldDeselect)
         setSelectedNode (juce::ValueTree());
 
     parent->repaint();

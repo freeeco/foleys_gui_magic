@@ -39,6 +39,9 @@
 namespace foleys
 {
 
+// Static clipboard shared across all instances
+juce::String StyleChoicePropertyComponent::clipboard;
+
 StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse,
                                                             juce::Identifier propertyToUse,
                                                             juce::ValueTree& nodeToUse,
@@ -54,6 +57,131 @@ StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& bui
     menuCreationLambda (lambdaToUse)
 {
     initialiseComboBox (false);
+}
+
+bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
+{
+    auto* menu = combo.getRootMenu();
+    if (menu == nullptr)
+        return false;
+
+    juce::PopupMenu::MenuItemIterator iter (*menu, false);
+    while (iter.next())
+    {
+        if (iter.getItem().text == NEEDS_TRANS ("New / Edit Value"))
+        {
+            auto currentValue = node.getProperty (property).toString();
+
+            menu->addItem (NEEDS_TRANS ("Make Value Unique"), [this]()
+            {
+                auto secondsSince2000 = juce::String (juce::int64 (
+                    (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+
+                juce::String newValue;
+                auto currentValue = node.getProperty (property).toString();
+
+                if (currentValue.isEmpty())
+                {
+                    // No value — same as copy button: generate from node prefix + property
+                    juce::String nodePrefix;
+                    if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
+                        nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
+                    else
+                        nodePrefix = node.getType().toString().replace (" ", "-");
+
+                    newValue = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                }
+                else
+                {
+                    // Existing value — strip any existing timestamp suffix, append new one
+                    auto cleanValue = currentValue;
+                    auto lastDash = currentValue.lastIndexOf ("-");
+                    if (lastDash >= 0)
+                    {
+                        auto suffix = currentValue.substring (lastDash + 1);
+                        if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
+                            cleanValue = currentValue.substring (0, lastDash);
+                    }
+                    newValue = cleanValue + "-" + secondsSince2000;
+                }
+
+                if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
+                    c->setText (newValue, juce::sendNotificationSync);
+                node.setProperty (property, newValue, &builder.getUndoManager());
+                refresh();
+            });
+
+            menu->addSeparator();
+
+            int useCount = 0;
+            if (currentValue.isNotEmpty())
+            {
+                std::function<void(const juce::ValueTree&)> countUses = [&](const juce::ValueTree& tree)
+                {
+                    for (auto child : tree)
+                    {
+                        for (int i = 0; i < child.getNumProperties(); ++i)
+                            if (child.getProperty (child.getPropertyName (i)).toString() == currentValue)
+                                { ++useCount; break; }
+                        countUses (child);
+                    }
+                };
+                countUses (builder.getGuiRootNode());
+            }
+
+            menu->addItem (NEEDS_TRANS ("Find Next Use"),
+                           useCount >= 2,
+                           false,
+                           [this, currentValue]()
+            {
+                auto root = builder.getGuiRootNode();
+                auto currentNode = builder.getSelectedNode();
+                bool foundCurrent = false;
+                juce::ValueTree result;
+
+                std::function<void(const juce::ValueTree&)> search = [&](const juce::ValueTree& tree)
+                {
+                    if (result.isValid()) return;
+                    for (auto child : tree)
+                    {
+                        if (result.isValid()) return;
+                        if (child == currentNode) { foundCurrent = true; search (child); continue; }
+                        if (foundCurrent)
+                            for (int i = 0; i < child.getNumProperties(); ++i)
+                                if (child.getProperty (child.getPropertyName (i)).toString() == currentValue)
+                                    { result = child; return; }
+                        search (child);
+                    }
+                };
+
+                search (root);
+
+                if (! result.isValid())
+                {
+                    std::function<void(const juce::ValueTree&)> searchFromStart = [&](const juce::ValueTree& tree)
+                    {
+                        if (result.isValid()) return;
+                        for (auto child : tree)
+                        {
+                            if (result.isValid() || child == currentNode) return;
+                            for (int i = 0; i < child.getNumProperties(); ++i)
+                                if (child.getProperty (child.getPropertyName (i)).toString() == currentValue)
+                                    { result = child; return; }
+                            searchFromStart (child);
+                        }
+                    };
+                    searchFromStart (root);
+                }
+
+                if (result.isValid())
+                    builder.setSelectedNode (result);
+            });
+
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
@@ -76,17 +204,98 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 
     addAndMakeVisible (combo.get());
 
+    // Detect if this is a properties/values menu
+    hasCopyPaste = isPropertiesMenu (*combo);
+
+    // For properties menus, make the combo editable so clicking the text
+    // opens the text editor, and the arrow still opens the dropdown.
+    if (hasCopyPaste)
+        combo->setEditableText (true);
+
     combo->onChange = [&]
     {
         if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
-            node.setProperty (property, c->getText(), &builder.getUndoManager());
+            node.setProperty (property, c->getText().replace (" ", "-"), &builder.getUndoManager());
 
         refresh();
     };
 
     editor = std::move (combo);
 
+    // --- Copy/Paste buttons (only for properties/values menus) ---
+    if (hasCopyPaste)
+    {
+        addAndMakeVisible (copyButton);
+        addAndMakeVisible (pasteButton);
+
+        copyButton.setColour  (juce::TextButton::buttonColourId, ToolBoxColours::bgLight);
+        pasteButton.setColour (juce::TextButton::buttonColourId, ToolBoxColours::bgLight);
+
+        copyButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+        pasteButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
+
+        copyButton.onClick = [this]
+        {
+            if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
+            {
+                auto currentText = c->getText();
+                
+                if (currentText.isEmpty())
+                {
+                    auto secondsSince2000 = juce::String (juce::int64 (
+                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+
+                    // Build prefix from node id, falling back to node type name
+                    juce::String nodePrefix;
+                    if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
+                        nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
+                    else
+                        nodePrefix = node.getType().toString().replace (" ", "-");
+
+                    currentText = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                    
+                    // Write it into the field and the node immediately
+                    c->setText (currentText, juce::sendNotificationSync);
+                    node.setProperty (property, currentText, &builder.getUndoManager());
+                    refresh();
+                }
+                
+                clipboard = currentText;
+            }
+        };
+
+        pasteButton.onClick = [this]
+        {
+            if (clipboard.isNotEmpty())
+            {
+                if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
+                {
+                    c->setText (clipboard, juce::sendNotificationSync);
+                    node.setProperty (property, clipboard, &builder.getUndoManager());
+                    refresh();
+                }
+            }
+        };
+    }
+
     proxy.addListener (this);
+}
+
+void StyleChoicePropertyComponent::resized()
+{
+    auto b = getLocalBounds().reduced (1).withLeft (getWidth() / 2);
+    remove.setBounds (b.removeFromRight (getHeight()));
+
+    if (hasCopyPaste)
+    {
+        const auto buttonW = juce::roundToInt (getHeight() * 0.6f);
+        auto buttonsArea = juce::Rectangle<int> (b.getX() - buttonW * 2, b.getY(), buttonW * 2, b.getHeight());
+        copyButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
+        pasteButton.setBounds (buttonsArea);
+    }
+
+    if (editor)
+        editor->setBounds (b);
 }
 
 void StyleChoicePropertyComponent::refresh()
@@ -101,9 +310,16 @@ void StyleChoicePropertyComponent::refresh()
         }
         else
         {
-            proxy.referTo (proxy);
+            proxy.referTo (juce::Value());  // also fix the self-referral bug while we're here
             combo->setText (value.toString(), juce::dontSendNotification);
         }
+
+        auto valueStr = value.toString();
+        auto hasValueMessage = valueStr.contains (":") && !valueStr.startsWithIgnoreCase ("http")
+            && valueStr.fromFirstOccurrenceOf (":", false, false).trimStart() == valueStr.fromFirstOccurrenceOf (":", false, false);
+        combo->setColour (juce::ComboBox::textColourId,
+                          hasValueMessage ? juce::Colour (0xff4a9eff)
+                                          : ToolBoxColours::text);
     }
 
     repaint();

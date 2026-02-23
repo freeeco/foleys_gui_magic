@@ -45,7 +45,8 @@ namespace foleys
  The MagicPlotComponent allows drawing the data from a MagicPlotSource.
  */
 class MagicPlotComponent  : public juce::Component,
-                            juce::SettableTooltipClient
+                            juce::SettableTooltipClient,
+                            private juce::Timer
 {
 public:
 
@@ -61,6 +62,7 @@ public:
 
     void setPlotSource (MagicPlotSource* source);
     void setDecayFactor (float decayFactor);
+    void setLineWidth (juce::String width);
     void setGradientFromString (const juce::String& cssString, Stylesheet& stylesheet);
 
     void paint (juce::Graphics& g) override;
@@ -69,20 +71,31 @@ public:
     bool hitTest (int, int) override { return false; }
 
     bool needsUpdate() const;
+    
+    void setAlwaysPlot (bool flag);
+    void setAlwaysPlotHz (int Hz);
+    void setScaled (bool flag);
+    void setCornerRadius (bool radius);
+    void setFillStyle(MagicPlotSource::FillStyle val);
 
 private:
     void drawPlot (juce::Graphics& g);
     void drawPlotGlowing (juce::Graphics& g);
     void updateGlowBufferSize();
+    void timerCallback() override;
 
     juce::WeakReference<MagicPlotSource> plotSource;
     juce::Path                           path;
     juce::Path                           filledPath;
     std::unique_ptr<GradientBackground>  gradient;
-
-    juce::int64 lastDataTimestamp = 0;
-    juce::Image glowBuffer;
-    float       decay = 0.0f;
+    juce::int64                          lastDataTimestamp = 0;
+    juce::Image                          glowBuffer;
+    float                                decay = 0.0f;
+    juce::String                         lineWidth = "1.0";
+    bool                                 alwaysPlot = false;
+    int                                  alwaysPlotHz = 30;
+    bool                                 scaled = false;
+    float                                cornerRadius = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPlotComponent)
 };

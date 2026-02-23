@@ -59,7 +59,7 @@ public:
      @param sampleRate is the sampleRate the processing is happening with
      @param maxDB is the maximum level in dB, that the curve will display
      */
-    void setIIRCoefficients (juce::dsp::IIR::Coefficients<float>::Ptr coefficients, float maxDB);
+    void setIIRCoefficients (juce::dsp::IIR::Coefficients<double>::Ptr coefficients, float maxDB);
 
     /**
      Set new coefficients to calculate the frequency response from.
@@ -69,7 +69,7 @@ public:
      @param sampleRate is the sampleRate the processing is happening with
      @param maxDB is the maximum level in dB, that the curve will display
      */
-    void setIIRCoefficients (float gain, std::vector<juce::dsp::IIR::Coefficients<float>::Ptr> coefficients, float maxDB);
+    void setIIRCoefficients (float gain, std::vector<juce::dsp::IIR::Coefficients<double>::Ptr> coefficients, float maxDB);
 
     /**
      Does nothing in this class

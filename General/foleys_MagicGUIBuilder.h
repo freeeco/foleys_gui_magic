@@ -53,7 +53,8 @@ namespace foleys
  The MagicGUIBuilder is responsible to recreate the GUI from a single ValueTree.
  You can add your own factories to the builder to allow additional components.
  */
-class MagicGUIBuilder : public juce::ChangeListener
+class MagicGUIBuilder : public juce::ChangeListener,
+                        public juce::ValueTree::Listener
 {
 public:
     MagicGUIBuilder (MagicGUIState& magicStateToUse);
@@ -62,7 +63,12 @@ public:
     /**
      Create a node from the description
      */
-    std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node);
+    std::unique_ptr<GuiItem> createGuiItem (const juce::ValueTree& node, bool dontUpdate = false);
+
+     /**
+     Create a root item
+     */
+    std::unique_ptr<RootItem> createRootItem (const juce::ValueTree& node);
 
     /**
      This triggers the rebuild of the GUI with setting the parent component
@@ -111,7 +117,7 @@ public:
     /**
      Recalculates the layout of all components
      */
-    void updateLayout();
+    void updateLayout (juce::Rectangle<int> bounds);
 
     /**
      Resolve all colours fresh, in case the palette has changed
@@ -203,6 +209,8 @@ public:
 
     void changeListenerCallback (juce::ChangeBroadcaster* sender) override;
 
+    void valueTreeRedirected (juce::ValueTree& treeWhichHasBeenChanged) override;
+
     /**
      Lookup the default value of the property
      */
@@ -211,6 +219,10 @@ public:
     MagicGUIState& getMagicState();
 
     juce::UndoManager& getUndoManager();
+    
+    juce::TooltipWindow*  getTooltipWindow();
+    
+    void refreshColours();
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void attachToolboxToWindow (juce::Component& window);
@@ -218,7 +230,7 @@ public:
     /**
      This method sets the GUI in edit mode, that allows to drag the components around.
      */
-    void setEditMode (bool shouldEdit);
+    void setEditMode (bool shouldEdit, bool shouldDeselect = true);
     bool isEditModeOn() const;
 
     void setSelectedNode (const juce::ValueTree& node);
@@ -228,6 +240,9 @@ public:
 
     ToolBox& getMagicToolBox();
 #endif
+    
+    RootItem* getRootItem() const{ return root.get(); }
+    
 
 private:
 
@@ -240,13 +255,13 @@ private:
 
     MagicGUIState& magicState;
 
-    std::unique_ptr<GuiItem> root;
+    RadioButtonManager radioButtonManager;
+
+    std::unique_ptr<RootItem> root;
 
     std::unique_ptr<juce::Component> overlayDialog;
 
     std::map<juce::Identifier, std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&)> factories;
-
-    RadioButtonManager radioButtonManager;
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     bool editMode = false;

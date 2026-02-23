@@ -52,8 +52,26 @@ juce::StringArray MagicProcessorState::getParameterNames() const
 juce::PopupMenu MagicProcessorState::createParameterMenu() const
 {
     juce::PopupMenu menu;
-    int index = 0;
-    addParametersToMenu (processor.getParameterTree(), menu, index);
+//    int index = 0;
+//    addParametersToMenu (processor.getParameterTree(), menu, index);
+    
+    juce::StringArray names;
+    for (const auto& node : processor.getParameterTree())
+    {
+        if (const auto* parameter = node->getParameter())
+        {
+            if (const auto* withID = dynamic_cast<const juce::AudioProcessorParameterWithID*>(parameter))
+                names.add (withID->paramID);
+        }
+    }
+    names.sortNatural();
+    
+    int i = 1;
+    for (auto name : names){
+        menu.addItem(i, name);
+        i++;
+    }
+    
     return menu;
 }
 
@@ -92,7 +110,8 @@ std::unique_ptr<juce::SliderParameterAttachment> MagicProcessorState::createAtta
 
     // You have connected a control to a parameter that doesn't exist. Please fix your GUI.
     // You may safely click continue in your debugger
-    jassertfalse;
+//    jassertfalse;
+    DBG("You have connected a control to a parameter that doesn't exist. Please fix your GUI: " + paramID);
     return {};
 }
 
@@ -103,7 +122,8 @@ std::unique_ptr<juce::ComboBoxParameterAttachment> MagicProcessorState::createAt
 
     // You have connected a control to a parameter that doesn't exist. Please fix your GUI.
     // You may safely click continue in your debugger
-    jassertfalse;
+//    jassertfalse;
+    DBG ("You have connected a control to a parameter that doesn't exist. Please fix your GUI: " + paramID);
     return {};
 }
 
@@ -114,7 +134,8 @@ std::unique_ptr<juce::ButtonParameterAttachment> MagicProcessorState::createAtta
 
     // You have connected a control to a parameter that doesn't exist. Please fix your GUI.
     // You may safely click continue in your debugger
-    jassertfalse;
+//    jassertfalse;
+    DBG ("You have connected a control to a parameter that doesn't exist. Please fix your GUI: " + paramID);
     return {};
 }
 
@@ -138,6 +159,22 @@ bool MagicProcessorState::getLastEditorSize (int& width, int& height)
 
     width  = sizeNode.getProperty (IDs::width);
     height = sizeNode.getProperty (IDs::height);
+    return true;
+}
+
+void MagicProcessorState::setRenderer (int renderer)
+{
+    auto guiNode = getValueTree().getOrCreateChildWithName ("gui", nullptr);
+    guiNode.setProperty ("windows-renderer",  renderer,  nullptr);
+}
+
+bool MagicProcessorState::getRenderer (int& renderer)
+{
+    auto guiNode = getValueTree().getOrCreateChildWithName ("gui", nullptr);
+    if (guiNode.hasProperty ("windows-renderer") == false)
+        return false;
+
+    renderer = guiNode.getProperty ("windows-renderer");
     return true;
 }
 
@@ -169,7 +206,14 @@ void MagicProcessorState::setStateInformation (const void* data, int sizeInBytes
         int width, height;
 
         if (getLastEditorSize (width, height))
-            editor->setSize (width, height);
+        {
+            juce::Component::SafePointer safeEditor (editor);
+            juce::MessageManager::callAsync([safeEditor, width, height]
+                                            {
+                if (safeEditor)
+                    safeEditor->setSize (width, height);
+                                            });
+        }
     }
 }
 
@@ -178,15 +222,26 @@ void MagicProcessorState::updatePlayheadInformation (juce::AudioPlayHead* playhe
     if (playhead == nullptr)
         return;
 
-    juce::AudioPlayHead::CurrentPositionInfo info;
-    playhead->getCurrentPosition (info);
+    if (const auto position = playhead->getPosition())
+    {
+        if (auto seconds = position->getTimeInSeconds())
+            timeInSeconds.store (*seconds);
+        
+        if (auto ppqPosition = position->getPpqPosition())
+            timeInBars.store (*ppqPosition / 4);
 
-    bpm.store (info.bpm);
-    timeInSeconds.store (info.timeInSeconds);
-    timeSigNumerator.store (info.timeSigNumerator);
-    timeSigDenominator.store (info.timeSigDenominator);
-    isPlaying.store (info.isPlaying);
-    isRecording.store (info.isRecording);
+        if (auto currentBpm = position->getBpm())
+            bpm.store (*currentBpm);
+
+        if (auto signature = position->getTimeSignature())
+        {
+            timeSigNumerator.store (signature->numerator);
+            timeSigDenominator.store ((*signature).denominator);
+        }
+
+        isPlaying.store (position->getIsPlaying());
+        isRecording.store (position->getIsRecording());
+    }
 }
 
 void MagicProcessorState::setPlayheadUpdateFrequency (int frequency)
@@ -209,6 +264,11 @@ void MagicProcessorState::mapMidiController (int cc, const juce::String& paramet
     midiMapper.mapMidiController (cc, parameterID);
 }
 
+void MagicProcessorState::unmapAllMidiController (int cc)
+{
+    midiMapper.unmapAllMidiController (cc);
+}
+
 int MagicProcessorState::getLastController() const
 {
     return midiMapper.getLastController();
@@ -218,6 +278,7 @@ void MagicProcessorState::timerCallback()
 {
     getPropertyAsValue ("playhead:bpm").setValue (bpm.load());
     getPropertyAsValue ("playhead:timeInSeconds").setValue (timeInSeconds.load());
+    getPropertyAsValue ("playhead:timeInBars").setValue (timeInBars.load());
     getPropertyAsValue ("playhead:timeSigNumerator").setValue (timeSigNumerator.load());
     getPropertyAsValue ("playhead:timeSigDenominator").setValue (timeSigDenominator.load());
     getPropertyAsValue ("playhead:isPlaying").setValue (isPlaying.load());

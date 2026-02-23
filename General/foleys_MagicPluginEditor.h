@@ -34,15 +34,22 @@
  ==============================================================================
  */
 
+
+#pragma once
+
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#pragma once
+#if JUCE_IOS
+#include "../../toybox_plugins/Libraries/iOSDragAndDrop/ios_FileDropContainer.h"
+#endif
+
 
 namespace foleys
 {
 
 class MagicProcessorState;
+
 
 /**
  This is a generic AudioProcessorEditor, that is completely
@@ -51,6 +58,10 @@ class MagicProcessorState;
  */
 class MagicPluginEditor  : public juce::AudioProcessorEditor,
                            public juce::DragAndDropContainer
+#if !JUCE_IOS
+                          ,private juce::Timer
+#endif
+
 {
 public:
     /**
@@ -59,7 +70,7 @@ public:
     MagicPluginEditor (MagicProcessorState& processorState, std::unique_ptr<MagicGUIBuilder> builder = {});
 
     ~MagicPluginEditor() override;
-
+    
     /**
      Setup a GUI from a previously stored ValueTree
 
@@ -75,6 +86,10 @@ public:
     void paint (juce::Graphics& g) override;
 
     void resized() override;
+    
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
+    void parentHierarchyChanged() override;
+#endif
 
 private:
 
@@ -82,15 +97,29 @@ private:
      Setup the size and resizable and size limits
      */
     void updateSize();
-
-#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
+    
+#if !JUCE_IOS
+    void timerCallback() override;
+#endif
+    
+#if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     juce::OpenGLContext oglContext;
+//    oglContext.setImageCacheSize (64);
+//    oglContext.setSwapInterval (0);
+#endif
+    
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
+    int renderer = 1;
 #endif
 
     MagicProcessorState& processorState;
 
     std::unique_ptr<MagicGUIBuilder> builder;
-
+    
+#if JUCE_IOS
+    juce::FileDropContainer dropContainer;
+#endif
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicPluginEditor)
 };
 

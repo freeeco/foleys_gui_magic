@@ -85,6 +85,12 @@ public:
     bool getLastEditorSize (int& width, int& height);
 
     /**
+     Store and recall renderer for Windows
+     */
+    void setRenderer (int  renderer);
+    bool getRenderer (int& renderer);
+
+    /**
      This method will serialise the plugin state from AudioProcessorValueTreeState for
      the host to save in the session
 
@@ -128,6 +134,11 @@ public:
      Connects a midi controller CC to a parameter for MIDI learn
      */
     void mapMidiController (int cc, const juce::String& parameterID);
+    
+    /**
+     Removes a midi controller CC parameter mapping
+     */
+    void unmapAllMidiController (int cc);
 
     /**
      Returns the last moved controller for MIDI learn
@@ -154,6 +165,7 @@ private:
     std::atomic<int>    timeSigNumerator;
     std::atomic<int>    timeSigDenominator;
     std::atomic<double> timeInSeconds;
+    std::atomic<double> timeInBars;
     std::atomic<bool>   isPlaying;
     std::atomic<bool>   isRecording;
 

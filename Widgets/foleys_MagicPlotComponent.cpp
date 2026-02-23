@@ -62,6 +62,11 @@ void MagicPlotComponent::setDecayFactor (float decayFactor)
     updateGlowBufferSize();
 }
 
+void MagicPlotComponent::setLineWidth (juce::String width)
+{
+    lineWidth = width;
+}
+
 void MagicPlotComponent::setGradientFromString (const juce::String& cssString, Stylesheet& stylesheet)
 {
     if (cssString.isNotEmpty())
@@ -79,12 +84,17 @@ void MagicPlotComponent::paint (juce::Graphics& g)
 {
     if (plotSource == nullptr)
         return;
-
-    const auto lastUpdate = plotSource->getLastDataUpdate();
-    if (lastUpdate > lastDataTimestamp)
-    {
+    
+    if (alwaysPlot){
         plotSource->createPlotPaths (path, filledPath, getLocalBounds().toFloat(), *this);
-        lastDataTimestamp = lastUpdate;
+    }
+    else{
+        const auto lastUpdate = plotSource->getLastDataUpdate();
+        if (lastUpdate > lastDataTimestamp)
+        {
+            plotSource->createPlotPaths (path, filledPath, getLocalBounds().toFloat(), *this);
+            lastDataTimestamp = lastUpdate;
+        }
     }
 
     if (! glowBuffer.isNull())
@@ -105,15 +115,34 @@ void MagicPlotComponent::drawPlot (juce::Graphics& g)
 
     if (gradient)
         gradient->setupGradientFill (g, getLocalBounds().toFloat());
+    
+    float lw;
+    if (lineWidth.endsWith ("%")){
+        lw = getHeight() * lineWidth.getFloatValue() * 0.01;
+    }
+    else{
+        lw = lineWidth.getFloatValue();
+    }
+    
+    // reduce the size of the path by the line thickness
+    
+    if (scaled){
+        auto t = juce::AffineTransform::scale((getWidth()-lw)/getWidth(),(getHeight()-lw)/getHeight(),getWidth()/2, getHeight()/2);
+        path.applyTransform(t);
+        filledPath.applyTransform(t);
+    }
+
+    auto roundedPath = path.createPathWithRoundedCorners(cornerRadius);
+    auto roundedFilledPath = filledPath.createPathWithRoundedCorners(cornerRadius);
 
     if (gradient || !colour.isTransparent())
-        g.fillPath (filledPath);
+        g.fillPath (roundedFilledPath);
 
     colour = findColour (active ? plotColourId : plotInactiveColourId);
     if (colour.isTransparent() == false)
     {
         g.setColour (colour);
-        g.strokePath (path, juce::PathStrokeType (2.0));
+        g.strokePath (roundedPath, juce::PathStrokeType (lw));
     }
 }
 
@@ -153,6 +182,42 @@ void MagicPlotComponent::resized()
 {
     lastDataTimestamp = 0;
     updateGlowBufferSize();
+}
+
+void MagicPlotComponent::setAlwaysPlot(bool flag)
+{
+    alwaysPlot = flag;
+    
+    if (alwaysPlot)
+        startTimerHz(alwaysPlotHz);
+    else
+        stopTimer();
+}
+
+void MagicPlotComponent::setAlwaysPlotHz(int Hz)
+{
+    alwaysPlotHz = Hz;
+}
+
+void MagicPlotComponent::setScaled(bool flag)
+{
+    scaled = flag;
+}
+
+void MagicPlotComponent::setCornerRadius(bool radius)
+{
+    cornerRadius = radius;
+}
+
+void MagicPlotComponent::setFillStyle(MagicPlotSource::FillStyle val)
+{
+    if (plotSource)
+        plotSource->setFillStyle(val);
+}
+
+void MagicPlotComponent::timerCallback()
+{
+    repaint();
 }
 
 

@@ -58,7 +58,17 @@ void ApplicationSettings::setFileName (juce::File file)
         return;
 
     settingsFile = file;
-    startTimerHz (1);
+    if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+        load();
+    else
+        juce::MessageManager::callAsync ( [=, this]() { load(); });
+
+//    startTimerHz (1);
+}
+
+juce::File ApplicationSettings::getFileName ()
+{
+    return settingsFile;
 }
 
 void ApplicationSettings::load()
@@ -107,6 +117,7 @@ void ApplicationSettings::save()
 
 void ApplicationSettings::timerCallback()
 {
+    stopTimer();
     load();
 }
 

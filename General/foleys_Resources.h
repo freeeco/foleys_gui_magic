@@ -49,6 +49,10 @@ namespace Resources
      */
     static inline juce::StringArray getResourceFileNames();
 
+    static inline juce::StringArray getResourceImageFileNames();
+
+    static inline juce::StringArray getResourceFileNamesWithExtension(juce::String extension);
+
     /**
      Loads an image from BinaryData via ImageCache
 

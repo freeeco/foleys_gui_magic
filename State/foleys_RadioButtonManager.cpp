@@ -41,7 +41,7 @@ namespace foleys
 
 RadioButtonHandler::RadioButtonHandler (juce::Button& buttonToControl, RadioButtonManager& manager)
   : button (buttonToControl),
-    radioButtonManager(manager)
+    radioButtonManager (manager)
 {
     radioButtonManager.addButton (&button);
     button.addListener (this);
@@ -49,6 +49,9 @@ RadioButtonHandler::RadioButtonHandler (juce::Button& buttonToControl, RadioButt
 
 RadioButtonHandler::~RadioButtonHandler()
 {
+    if (parameter)
+        parameter->removeListener (this);
+
     button.removeListener (this);
     radioButtonManager.removeButton (&button);
 }
@@ -62,7 +65,7 @@ void RadioButtonHandler::setRadioGroupValue (juce::var value, juce::RangedAudioP
 
         parameter = parameterToControl;
         if (parameter)
-            parameter->removeListener (this);
+            parameter->addListener (this);
     }
 
     radioButtonValue = value;
@@ -83,7 +86,7 @@ void RadioButtonHandler::buttonClicked (juce::Button* clickedButton)
         parameter->setValueNotifyingHost (value);
         parameter->endChangeGesture();
     }
-
+    
     radioButtonManager.buttonActivated (clickedButton);
 }
 
@@ -107,8 +110,8 @@ void RadioButtonManager::buttonActivated (juce::Button* button)
     if (groupID == 0)
         return;
 
-    for (auto* otherButton : buttons)
-        if (button != otherButton && otherButton->getRadioGroupId() == groupID)
+    for (auto& otherButton : buttons)
+        if (otherButton && button != otherButton && otherButton->getRadioGroupId() == groupID)
             otherButton->setToggleState (false, juce::dontSendNotification);
 }
 
@@ -121,7 +124,7 @@ void RadioButtonManager::addButton (juce::Button* button)
 void RadioButtonManager::removeButton (juce::Button* button)
 {
     buttons.erase (std::remove_if (buttons.begin(), buttons.end(), [button](const auto& other)
-                        { return other == button; }),
+                        { return other == button || other == nullptr; }),
                    buttons.end());
 }
 

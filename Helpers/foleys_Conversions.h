@@ -59,14 +59,15 @@ namespace Conversions
             [](FloatType start, FloatType end, FloatType value)
             {
                 // optimised for frequencies: >3 kHz: 2 decimals
-                if (value > FloatType (3000))
-                    return juce::jlimit (start, end, FloatType (100) * juce::roundToInt (value / FloatType (100)));
+//                if (value > FloatType (3000))
+//                    return juce::jlimit (start, end, FloatType (100) * juce::roundToInt (value / FloatType (100)));
+//
+//                // optimised for frequencies: 1-3 kHz: 1 decimal
+//                if (value > FloatType (1000))
+//                    return juce::jlimit (start, end, FloatType (10) * juce::roundToInt (value / FloatType (10)));
 
-                // optimised for frequencies: 1-3 kHz: 1 decimal
-                if (value > FloatType (1000))
-                    return juce::jlimit (start, end, FloatType (10) * juce::roundToInt (value / FloatType (10)));
-
-                return juce::jlimit (start, end, FloatType (juce::roundToInt (value)));
+//                return juce::jlimit (start, end, FloatType (juce::roundToInt (value)));
+                return juce::jlimit (start, end, value);
             });
     }
 

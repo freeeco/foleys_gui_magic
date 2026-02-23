@@ -75,6 +75,7 @@ class Container   : public GuiItem,
 {
 public:
     Container (MagicGUIBuilder& builder, juce::ValueTree node);
+    ~Container();
 
     /**
      Updates the layout fo children
@@ -136,6 +137,7 @@ public:
      can move them around.
      */
     void setEditMode (bool shouldEdit) override;
+    void setDraggable (bool selected) override;
 #endif
 
 private:
@@ -154,18 +156,23 @@ private:
     };
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
+    void valueChanged (juce::Value&) override;
     void timerCallback() override;
 
     void updateTabbedButtons();
     void updateSelectedTab();
 
-    int  currentTab = 0;
-    int  refreshRateHz = 30;
-
+    juce::Value   currentTab { juce::var {0} };
+//    int           tabbarHeight  = 30;
+    int           tabbarHeight  = 0;
+    int           refreshRateHz = 30;
     LayoutType    layout = LayoutType::FlexBox;
     juce::FlexBox flexBox;
-
     ScrollMode    scrollMode = ScrollMode::NoScroll;
+    
+    juce::Value     visibility { true };
+    
+    bool hasVisibilityProperty = false;
 
     juce::Component                         containerBox;
     Scroller                                viewport { *this };
@@ -173,6 +180,8 @@ private:
     std::vector<std::unique_ptr<GuiItem>>   children;
 
     std::vector<juce::Component::SafePointer<MagicPlotComponent>> plotComponents;
+    
+    std::unique_ptr<juce::ParameterAttachment> attachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Container)
 };

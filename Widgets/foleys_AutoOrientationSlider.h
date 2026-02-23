@@ -60,26 +60,110 @@ public:
     {
         if (filmStrip.isNull() || numImages == 0)
         {
-            juce::Slider::paint (g);
+            if (sliderImage){
+                if (imageMode == 0){
+                    auto rotation = (startAngle + (valueToProportionOfLength (getValue()) * (1 - startAngle * 2)) + 0.5f);
+                    auto placement (juce::RectanglePlacement::centred);
+                    auto originalBounds = sliderImage->getDrawableBounds();
+                    if (rotation == 0.0f)
+                        rotation = 1.0f; // transform doesn't like angle of 0.0f
+                    juce::AffineTransform transform = juce::AffineTransform::rotation(juce::MathConstants<float>::pi * 2.0f * rotation, originalBounds.getCentreX(), originalBounds.getCentreY());
+                    sliderImage->setDrawableTransform(transform);
+                    sliderImage->drawWithin(g, getBounds().toFloat(), placement ,1.0f);
+                }
+                else if (imageMode == 1){
+                    auto originalBounds = sliderImage->getDrawableBounds().toFloat();
+                    float scaleFactor = (getHeight() / originalBounds.getHeight());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    sliderImage->setDrawableTransform(transform);
+                    float position = (getWidth() - (originalBounds.getWidth() * scaleFactor)) * (1.0f - startAngle) * valueToProportionOfLength (getValue());
+                    sliderImage->drawAt(g, position, 0.0f, 1.0f);
+                }
+                else{ // imageMode == 2
+                    auto originalBounds = sliderImage->getDrawableBounds().toFloat();
+                    float scaleFactor = (getWidth() / originalBounds.getWidth());
+                    juce::AffineTransform transform = juce::AffineTransform::scale(scaleFactor, scaleFactor);
+                    sliderImage->setDrawableTransform(transform);
+                    float position = (getHeight() - (originalBounds.getHeight() * scaleFactor)) * (1.0f - startAngle) * (1.0f - valueToProportionOfLength (getValue()));
+                    sliderImage->drawAt(g, 0.0f, position, 1.0f);
+                }
+            }
+            else{
+                juce::Slider::paint (g);
+            }
         }
         else
         {
             auto index = juce::roundToInt ((numImages - 1) * valueToProportionOfLength (getValue()));
             auto knobArea = getLookAndFeel().getSliderLayout(*this).sliderBounds;
 
+            float areaW = knobArea.getWidth();
+            float areaH = knobArea.getHeight();
+            float areaAspect = areaH / areaW;
+            
+            g.setImageResamplingQuality(juce::Graphics::ResamplingQuality::highResamplingQuality);
+            
             if (horizontalFilmStrip)
             {
-                auto w = filmStrip.getWidth() / numImages;
-                g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getHeight(),
-                             index * w, 0, w, filmStrip.getHeight());
+                float w = filmStrip.getWidth() / numImages;
+                float h = filmStrip.getHeight();
+                float aspect = h / w;
+                
+#if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
+                float xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect)) / 2.0f);
+#else
+                float xOffset = 0.0f;
+#endif
+                
+#if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+                float yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect)) / 2.0f);
+#else
+                float yOffset = 0.0f;
+#endif
+
+                if (aspect > areaAspect){
+                    drawImage (g, filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 index * w, 0.0f, w, filmStrip.getHeight());
+                }
+                else{
+                    drawImage (g, filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 index * w, 0.0f, w, filmStrip.getHeight());
+                }
             }
             else
             {
-                auto h = filmStrip.getHeight() / numImages;
-                g.drawImage (filmStrip, knobArea.getX(), knobArea.getY(), knobArea.getWidth(), knobArea.getHeight(),
-                             0, index * h, filmStrip.getWidth(), h);
+                float h = filmStrip.getHeight() / numImages;
+                float w = filmStrip.getWidth();
+                float aspect = h / w;
+                
+#if SLIDER_FILMSTRIP_HORIZONTALLY_CENTERED
+                float xOffset = ((knobArea.getWidth()-(knobArea.getHeight()/aspect)) / 2.0f);
+#else
+                float xOffset = 0.0f;
+#endif
+                
+#if SLIDER_FILMSTRIP_VERTICALLY_CENTERED
+                float yOffset = ((knobArea.getHeight()-(knobArea.getWidth()*aspect)) / 2.0f);
+#else
+                float yOffset = 0.0f;
+#endif
+                
+                if (aspect > areaAspect){
+                    drawImage (g, filmStrip, knobArea.getX()+xOffset, knobArea.getY(), knobArea.getHeight()/aspect, knobArea.getHeight(),
+                                 0.0f, index * h, filmStrip.getWidth(), h);
+                }
+                else{
+                    drawImage (g, filmStrip, knobArea.getX(), knobArea.getY()+yOffset, knobArea.getWidth(), knobArea.getWidth()*aspect,
+                                 0.0f, index * h, filmStrip.getWidth(), h);
+                }
             }
         }
+    }
+    
+    void drawImage (juce::Graphics& g, const juce::Image& imageToDraw, float dx, float dy, float dw, float dh, float sx, float sy, float sw, float sh) const
+    {
+        g.drawImageTransformed (imageToDraw.getClippedImage (juce::Rectangle<int> (sx, sy, sw, sh)),
+                              juce::AffineTransform::scale (dw / sw, dh / sh).translated (dx, dy), false);
     }
 
     void resized() override
@@ -103,6 +187,9 @@ public:
     void setFilmStrip (juce::Image& image)
     {
         filmStrip = image;
+#if JUCE_WINDOWS  && JUCE_VERSION >= 0x80000 && FILMSTRIP_SOFTWARE_IMAGE_TYPE
+        filmStrip = juce::SoftwareImageType().convert(filmStrip);
+#endif
     }
 
     void setNumImages (int num, bool horizontal)
@@ -110,6 +197,29 @@ public:
         numImages = num;
         horizontalFilmStrip = horizontal;
     }
+    
+    void createImage (const char* data, int dataSize)
+    {
+        sliderImage = juce::Drawable::createFromImageData (data, dataSize);
+    }
+
+    void setImageMode (int mode)
+    {
+        imageMode = mode;
+    }
+
+    void setStartAngle (float angle)
+    {
+        angle = angle + juce::MathConstants<float>::pi;
+        startAngle = juce::jmap(angle, 0.0f, juce::MathConstants<float>::pi, 0.0f, 0.5f);
+    }
+    
+    void setUseInterval (bool value) { useInterval = value; }
+    void setModifierSnap (bool value) { modifierSnap = value; }
+    void setInterval (float value) { interval = value; }
+    void setMinValue (float value) { minValue = value; }
+    void setMaxValue (float value) { maxValue = value; }
+    void setAltKeyHides (float value) { altKeyHides = value; }
 
 private:
 
@@ -117,8 +227,79 @@ private:
 
     juce::Image filmStrip;
     int         numImages = 0;
+    int         imageMode;
+    float       startAngle;
+    std::unique_ptr<juce::Drawable> sliderImage;
     bool        horizontalFilmStrip = false;
+    bool useInterval = false;
+    bool modifierSnap = false;
+    float interval = 0.0f;
+    float minValue = 0.0f;
+    float maxValue = 1.0f;
+    bool altKeyHides = true;
 
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        // Holding the shift key bypasses the interval if it's set
+        if (useInterval){
+            if (modifierSnap){
+                if (juce::ModifierKeys::getCurrentModifiers().isCtrlDown()){
+                    setRange (minValue, maxValue, interval);
+                } else {
+                    setRange (minValue, maxValue, 0.0f);
+                }
+            } else {
+                if (juce::ModifierKeys::getCurrentModifiers().isShiftDown()){
+                    setRange (minValue, maxValue, 0.0f);
+                } else {
+                    setRange (minValue, maxValue, interval);
+                }
+            }
+        }
+        juce::Slider::mouseDrag (e);
+    }
+    
+    
+    
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (useInterval){
+            if (modifierSnap){
+                setRange (minValue, maxValue, 0.0f);
+            } else {
+                setRange (minValue, maxValue, interval);
+            }
+        }
+        juce::Slider::mouseUp (e);
+    }
+        
+    void mouseEnter (const juce::MouseEvent& e) override
+    {
+        if (altKeyHides){
+            const auto& modifiers = juce::ModifierKeys::getCurrentModifiers();
+            if (modifiers.isAltDown()){
+                if (isVisible())
+                    setVisible(false);
+            } else {
+                if (!isVisible())
+                    setVisible(true);
+            }
+        }
+        juce::Slider::mouseEnter (e);
+    }
+
+    void modifierKeysChanged (const juce::ModifierKeys& modifiers) override
+    {
+        if (altKeyHides){
+            if (modifiers.isAltDown()){
+                setVisible(false);
+            } else {
+                setVisible(true);
+            }
+        }
+        juce::Slider::modifierKeysChanged (modifiers);
+    }
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AutoOrientationSlider)
 };
 

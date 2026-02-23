@@ -36,6 +36,7 @@
 
 #include "foleys_RootItem.h"
 
+
 namespace foleys
 {
 
@@ -56,7 +57,53 @@ void RootItem::updateColours()
     auto outline = magicBuilder.getStyleProperty (IDs::tooltipOutline, configNode);
     if (! outline.isVoid())
         tooltip.getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, Stylesheet::parseColour (outline));
+    
+//    for (const auto& child : *this)
+//        child->updateColours();
+    Container::updateColours();
 }
+
+bool RootItem::keyPressed(const juce::KeyPress& key)
+{
+    if ((key.getKeyCode() == 'Z'
+         && key.getModifiers().isCommandDown()) && !key.getModifiers().isShiftDown())
+    {
+        auto trigger = magicBuilder.getMagicState().getTrigger ("Undo");
+        if (trigger != nullptr){
+            trigger();
+            return true;
+        }
+    } else if ((key.getKeyCode() == 'Z'
+                && key.getModifiers().isCommandDown()) && key.getModifiers().isShiftDown())
+    {
+        auto trigger = magicBuilder.getMagicState().getTrigger ("Redo");
+        if (trigger != nullptr){
+            trigger();
+            return true;
+        }
+    }
+    else if (key.getKeyCode() == 'C'
+    && key.getModifiers().isCommandDown() && getMagicState().getTrigger ("Keyboard Command-C") != nullptr)
+    {
+        auto trigger = getMagicState().getTrigger ("Keyboard Command-C");
+        if (trigger != nullptr)
+            trigger();
+        
+        return true;
+    }
+        
+    else if (key.getKeyCode() == 'V'
+    && key.getModifiers().isCommandDown() && getMagicState().getTrigger ("Keyboard Command-V") != nullptr)
+    {
+        auto trigger = getMagicState().getTrigger ("Keyboard Command-V");
+        if (trigger != nullptr)
+            trigger();
+        
+        return true;
+    }
+    return false;
+}
+
 
 
 } // namespace foleys

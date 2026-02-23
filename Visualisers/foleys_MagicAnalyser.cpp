@@ -35,13 +35,16 @@
  */
 
 #include "foleys_MagicAnalyser.h"
+#include <cmath> // Required for std::pow
 
 namespace foleys
 {
 
-
 MagicAnalyser::MagicAnalyser (int channelToAnalyse)
   : channel (channelToAnalyse)
+  , displayRangeMinDb (-90.0f)
+  , displayCurveFactor (0.6f)
+  , decayMilliseconds (2000)
 {
 }
 
@@ -54,23 +57,86 @@ void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, j
 {
     const float minFreq = 20.0f;
     const auto& data = analyserJob.getAnalyserData();
+    const auto* fftData = data.getReadPointer (0);
+    const int numBins = data.getNumSamples();
+    analyserJob.clearValues();
 
+    // Resize display values if needed
+    if (displayValues.getNumSamples() != numBins)
+    {
+        displayValues.setSize (1, numBins);
+        displayValues.clear();
+    }
+
+    // Calculate time-based decay
+    double now = juce::Time::getMillisecondCounterHiRes();
+    float elapsed = (lastRepaintTime > 0.0) ? (float) (now - lastRepaintTime) / 1000.0f : 0.0f;
+    lastRepaintTime = now;
+
+    float decayPerSecond = 1.0f / (decayMilliseconds / 1000.0f);
+    float decayThisFrame = decayPerSecond * elapsed;
+
+    auto* display = displayValues.getWritePointer (0);
+
+    for (int i = 0; i < numBins; ++i)
+    {
+        float peak = fftData[i];
+
+        if (peak >= display[i])
+        {
+            display[i] = peak;
+        }
+        else
+        {
+            float currentDb = juce::Decibels::gainToDecibels (display[i], displayRangeMinDb);
+            float normalized = juce::jmap (currentDb, displayRangeMinDb, 0.0f, 0.0f, 1.0f);
+            float curved = std::pow (juce::jmax (normalized, 0.0f), displayCurveFactor);
+
+            curved -= decayThisFrame;
+
+            if (curved <= 0.0f)
+            {
+                display[i] = 0.0f;
+            }
+            else
+            {
+                float uncurved = std::pow (curved, 1.0f / displayCurveFactor);
+                float db = juce::jmap (uncurved, 0.0f, 1.0f, displayRangeMinDb, 0.0f);
+                display[i] = juce::Decibels::decibelsToGain (db, displayRangeMinDb);
+            }
+        }
+    }
+    
+    bool stillDecaying = false;
+    for (int i = 0; i < numBins; ++i)
+    {
+        if (display[i] > 0.0f)
+        {
+            stillDecaying = true;
+            break;
+        }
+    }
+
+    if (stillDecaying)
+        resetLastDataFlag();
+
+    // Draw using decayed display values
     path.clear();
-    path.preallocateSpace (8 + data.getNumSamples() * 3);
+    path.preallocateSpace (8 + numBins * 3);
 
     juce::ScopedLock lockedForReading (pathCreationLock);
-    const auto* fftData = data.getReadPointer (0);
-    const auto  factor  = bounds.getWidth() / 10.0f;
 
-    path.startNewSubPath (bounds.getX() + factor * indexToX (0, minFreq), binToY (fftData [0], bounds));
-    for (int i = 1, step = 1, count = 0; i < data.getNumSamples(); i += step, ++count)
+    const float logFreqRange = std::log2 (displayRangeMaxFreq / minFreq);
+    const auto factor = bounds.getWidth() / logFreqRange;
+
+    path.startNewSubPath (bounds.getX() + factor * indexToX (0, minFreq), binToY (display[0], bounds));
+    for (int i = 1, step = 1, count = 0; i < numBins; i += step, ++count)
     {
-        auto avg = fftData [i];
+        auto avg = display[i];
         if (step > 1)
         {
-            for (int j = i+1; j < std::min (data.getNumSamples(), i + step); ++j)
-                avg += fftData [j];
-
+            for (int j = i + 1; j < std::min (numBins, i + step); ++j)
+                avg += display[j];
             avg = avg / step;
         }
 
@@ -79,7 +145,7 @@ void MagicAnalyser::createPlotPaths (juce::Path& path, juce::Path& filledPath, j
         if (count > 64)
         {
             ++step;
-            count = -0;
+            count = 0;
         }
     }
 
@@ -108,9 +174,18 @@ float MagicAnalyser::indexToX (int index, float minFreq) const
 
 float MagicAnalyser::binToY (float bin, juce::Rectangle<float> bounds) const
 {
-    const float infinity = -100.0f;
-    return juce::jmap (juce::Decibels::gainToDecibels (bin, infinity),
-                       infinity, 0.0f, bounds.getBottom(), bounds.getY());
+    const float minDb = displayRangeMinDb; // e.g., -90.0f
+    const float maxDb = 0.0f; // Assuming 0dB is the top of the scale
+
+    float dbValue = juce::Decibels::gainToDecibels (bin, minDb);
+
+    dbValue = juce::jlimit (minDb, maxDb, dbValue);
+
+    float normalizedDb = juce::jmap (dbValue, minDb, maxDb, 0.0f, 1.0f);
+
+    float curvedNormalizedDb = std::pow (normalizedDb, displayCurveFactor);
+
+    return juce::jmap (curvedNormalizedDb, 0.0f, 1.0f, bounds.getBottom(), bounds.getY());
 }
 
 
@@ -155,7 +230,7 @@ void MagicAnalyser::AnalyserJob::pushSamples (const juce::AudioBuffer<float>& bu
     {
         const auto b = abstractFifo.write (buffer.getNumSamples());
         if (b.blockSize1 > 0) audioFifo.copyFrom (0, b.startIndex1, buffer.getReadPointer (inChannel), b.blockSize1);
-        if (b.blockSize2 > 0) audioFifo.copyFrom (0, b.startIndex2, buffer.getReadPointer (inChannel, b.blockSize1), b.blockSize2);
+        if (b.blockSize2 > 0) audioFifo.copyFrom (0, b.blockSize1, audioFifo.getReadPointer (inChannel, b.blockSize1), b.blockSize2);
     }
 }
 
@@ -181,19 +256,12 @@ int MagicAnalyser::AnalyserJob::useTimeSlice()
         juce::ScopedLock lockedForWriting (owner.pathCreationLock);
 
         const auto  factor = 1.0f / fft.getSize();
-        const auto  decay  = 0.8f;   // FIXME: calculate by fft size and sampleRate
-        const auto* read   = fftBuffer.getReadPointer (0);
-        auto*       write  = values.getWritePointer (0);
+        const auto* read  = fftBuffer.getReadPointer (0);
+        auto* write = values.getWritePointer (0);
 
-        for (int i=0; i < values.getNumSamples(); ++i, ++read, ++write)
+        for (int i = 0; i < values.getNumSamples(); ++i, ++read, ++write)
         {
-            auto v = *read * factor;
-            if (v >= *write)
-                *write = v;
-            else if (v < 1.12202e-05f)
-                *write = 0.0f;
-            else
-                *write = *write * decay;
+            *write = *read * factor;
         }
 
         owner.resetLastDataFlag();

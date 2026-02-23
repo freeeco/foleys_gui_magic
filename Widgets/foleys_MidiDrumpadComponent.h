@@ -72,6 +72,44 @@ public:
     void setRootNote (int noteNumber);
 
     void timerCallback() override;
+    
+    bool getPadDownStatus(int index) { if (pads[index]) return pads[index]->getDownStatus(); else return 0; }
+    
+    int getLastClicked (){ return lastClicked; };
+    
+    void setLastClicked (int i){ lastClicked = i; };
+    
+    int getLastPlayed (){ return lastPlayed; };
+    
+    void setLastPlayed (int i){ lastPlayed = i; };
+    
+    bool getClickedFlag (){
+        if (clickedFlag){
+            clickedFlag = false;
+            return true;
+        }
+        else{
+            return false;
+        }
+    };
+    
+    void setClickedFlag (bool flag){ clickedFlag = flag; };
+    
+    bool getPlayedFlag (){
+        if (playedFlag){
+            playedFlag = false;
+            return true;
+        }
+        else{
+            return false;
+        }
+    };
+    
+    void setPlayedFlag (bool flag){ playedFlag = flag; };
+    
+    void setMPCStylePads (bool value){ mpcStylePads = value; };
+    
+    void setInvisible (bool value){ invisible = value; };
 
     class Pad : public juce::Component,
                 public juce::MidiKeyboardState::Listener
@@ -91,6 +129,10 @@ public:
 
         void handleNoteOff (juce::MidiKeyboardState* source,
                             int midiChannel, int midiNoteNumber, float velocity) override;
+        
+        bool getDownStatus () { return isDown; };
+        
+        void setIndex(int i) { index = i; };
 
     private:
         MidiDrumpadComponent& owner;
@@ -98,6 +140,7 @@ public:
         std::atomic_bool      isDown { false };
         juce::Point<int>      lastPos;
         float                 pressure = 0.0f;
+        int                   index;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pad)
     };
@@ -113,6 +156,12 @@ private:
 
     std::atomic_bool                  needsPaint { true };
     std::vector<std::unique_ptr<Pad>> pads;
+    int lastClicked = 0;
+    int lastPlayed = 0;
+    bool clickedFlag = false;
+    bool playedFlag = false;
+    bool mpcStylePads = false;
+    bool invisible = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiDrumpadComponent)
 };

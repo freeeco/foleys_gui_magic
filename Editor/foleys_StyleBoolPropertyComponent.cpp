@@ -66,17 +66,25 @@ void StyleBoolPropertyComponent::refresh()
     const auto value = lookupValue();
 
     if (auto* toggle = dynamic_cast<juce::ToggleButton*>(editor.get()))
-    {
-        if (node == inheritedFrom)
-        {
-            toggle->getToggleStateValue().referTo (node.getPropertyAsValue (property, &builder.getUndoManager()));
-        }
-        else
-        {
-            toggle->getToggleStateValue().referTo (toggle->getToggleStateValue());
-            toggle->setToggleState (value, juce::dontSendNotification);
-        }
-    }
+   {
+       if (node == inheritedFrom && node.hasProperty (property))
+       {
+           toggle->getToggleStateValue().referTo (node.getPropertyAsValue (property, &builder.getUndoManager()));
+       }
+       else
+       {
+//           toggle->getToggleStateValue().referTo (toggle->getToggleStateValue()); // Wrong way to clear the referral?
+           toggle->getToggleStateValue().referTo (juce::Value());
+
+           bool state = value;
+           // Hack to set the default state for the 'visible' property
+           if (value.isVoid() && property == IDs::visible)
+               if (auto item = builder.createGuiItem (juce::ValueTree (node.getType()), true))
+                   state = item->isVisibleByDefault();
+
+           toggle->setToggleState (state, juce::dontSendNotification);
+       }
+   }
 
     repaint();
 }

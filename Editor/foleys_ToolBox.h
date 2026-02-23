@@ -42,6 +42,8 @@
 #include "foleys_PropertiesEditor.h"
 #include "foleys_Palette.h"
 
+
+
 namespace foleys
 {
 
@@ -69,6 +71,7 @@ public:
     enum PositionOption  { left, right, detached };
 
     void loadDialog();
+    void save();
     void saveDialog();
 
     void loadGUI (const juce::File& file);
@@ -92,20 +95,73 @@ public:
 
     static juce::PropertiesFile::Options getApplicationPropertyStorage();
 
-    juce::File getLastLocation() const;
     void setLastLocation (juce::File file);
 
 private:
+    struct IconButtonLookAndFeel : public juce::LookAndFeel_V4
+    {
+        IconButtonLookAndFeel (juce::Typeface::Ptr tf) : typeface (tf) {}
+        
+        juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
+        {
+            return juce::Font (juce::FontOptions (typeface).withHeight (buttonHeight * 0.6f));
+        }
+        
+        juce::Typeface::Ptr typeface;
+    };
+
     enum Timers : int
     {
-        WindowDrag=1,
-        AutoSave
+        WindowDrag = 1,
+        AutoSave,
+        ModifierKeys
     };
 
     static juce::String positionOptionToString (PositionOption option);
-    static PositionOption positionOptionFromString (juce::String text);
+    static PositionOption positionOptionFromString (const juce::String& text);
 
-    std::unique_ptr<juce::FileFilter> getFileFilter() const;
+    static std::unique_ptr<juce::FileFilter> getFileFilter();
+
+    /**
+     Recursively walks a ValueTree and makes all PGM parameter references unique
+     by appending a timestamp suffix. Detects references by the presence of ":"
+     in the property value, while excluding URLs and values with whitespace.
+     Any existing timestamp suffix (8+ digit number after a dash) is stripped
+     first to avoid ever-growing suffixes on re-used snippets.
+     */
+    static juce::ValueTree makeParameterRefsUnique (juce::ValueTree tree);
+
+    /**
+     Inserts a snippet from a file into the currently selected node (or root).
+     If the Option/Alt key is held at call time, the snippet is inserted as-is
+     without making parameter references unique - useful for global/shared
+     parameters such as BPM that should remain the same across copies.
+     */
+    void insertSnippet (const juce::File& file);
+
+    // Edit operations - called from both the Edit menu and keyboard shortcuts
+    void performUndo();
+    void performRedo();
+    void performCut();
+    void performCopy();
+    void performPaste();
+    void performPasteUnique();
+    void performPasteDimensions();
+    void performPasteItemProperties();
+    void performDuplicate();
+    void performDuplicateUnique();
+    void performSendToBack();
+    void performSendBack();
+    void performBringForward();
+    void performBringToFront();
+    void performSelectParent();
+    void performDeselect();
+    void performPasteStyling();
+    void performClearDimensions();
+    void performWrapInView();
+    void performInsertViewContents();
+    void performInsertViewFlexbox();
+    void performInsertViewTabbed();
 
     juce::Component::SafePointer<juce::Component> parent;
 
@@ -113,12 +169,12 @@ private:
     juce::UndoManager&          undo;
     juce::ApplicationProperties appProperties;
 
-    juce::TextButton    fileMenu   { TRANS ("File...") };
-    juce::TextButton    viewMenu   { TRANS ("View...") };
-
-    juce::TextButton    undoButton { TRANS ("Undo") };
-
-    juce::TextButton    editSwitch { TRANS ("Edit") };
+    juce::TextButton    fileMenu       { TRANS ("File") };
+    juce::TextButton    editMenu       { TRANS ("Edit") };
+    juce::TextButton    viewMenu       { TRANS ("View") };
+    juce::TextButton    snippetsButton { TRANS ("Snippets") };
+//    juce::TextButton    editSwitch { juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")) };
+    juce::TextButton    editSwitch { juce::String::fromUTF8 (u8"\uf140") };
 
     PositionOption      positionOption      { left };
 
@@ -133,6 +189,19 @@ private:
     std::unique_ptr<juce::FileBrowserComponent> fileBrowser;
     juce::File                                  lastLocation;
     juce::File                                  autoSaveFile;
+    
+    juce::LookAndFeel_V4        defaultLAF;
+    ToolBoxLookAndFeel toolBoxLAF;
+    std::unique_ptr<IconButtonLookAndFeel> editSwitchLAF;
+    juce::Typeface::Ptr         fontAudio { juce::Typeface::createSystemTypefaceFor (BinaryData::FontAudio_ttf, BinaryData::FontAudio_ttfSize) };
+    
+    juce::TooltipWindow tooltipWindow { this, 1500 };  // 500ms delay before showing
+    
+    bool showItemsPanel = true;
+    bool lastShowItemsPanel = true;
+    int savedTreeHeightShowing = -1;
+    int savedTreeHeightHidden = -1;
+    bool temporaryEditMode = false;
 
     void updateToolboxPosition();
     juce::ResizableCornerComponent resizeCorner { this, nullptr };
@@ -140,6 +209,7 @@ private:
 
     void mouseDown (const juce::MouseEvent& e) override;
     void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp (const juce::MouseEvent& e) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToolBox)
 };

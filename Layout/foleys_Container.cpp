@@ -44,6 +44,13 @@ Container::Container (MagicGUIBuilder& builder, juce::ValueTree node)
 {
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&containerBox, false);
+    currentTab.addListener (this);
+    visibility.addListener (this);
+}
+
+Container::~Container()
+{
+    currentTab.removeListener (this);
 }
 
 void Container::update()
@@ -71,6 +78,24 @@ void Container::update()
     else
         setLayoutMode (LayoutType::FlexBox);
 
+//    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
+//    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 30;
+    
+    // Set tab bar height to 0 by default
+//    auto tabHeightProperty = magicBuilder.getStyleProperty (IDs::tabHeight, configNode).toString();
+//    tabbarHeight = tabHeightProperty.isNotEmpty() ? tabHeightProperty.getIntValue() : 0;
+    
+    //  Set tab bar height to 0 by default always bypassing style property
+    tabbarHeight = configNode.hasProperty (IDs::tabHeight)
+                 ? configNode.getProperty (IDs::tabHeight).toString().getIntValue()
+                 : 0;
+
+    const auto tabProperty = magicBuilder.getStyleProperty (IDs::selectedTab, configNode).toString();
+    if (tabProperty.isNotEmpty()){
+        currentTab.referTo(getMagicState().getPropertyAsValue(tabProperty));
+        currentTab = static_cast<int>(currentTab.getValue());
+    }
+
     auto repaintHz = magicBuilder.getStyleProperty (IDs::repaintHz, configNode).toString();
     if (repaintHz.isNotEmpty())
     {
@@ -92,11 +117,19 @@ void Container::update()
 
         updateLayout();
     }
+    
+    auto  visibilityNode = magicBuilder.getStyleProperty (IDs::visibility, configNode);
+    if (! visibilityNode.isVoid()){
+        visibility.referTo (magicBuilder.getMagicState().getPropertyAsValue (visibilityNode.toString()));
+        hasVisibilityProperty = true;
+    } else {
+        hasVisibilityProperty = false;
+    }
 }
 
 void Container::addChildItem (std::unique_ptr<GuiItem> child)
 {
-    containerBox.addAndMakeVisible (child.get());
+    containerBox.addChildComponent (child.get());
     children.push_back (std::move (child));
 }
 
@@ -109,9 +142,7 @@ void Container::createSubComponents()
         auto childItem = magicBuilder.createGuiItem (childNode);
         if (childItem)
         {
-            containerBox.addAndMakeVisible (childItem.get());
-            childItem->createSubComponents();
-
+            containerBox.addChildComponent (childItem.get());
             children.push_back (std::move (childItem));
         }
     }
@@ -155,7 +186,11 @@ void Container::setLayoutMode (LayoutType layoutToUse)
     {
         tabbedButtons.reset();
         for (auto& child : children)
-            child->setVisible (true);
+        {
+            bool shouldBeVisible = child->getStaticVisibility();
+            if (child->isVisible() != shouldBeVisible)
+                child->setVisible (shouldBeVisible);
+        }
     }
 
     updateLayout();
@@ -169,10 +204,16 @@ LayoutType Container::getLayoutMode() const
 void Container::resized()
 {
     updateLayout();
+    
+    if (hasVisibilityProperty)
+        setVisible (visibility.getValue());
 }
 
 void Container::updateLayout()
 {
+    if (getWidth() == 0 || getHeight() == 0)
+            return;  // Skip layout if we haven't been sized yet
+    
     if (children.empty())
         return;
 
@@ -189,8 +230,13 @@ void Container::updateLayout()
     if (layout == LayoutType::FlexBox)
     {
         flexBox.items.clear();
+
         for (auto& child : children)
+        {
+            if (!child->isVisible())
+                continue;
             flexBox.items.add (child->getFlexItem());
+        }
 
         auto overall = clientBounds;
         flexBox.performLayout (overall);
@@ -215,9 +261,56 @@ void Container::updateLayout()
     }
     else if (layout == LayoutType::Tabbed)
     {
-        containerBox.setBounds (clientBounds);
-        updateTabbedButtons();
-        tabbedButtons->setBounds (clientBounds.removeFromTop (30));
+        // fixed aspect ratio?
+        float viewAspect = magicBuilder.getStyleProperty (IDs::viewAspect, configNode);
+        juce::String viewJustification = magicBuilder.getStyleProperty (IDs::viewJustification, configNode);
+        if (viewAspect){
+            viewAspect = 1 / viewAspect;
+            clientBounds = getClientBounds();
+            float clientW = clientBounds.getWidth();
+            float clientH = clientBounds.getHeight();
+            float clientAspect = clientH/clientW;
+            float viewWidth = viewport.getWidth();
+            float viewHeight = viewport.getHeight();
+            
+            if (viewJustification == "left") {
+                
+                if (clientAspect<viewAspect)
+                    viewport.setBounds( 0, 0 ,viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.setBounds(0, (clientH-(viewWidth*viewAspect))/2 ,viewWidth,viewWidth*viewAspect);
+                
+            }
+            
+            else if (viewJustification == "right"){
+                
+                if (clientAspect<viewAspect)
+                    viewport.setBounds( clientW - (viewHeight/viewAspect), 0 ,viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.setBounds(clientW - viewWidth, (clientH-(viewWidth*viewAspect))/2 ,viewWidth,viewWidth*viewAspect);
+                
+            }
+            
+            else{
+                
+                // centred justification
+                
+                if (clientAspect<viewAspect)
+                    viewport.centreWithSize(viewHeight/viewAspect,viewHeight);
+                else
+                    viewport.centreWithSize(viewWidth,viewWidth*viewAspect);
+                
+            }
+            
+            clientBounds = viewport.getLocalBounds();
+            
+        }
+        
+        if (tabbedButtons) {
+            containerBox.setBounds(clientBounds);
+            updateTabbedButtons();
+            tabbedButtons->setBounds(clientBounds.removeFromTop (tabbarHeight));
+        }
 
         for (auto& child : children)
             child->setBounds (clientBounds);
@@ -226,12 +319,52 @@ void Container::updateLayout()
     {
         containerBox.setBounds (clientBounds);
 
-        for (auto& child : children)
+        for (auto& child : children){
             child->setBounds (child->resolvePosition (clientBounds));
+            child->componentTransform();
+        }
     }
 
-    for (auto& child : children)
-        child->updateLayout();
+    if (magicBuilder.getStyleProperty (IDs::passMouseClicks, configNode)){
+        containerBox.setInterceptsMouseClicks(false, true);
+    }
+    
+#if !JUCE_WINDOWS || !DONT_BUFFER_TO_IMAGE_ON_WINDOWS
+    if (magicBuilder.getStyleProperty (IDs::bufferToImage, configNode)){
+        containerBox.setBufferedToImage(true);
+    }
+#endif
+    
+    if (!magicBuilder.getStyleProperty (IDs::parameter, configNode).toString().equalsIgnoreCase("")){
+        auto parameterName = magicBuilder.getStyleProperty (IDs::parameter, configNode).toString();
+        auto* parameter = getMagicState().getParameter (parameterName);
+        if (parameter){
+            attachment = std::make_unique<juce::ParameterAttachment>(
+                                                                     *parameter,
+                                                                     [&, parameter](float value)
+                                                                     {
+                                                                         int tabIndex = std::round(value);
+                                                                         int numTabs = tabbedButtons->getNumTabs();
+                                                                         if (tabIndex >= numTabs - 1)
+                                                                             tabIndex = numTabs - 1;
+                                                                         if (tabIndex < 0)
+                                                                             tabIndex = 0;
+                                                                         currentTab.setValue(tabIndex);
+                                                                         tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+                                                                         updateSelectedTab();
+                                                                     });
+            // Initalize current tab value from parameter
+            int roundedParameterValue = std::round(parameter->convertFrom0to1(parameter->getValue()));
+            currentTab.setValue(roundedParameterValue);
+            tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+            updateSelectedTab();
+        }
+    }
+    
+    referValues();
+    
+    //    for (auto& child : children)
+    //        child->updateLayout();
 }
 
 void Container::updateColours()
@@ -258,17 +391,21 @@ void Container::updateContinuousRedraw()
 void Container::updateTabbedButtons()
 {
     tabbedButtons = std::make_unique<juce::TabbedButtonBar>(juce::TabbedButtonBar::TabsAtTop);
-    containerBox.addAndMakeVisible (*tabbedButtons);
+    containerBox.addChildComponent (*tabbedButtons);
 
     for (auto& child : children)
     {
+        if (!child->getStaticVisibility())
+                    continue;
+        
         tabbedButtons->addTab (child->getTabCaption ("Tab " + juce::String (tabbedButtons->getNumTabs())),
                                child->getTabColour(), -1);
     }
 
     tabbedButtons->addChangeListener (this);
-    tabbedButtons->setCurrentTabIndex (currentTab, false);
+    tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
     updateSelectedTab();
+    tabbedButtons->setVisible (tabbarHeight > 0);
 }
 
 void Container::configureFlexBox (const juce::ValueTree& node)
@@ -346,11 +483,29 @@ void Container::changeListenerCallback (juce::ChangeBroadcaster*)
     updateSelectedTab();
 }
 
+void Container::valueChanged (juce::Value& source)
+{
+    if (source.refersToSameSourceAs(currentTab))
+      updateSelectedTab();
+    
+    if (source.refersToSameSourceAs(visibility))
+        setVisible (visibility.getValue());
+    
+    handleValueChanged (source);
+}
+
 void Container::updateSelectedTab()
 {
-    int index = 0;
+    int tabIndex = 0;
     for (auto& child : children)
-        child->setVisible (currentTab == index++);
+    {
+        if (!child->getStaticVisibility())
+        {
+            child->setVisible (false);
+            continue;
+        }
+        child->setVisible (currentTab == tabIndex++);
+    }
 }
 
 std::vector<std::unique_ptr<GuiItem>>::iterator Container::begin()
@@ -364,6 +519,7 @@ std::vector<std::unique_ptr<GuiItem>>::iterator Container::end()
 }
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+
 void Container::setEditMode (bool shouldEdit)
 {
     for (auto& child : children)
@@ -371,6 +527,33 @@ void Container::setEditMode (bool shouldEdit)
 
     GuiItem::setEditMode (shouldEdit);
 }
+
+void Container::setDraggable (bool selected)
+{
+    if (selected)
+    {
+        // Block viewport and containerBox so clicks reach this Container
+        viewport.setInterceptsMouseClicks (false, false);
+        containerBox.setInterceptsMouseClicks (false, false);
+
+        // Block all children recursively
+        for (auto& child : children)
+            child->setInterceptsMouseClicks (false, false);
+    }
+    else
+    {
+        // Restore everything
+        viewport.setInterceptsMouseClicks (true, true);
+        containerBox.setInterceptsMouseClicks (false, true);
+
+        for (auto& child : children)
+            child->setEditMode (true);
+    }
+
+    // Call base to handle border dragger etc.
+    GuiItem::setDraggable (selected);
+}
+
 #endif
 
 //==============================================================================

@@ -60,8 +60,13 @@ PropertiesEditor::PropertiesEditor (MagicGUIBuilder& builderToEdit)
 {
     addAndMakeVisible (nodeSelect);
     addAndMakeVisible (properties);
-    addAndMakeVisible (newItemName);
-    addAndMakeVisible (newItemButton);
+    addChildComponent (addColourLabel);
+    addChildComponent (newItemName);
+    addChildComponent (newItemButton);
+
+    addColourLabel.setText (TRANS ("Add Colour:"), juce::dontSendNotification);
+    addColourLabel.setJustificationType (juce::Justification::centredLeft);
+    
 
     newItemButton.setConnectedEdges (juce::TextButton::ConnectedOnLeft);
     newItemButton.onClick = [&]
@@ -124,7 +129,13 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
 
     properties.clear();
 
-    if (stylesheet.isColourPaletteNode (styleItem))
+    const bool isPalette = stylesheet.isColourPaletteNode (styleItem);
+    addColourLabel.setVisible (isPalette);
+    newItemName.setVisible (isPalette);
+    newItemButton.setVisible (isPalette);
+    resized();
+
+    if (isPalette)
     {
         addPaletteColours();
         return;
@@ -168,9 +179,11 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
     else if (stylesheet.isColourPaletteNode (styleItem))
         nodeSelect.setText (TRANS ("Palette: ") + styleItem.getType().toString(), juce::dontSendNotification);
     else
-        nodeSelect.setText (TRANS ("Editing node"), juce::dontSendNotification);
+        nodeSelect.setText (TRANS ("Edit"), juce::dontSendNotification);
 
     properties.restoreOpennessState (*openness);
+    properties.setSectionOpen (3,true);
+    properties.setSectionOpen (4,true);
 }
 
 juce::ValueTree& PropertiesEditor::getNodeToEdit()
@@ -273,10 +286,22 @@ void PropertiesEditor::addNodeProperties()
     properties.addSection ("Node", array, false);
 }
 
+juce::String PropertiesEditor::sectionName (const juce::String& name, const juce::Array<juce::PropertyComponent*>& array) const
+{
+    for (auto* p : array)
+    {
+        auto val = styleItem.getProperty (juce::Identifier (p->getName())).toString();
+        if (val.contains (":") && !val.startsWithIgnoreCase ("http")
+            && val.fromFirstOccurrenceOf (":", false, false).trimStart() == val.fromFirstOccurrenceOf (":", false, false))            return name + "\\has_value_messages";
+    }
+    return name;
+}
+
 void PropertiesEditor::addDecoratorProperties()
 {
     juce::Array<juce::PropertyComponent*> array;
     array.add (new StyleChoicePropertyComponent (builder, IDs::visibility, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleBoolPropertyComponent   (builder, IDs::visible, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::caption, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::captionSize, styleItem));
     array.add (new StyleColourPropertyComponent (builder, IDs::captionColour, styleItem));
@@ -296,12 +321,12 @@ void PropertiesEditor::addDecoratorProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::tabCaption, styleItem));
     array.add (new StyleColourPropertyComponent (builder, IDs::tabColour, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::lookAndFeel, styleItem, builder.getStylesheet().getLookAndFeelNames()));
-    array.add (new StyleChoicePropertyComponent (builder, IDs::backgroundImage, styleItem, Resources::getResourceFileNames()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::backgroundImage, styleItem, Resources::getResourceImageFileNames()));
     array.add (new StyleChoicePropertyComponent (builder, IDs::imagePlacement, styleItem, { IDs::imageCentred, IDs::imageFill, IDs::imageStretch }));
     array.add (new StyleTextPropertyComponent (builder, IDs::backgroundAlpha, styleItem));
     array.add (new StyleGradientPropertyComponent (builder, IDs::backgroundGradient, styleItem));
 
-    properties.addSection ("Decorator", array, false);
+    properties.addSection (sectionName ("Decorator", array), array, false);
 }
 
 void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juce::PropertyComponent*> additional)
@@ -311,12 +336,22 @@ void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juc
     array.addArray (additional);
 
     juce::ValueTree node (type);
-    if (auto item = builder.createGuiItem (node))
+    if (auto item = builder.createGuiItem (node, true))
     {
         for (auto& p : item->getSettableProperties())
         {
             if (auto* component = StylePropertyComponent::createComponent (builder, p, styleItem))
+            {
+                if (p.tooltip.isNotEmpty())
+                {
+                    component->setTooltip (p.tooltip);
+                    // Also set on all child components so it shows wherever the user hovers
+                    for (int i = 0; i < component->getNumChildComponents(); ++i)
+                        if (auto* tooltipClient = dynamic_cast<juce::SettableTooltipClient*> (component->getChildComponent (i)))
+                            tooltipClient->setTooltip (p.tooltip);
+                }
                 array.add (component);
+            }
         }
 
         for (auto colour : item->getColourNames())
@@ -325,7 +360,8 @@ void PropertiesEditor::addTypeProperties (juce::Identifier type, juce::Array<juc
         }
     }
 
-    properties.addSection (type.toString(), array, false);
+    if (!array.isEmpty())
+        properties.addSection (sectionName (type.toString(), array), array, false);
 }
 
 void PropertiesEditor::addFlexItemProperties()
@@ -336,7 +372,7 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::posY, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posWidth, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::posHeight, styleItem));
-
+    array.add (new StyleBoolPropertyComponent (builder, IDs::dontSnapToPixels, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::width, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::height, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::minWidth, styleItem));
@@ -347,8 +383,33 @@ void PropertiesEditor::addFlexItemProperties()
     array.add (new StyleTextPropertyComponent (builder, IDs::flexShrink, styleItem));
     array.add (new StyleTextPropertyComponent (builder, IDs::flexOrder, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexAlignSelf, styleItem, { IDs::flexStretch, IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexAuto }));
+    array.add (new StyleTextPropertyComponent (builder, IDs::scale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::widthScale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::heightScale, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::horizontal, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::vertical, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::rotate, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::opacity, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowRadius, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowDistance, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowAngle, styleItem));
+    array.add (new StyleTextPropertyComponent (builder, IDs::glowOpacity, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::shadowEnable, styleItem));
+    array.add (new StyleColourPropertyComponent (builder, IDs::shadowColour, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::redrawAll, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::originX,       styleItem, { "left", "centre", "right" }));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::originY,       styleItem, { "top", "centre", "bottom" }));
+    array.add (new StyleTextPropertyComponent   (builder, IDs::originXOffset, styleItem));
+    array.add (new StyleTextPropertyComponent   (builder, IDs::originYOffset, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::scaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::widthScaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::heightScaleValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::horizontalValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::verticalValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::rotateValue, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::opacityValue,  styleItem, builder.createPropertiesMenuLambda()));
 
-    properties.addSection ("Item", array, false);
+    properties.addSection (sectionName ("Item", array), array, false);
 }
 
 void PropertiesEditor::addContainerProperties()
@@ -356,18 +417,25 @@ void PropertiesEditor::addContainerProperties()
     juce::Array<juce::PropertyComponent*> array;
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::display, styleItem, { IDs::contents, IDs::flexbox, IDs::tabbed }));
+    array.add (new StyleTextPropertyComponent (builder, IDs::viewAspect, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::viewJustification, styleItem, { "left", "centre", "right" }));
     array.add (new StyleTextPropertyComponent (builder, IDs::repaintHz, styleItem));
     array.add (new StyleChoicePropertyComponent (builder, IDs::scrollMode, styleItem, { IDs::noScroll, IDs::scrollHorizontal, IDs::scrollVertical, IDs::scrollBoth }));
+    array.add (new StyleTextPropertyComponent (builder, IDs::tabHeight, styleItem));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::selectedTab, styleItem, builder.createPropertiesMenuLambda()));
+    array.add (new StyleChoicePropertyComponent (builder, IDs::parameter, styleItem, builder.createParameterMenuLambda()));
 
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexDirection, styleItem, { IDs::flexDirRow, IDs::flexDirRowReverse, IDs::flexDirColumn, IDs::flexDirColumnReverse }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexWrap, styleItem, { IDs::flexNoWrap, IDs::flexWrapNormal, IDs::flexWrapReverse }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexAlignContent, styleItem, { IDs::flexStretch, IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexSpaceAround, IDs::flexSpaceBetween }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexAlignItems, styleItem, { IDs::flexStretch, IDs::flexStart, IDs::flexEnd, IDs::flexCenter }));
     array.add (new StyleChoicePropertyComponent (builder, IDs::flexJustifyContent, styleItem, { IDs::flexStart, IDs::flexEnd, IDs::flexCenter, IDs::flexSpaceAround, IDs::flexSpaceBetween }));
-
+    array.add (new StyleBoolPropertyComponent (builder, IDs::passMouseClicks, styleItem));
+    array.add (new StyleBoolPropertyComponent (builder, IDs::bufferToImage, styleItem));
+    
     array.add (new StyleChoicePropertyComponent (builder, IDs::focusContainerType, styleItem, { IDs::focusNone, IDs::focusContainer, IDs::focusKeyContainer }));
 
-    properties.addSection ("Container", array, false);
+    properties.addSection (sectionName ("Container", array), array, false);
 }
 
 void PropertiesEditor::addPaletteColours()
@@ -386,6 +454,15 @@ void PropertiesEditor::updatePopupMenu()
 {
     auto* popup = nodeSelect.getRootMenu();
     popup->clear();
+    
+   popup->addItem (juce::PopupMenu::Item ("Edit Nodes")
+                    .setID (1)
+                    .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+    {
+        if (p != nullptr)
+            p->setNodeToEdit (p->builder.getSelectedNode());
+    }));
+    popup->addSeparator();
 
     auto typesNode = style.getChildWithName (IDs::types);
     if (typesNode.isValid())
@@ -455,6 +532,13 @@ void PropertiesEditor::paint (juce::Graphics& g)
 {
     g.setColour (EditorColours::outline);
     g.drawRect (getLocalBounds(), 1);
+
+    if (newItemButton.isVisible())
+    {
+        const auto buttonHeight = 24;
+        auto labelBounds = getLocalBounds().reduced (1).removeFromBottom (buttonHeight).removeFromLeft (85);
+        g.drawRect (labelBounds, 1);
+    }
 }
 
 void PropertiesEditor::resized()
@@ -464,9 +548,13 @@ void PropertiesEditor::resized()
 
     nodeSelect.setBounds (bounds.removeFromTop (buttonHeight));
 
-    auto bottom = bounds.removeFromBottom (buttonHeight);
-    newItemButton.setBounds (bottom.removeFromRight (buttonHeight));
-    newItemName.setBounds (bottom);
+    if (newItemButton.isVisible())
+    {
+        auto bottom = bounds.removeFromBottom (buttonHeight);
+        newItemButton.setBounds (bottom.removeFromRight (buttonHeight));
+        addColourLabel.setBounds (bottom.removeFromLeft (84));
+        newItemName.setBounds (bottom);
+    }
 
     properties.setBounds (bounds.reduced (0, 2));
 }
@@ -487,6 +575,30 @@ void PropertiesEditor::valueTreeChildRemoved (juce::ValueTree&,
 {
     if (childWhichHasBeenRemoved == styleItem)
         setNodeToEdit ({});
+}
+
+void PropertiesEditor::removeProperties (const juce::Array<juce::Identifier>& props)
+{
+    std::function<void(juce::Component*)> findAndRemove;
+    findAndRemove = [&](juce::Component* parent)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* style = dynamic_cast<StylePropertyComponent*>(child))
+            {
+                if (props.contains (style->getPropertyName()))
+                    style->removeThisProperty();
+            }
+            else
+            {
+                findAndRemove (child);
+            }
+        }
+    };
+
+    findAndRemove (&properties);
 }
 
 

@@ -71,6 +71,13 @@ void Decorator::drawDecorator (juce::Graphics& g, juce::Rectangle<int> bounds)
         g.setOpacity (backgroundAlpha);
         g.drawImage (backgroundImage, boundsf, backgroundPlacement);
     }
+    
+    if (backgroundImageSvg)
+    {
+        juce::Graphics::ScopedSaveState save (g);
+        g.setOpacity (backgroundAlpha);
+        backgroundImageSvg->drawWithin(g, boundsf, backgroundPlacement ,1.0f);
+    }
 
     if (border > 0.0f)
     {
@@ -110,6 +117,11 @@ juce::Colour Decorator::getBackgroundColour() const
     return backgroundColour;
 }
 
+juce::Image Decorator::getBackgroundImage() const
+{
+    return backgroundImage;
+}
+
 void Decorator::updateColours (MagicGUIBuilder& builder, const juce::ValueTree& node)
 {
     auto& stylesheet = builder.getStylesheet();
@@ -129,7 +141,27 @@ void Decorator::updateColours (MagicGUIBuilder& builder, const juce::ValueTree& 
 
 Decorator::ClientBounds Decorator::getClientBounds (juce::Rectangle<int> overallBounds) const
 {
-    auto box = padding.reducedRect (margin.reducedRect (overallBounds.toFloat()));
+//    auto box = padding.reducedRect (margin.reducedRect (overallBounds.toFloat()));
+    
+    float pixelPaddingValue = 0.0f;
+    if (! paddingString.isEmpty())
+    {
+        float referenceHeight = (float)overallBounds.getHeight();
+        juce::String s = paddingString.trim();
+
+        if (s.endsWith ("%"))
+            pixelPaddingValue = referenceHeight * s.getFloatValue() * 0.01f;
+        else
+            pixelPaddingValue = s.getFloatValue();
+    }
+    
+    // Use the calculated value to create a Box<float> for reduction
+    Box<float> calculatedPadding = { pixelPaddingValue };
+
+    // Apply margin reduction first, then the calculated padding reduction
+    juce::Rectangle<float> innerBox = margin.reducedRect (overallBounds.toFloat());
+    juce::Rectangle<float> box = calculatedPadding.reducedRect (innerBox);
+
     juce::Rectangle<int> captionBox;
 
     if (caption.isNotEmpty())
@@ -142,7 +174,7 @@ Decorator::ClientBounds Decorator::getClientBounds (juce::Rectangle<int> overall
             captionBox = box.removeFromBottom (captionSize).toNearestInt();
         else
         {
-            juce::Font f (captionSize * 0.8f);
+            juce::Font f (juce::FontOptions().withHeight (captionSize * 0.8f));
             auto w = float (f.getStringWidth (caption));
 
             if (justification.getOnlyHorizontalFlags() & juce::Justification::left)
@@ -168,8 +200,10 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
         margin = Box<float>::fromString (marginVar.toString());
 
     auto paddingVar = builder.getStyleProperty (IDs::padding, node);
-    if (! paddingVar.isVoid())
+    if (! paddingVar.isVoid()){
         padding = Box<float>::fromString (paddingVar.toString());
+        paddingString = paddingVar.toString();
+    }
 
     auto radiusVar = builder.getStyleProperty (IDs::radius, node);
     if (! radiusVar.isVoid())
@@ -192,6 +226,21 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
         justification = juce::Justification::centredTop;
 
     backgroundImage = stylesheet.getBackgroundImage (node);
+#if JUCE_WINDOWS && JUCE_VERSION >= 0x80000 && IMAGES_SOFTWARE_IMAGE_TYPE
+    backgroundImage = juce::SoftwareImageType().convert(backgroundImage);
+#endif
+    
+    if (backgroundImage.isNull()){
+        auto backgroundImageSvgName = stylesheet.getBackgroundImageSvg (node);
+        if (backgroundImageSvgName.isNotEmpty()){
+            int dataSize = 0;
+            const char* data = BinaryData::getNamedResource (backgroundImageSvgName.toRawUTF8(), dataSize);
+            if (data != nullptr){
+                backgroundImageSvg = juce::Drawable::createFromImageData (data, dataSize);
+            }
+        }
+    }
+
     backgroundGradient.setup (builder.getStyleProperty (IDs::backgroundGradient, node).toString(), stylesheet);
 
     auto alphaVar = builder.getStyleProperty (IDs::backgroundAlpha, node);
@@ -212,13 +261,17 @@ void Decorator::configure (MagicGUIBuilder& builder, const juce::ValueTree& node
 
 void Decorator::reset()
 {
-    backgroundColour = juce::Colours::darkgrey;
+//    backgroundColour = juce::Colours::darkgrey;
+    backgroundColour = juce::Colours::transparentBlack;
     borderColour     = juce::Colours::silver;
 
-    margin  = { 5.0f };
-    padding = { 5.0f };
+//    margin  = { 5.0f };
+    margin  = { 0.0f };
+//    padding = { 5.0f };
+    padding = { 0.0f };
     border  = 0.0f;
-    radius  = 5.0f;
+//    radius  = 5.0f;
+    radius  = 0.0f;
 
     caption.clear();
     justification = juce::Justification::centredTop;

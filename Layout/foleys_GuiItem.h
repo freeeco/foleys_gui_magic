@@ -41,6 +41,8 @@
 #include "foleys_Decorator.h"
 #include "../General/foleys_SettableProperties.h"
 
+#include <melatonin_blur/melatonin_blur.h>
+
 namespace foleys
 {
 
@@ -55,9 +57,10 @@ enum class LayoutType;
  to an AudioProcessorValueTreeState.
  */
 class GuiItem   : public juce::Component,
-                  private juce::Value::Listener,
+                  public juce::Value::Listener,
                   private juce::ValueTree::Listener,
                   public juce::DragAndDropTarget
+
 {
 public:
     GuiItem (MagicGUIBuilder& builder, juce::ValueTree node);
@@ -149,6 +152,22 @@ public:
      Calculates the position according to the parent area
      */
     juce::Rectangle<int> resolvePosition (juce::Rectangle<int> parent);
+    
+    void componentTransform();
+    
+    void referValues();
+    
+    /** Override to return false in headless items (LFO, Evaluate, Transport, etc.)
+        that should be invisible unless explicitly set visible in the XML. */
+    virtual bool isVisibleByDefault() const { return true; }
+
+    /** Reads the static 'visible' property from the node, falling back to isVisibleByDefault(). */
+    bool getStaticVisibility() const;
+
+    /** Re-applies the correct visibility, respecting dynamic 'visibility' binding if active,
+        otherwise falls back to the static 'visible' property / isVisibleByDefault().
+        Use this anywhere you'd otherwise be tempted to call setVisible(true) unconditionally. */
+    void refreshVisibility();
 
     /**
      Returns the bounds of the wrapped Component. This is the GuiItems bounds
@@ -158,11 +177,22 @@ public:
 
     juce::String getTabCaption (const juce::String& defaultName) const;
     juce::Colour getTabColour() const;
+    
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    static inline bool selectionToFront = true;
+#endif
+    
+    void handleValueChanged (juce::Value& source);
 
     juce::FlexItem& getFlexItem() { return flexItem; }
 
     void itemDragEnter (const juce::DragAndDropTarget::SourceDetails& details) override;
     void itemDragExit (const juce::DragAndDropTarget::SourceDetails& details) override;
+    
+    void nudgeLeft ();
+    void nudgeRight ();
+    void nudgeUp ();
+    void nudgeDown ();
 
     void paintOverChildren (juce::Graphics& g) override;
 
@@ -170,6 +200,9 @@ public:
      Seeks recursively for a GuiItem
      */
     virtual GuiItem* findGuiItem (const juce::ValueTree& node);
+    
+    
+    
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
@@ -177,12 +210,12 @@ public:
      This method sets the GUI in edit mode, that allows to drag the components around.
      */
     virtual void setEditMode (bool shouldEdit);
-
-    void setDraggable (bool selected);
+    virtual void setDraggable (bool selected);
 
     void mouseDown (const juce::MouseEvent& event) override;
     void mouseDrag (const juce::MouseEvent& event) override;
     void mouseUp (const juce::MouseEvent& event) override;
+    void mouseDoubleClick (const juce::MouseEvent& event) override;
 
 #endif
 
@@ -232,6 +265,40 @@ private:
     };
     std::unique_ptr<BorderDragger>          borderDragger;
     std::unique_ptr<juce::ComponentDragger> componentDragger;
+    
+    float diffX;
+    float diffY;
+    float diffWidth;
+    float diffHeight;
+    float glowRadius = 0.0f;
+    float glowDistance = 0.0f;
+    float glowAngle = 0.0f;
+    float glowOpacity = 1.0f;
+    juce::Colour shadowColour = juce::Colours::black;
+    bool shadowEnable = false;
+    bool redrawAll = false;
+    bool blurNeedsRepaint = true;
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    int  lastOriginLocalX  { 0 };
+    int  lastOriginLocalY  { 0 };
+    bool  hasOriginOffset       { false };
+    bool  isDraggingOrigin      { false };
+    int   originDragStartY      { 0 };
+    float originDragStartRotate { 0.0f };
+#endif
+    
+    juce::Value     visibility { true };
+    juce::Value     scaleValue { 1.0f };
+    juce::Value     widthScaleValue { 1.0f };
+    juce::Value     heightScaleValue { 1.0f };
+    juce::Value     horizontalValue { 0.0f };
+    juce::Value     verticalValue { 0.0f };
+    juce::Value     rotateValue { 0.0f };
+    juce::Value     opacityValue { 0.0f };
+    
+    juce::AffineTransform transform;
+    
+    juce::String    highlight;
 
     void valueChanged (juce::Value& source) override;
 
@@ -251,10 +318,6 @@ private:
      */
     void configureComponent();
 
-    juce::Value     visibility { true };
-
-    juce::String    highlight;
-
     struct Position
     {
         bool   absolute = true;
@@ -264,6 +327,14 @@ private:
 
     void configurePosition (const juce::var& v, Position& p, double d);
     void savePosition ();
+    juce::Rectangle<int> mouseDownBounds;
+    enum class DragAxis { None, Horizontal, Vertical };
+    DragAxis lockedDragAxis = DragAxis::None;
+    bool hasDuplicatedOnDrag = false;
+    juce::String dragStartPosX;
+    juce::String dragStartPosY;
+    
+    melatonin::CachedBlur blur { 8 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuiItem)
 };

@@ -62,6 +62,7 @@ namespace IDs
     static juce::Identifier webBrowser   { "WebBrowserComponent" };
 
     static juce::Identifier visibility   { "visibility" };
+    static juce::Identifier visible      { "visible" };
     static juce::Identifier caption      { "caption" };
     static juce::Identifier captionPlacement { "caption-placement" };
     static juce::Identifier captionColour { "caption-color" };
@@ -81,6 +82,7 @@ namespace IDs
     static juce::Identifier parameter    { "parameter" };
     static juce::Identifier parameterX   { "parameter-x" };
     static juce::Identifier parameterY   { "parameter-y" };
+    static juce::Identifier parameterZ   { "parameter-z" };
     static juce::Identifier parameterRightClick { "parameter-right-click" };
     static juce::Identifier source       { "source" };
 
@@ -91,6 +93,7 @@ namespace IDs
     static juce::Identifier active       { "active" };
 
     static juce::Identifier backgroundColour  { "background-color" };
+    static juce::Identifier glowColour   { "glow-color" };
     static juce::Identifier borderColour      { "border-color" };
     static juce::Identifier tabCaption   { "tab-caption" };
     static juce::Identifier tabColour    { "tab-color" };
@@ -100,10 +103,16 @@ namespace IDs
     static juce::Identifier radius       { "radius" };
 
     static juce::Identifier display      { "display" };
+    static juce::Identifier viewAspect   { "view-aspect" };
+    static juce::Identifier viewJustification   { "view-justification" };
     static juce::Identifier repaintHz    { "repaint-hz" };
     static juce::String     contents     { "contents" };
     static juce::String     tabbed       { "tabbed" };
     static juce::String     flexbox      { "flexbox" };
+    static juce::Identifier tabHeight    { "tab-height" };
+    static juce::Identifier selectedTab  { "tab-selected" };
+    static juce::Identifier passMouseClicks  { "pass-mouse-clicks" };
+    static juce::Identifier bufferToImage  { "buffer-to-image" };
 
     static juce::Identifier focusContainerType { "focus-container" };
     static juce::String     focusNone          { "focus-none" };
@@ -115,7 +124,6 @@ namespace IDs
     static juce::String     scrollHorizontal { "scroll-horizontal" };
     static juce::String     scrollVertical   { "scroll-vertical" };
     static juce::String     scrollBoth       { "scroll" };
-
 
     static juce::String     root         { "root" };
 
@@ -178,9 +186,36 @@ namespace IDs
     static juce::Identifier maxWidth    { "max-width" };
     static juce::Identifier minHeight   { "min-height" };
     static juce::Identifier maxHeight   { "max-height" };
+    static juce::Identifier scale       { "scale" };
+    static juce::Identifier widthScale  { "width-scale" };
+    static juce::Identifier heightScale { "height-scale" };
+    static juce::Identifier horizontal  { "horizontal-position" };
+    static juce::Identifier vertical    { "vertical-position" };
+    static juce::Identifier rotate      { "rotate" };
+    static juce::Identifier opacity     { "opacity" };
+    static juce::Identifier scaleValue       { "scale-value" };
+    static juce::Identifier widthScaleValue  { "width-scale-value" };
+    static juce::Identifier originX  { "origin-x" };
+    static juce::Identifier originXOffset { "origin-x-offset" };
+    static juce::Identifier heightScaleValue { "height-scale-value" };
+    static juce::Identifier originY  { "origin-y" };
+    static juce::Identifier originYOffset { "origin-y-offset" };
+    static juce::Identifier horizontalValue  { "horizontal-position-value" };
+    static juce::Identifier verticalValue    { "vertical-position-value" };
+    static juce::Identifier rotateValue      { "rotate-value" };
+    static juce::Identifier opacityValue     { "opacity-value" };
+    static juce::Identifier dontSnapToPixels     { "dont-snap-to-pixels" };
     static juce::Identifier width       { "width" };
     static juce::Identifier height      { "height" };
     static juce::Identifier aspect      { "aspect" };
+
+    static juce::Identifier glowRadius     { "glow-radius" };
+    static juce::Identifier glowDistance   { "glow-distance" };
+    static juce::Identifier glowAngle      { "glow-angle" };
+    static juce::Identifier glowOpacity    { "glow-opacity" };
+    static juce::Identifier shadowEnable   { "shadow-enable" };
+    static juce::Identifier shadowColour   { "shadow-colour" };
+    static juce::Identifier redrawAll      { "redraw-all" };
 
     static juce::Identifier posX        { "pos-x" };
     static juce::Identifier posY        { "pos-y" };

@@ -44,6 +44,9 @@ XYDragComponent::XYDragComponent()
     setOpaque (false);
 
     setColour (xyDotColourId,            juce::Colours::orange.darker());
+    setColour (xyDotRingColourId,        juce::Colours::orange.darker());
+    setColour (xyDotOuterRingColourId,   juce::Colours::orange.darker());
+    setColour (xyDotSelectedColourId,    juce::Colours::orange.darker());
     setColour (xyDotOverColourId,        juce::Colours::orange);
     setColour (xyHorizontalColourId,     juce::Colours::orange.darker());
     setColour (xyHorizontalOverColourId, juce::Colours::orange);
@@ -52,6 +55,9 @@ XYDragComponent::XYDragComponent()
 
     xAttachment.onParameterChangedAsync = [&] { repaint(); };
     yAttachment.onParameterChangedAsync = [&] { repaint(); };
+    zAttachment.onParameterChangedAsync = [&] { repaint(); };
+    
+    startTimerHz(20);
 }
 
 /**
@@ -91,30 +97,67 @@ void XYDragComponent::paint (juce::Graphics& g)
         if (y < getBottom() - gap)
             g.fillRect (x - 1.0f, y + gap, 2.0f, getBottom() - (y + gap));
     }
-
+    
+    juce::Rectangle circleRect(x - radius, y - radius, 2 * radius, 2 * radius);
+    
+    if (selected){
+        g.setColour (findColour (xyDotSelectedColourId));
+    } else {
+        g.setColour (findColour (xyDotOuterRingColourId));
+    }
+    g.fillEllipse (circleRect.expanded(1.2));
+    
+    g.setColour (findColour (mouseOverDot ? xyDotOverColourId : xyDotRingColourId));
+    g.fillEllipse (circleRect);
+    
     g.setColour (findColour (mouseOverDot ? xyDotOverColourId : xyDotColourId));
-    g.fillEllipse (x - radius, y - radius, 2 * radius, 2 * radius);
+    g.fillEllipse (circleRect.reduced(2));
 }
 
 void XYDragComponent::setParameterX (juce::RangedAudioParameter* parameter)
 {
     xAttachment.attachToParameter (parameter);
+    if (parameter)
+        xDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setParameterY (juce::RangedAudioParameter* parameter)
 {
     yAttachment.attachToParameter (parameter);
+    if (parameter)
+        yDefault = parameter->getDefaultValue();
+}
+
+void XYDragComponent::setParameterZ (juce::RangedAudioParameter* parameter)
+{
+    zAttachment.attachToParameter (parameter);
+    if (parameter)
+        zDefault = parameter->getDefaultValue();
+}
+
+void XYDragComponent::setWheelParameter (juce::RangedAudioParameter* parameter)
+{
+    wheelParameter = parameter;
+    if (parameter)
+        wheelDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setRightClickParameter (juce::RangedAudioParameter* parameter)
 {
     contextMenuParameter = parameter;
+    if (parameter)
+        menuDefault = parameter->getDefaultValue();
 }
 
 void XYDragComponent::setRadius (float radiusToUse)
 {
     radius = radiusToUse;
     repaint();
+}
+
+void XYDragComponent::setMenuItemHeight (int height)
+{
+    menuItemHeight = height;
 }
 
 void XYDragComponent::setSenseFactor (float factor)
@@ -127,11 +170,36 @@ void XYDragComponent::setJumpToClick (bool shouldJumpToClick)
     jumpToClick = shouldJumpToClick;
 }
 
+void XYDragComponent::setDoubleClickResets (bool shouldReset)
+{
+    doubleClickResets = shouldReset;
+}
+
+void XYDragComponent::referValueX (juce::Value &value)
+{
+    valueX.referTo(value);
+}
+
+void XYDragComponent::referValueY (juce::Value &value)
+{
+    valueY.referTo(value);
+}
+
+void XYDragComponent::referValueZ (juce::Value &value)
+{
+    valueZ.referTo(value);
+}
+
+void XYDragComponent::referTouched (juce::Value &value)
+{
+    valueTouched.referTo(value);
+}
+
 void XYDragComponent::updateWhichToDrag (juce::Point<float> pos)
 {
     const auto centre = juce::Point<int> (getXposition(), getYposition()).toFloat();
 
-    mouseOverDot = (centre.getDistanceFrom (pos) < radius * senseFactor);
+    mouseOverDot = (centre.getDistanceFrom (pos) < radius + senseFactor);
     mouseOverX = (wantsHorizontalDrag && std::abs (pos.getX() - centre.getX()) < senseFactor + 1.0f);
     mouseOverY =  (wantsVerticalDrag && std::abs (pos.getY() - centre.getY()) < senseFactor + 1.0f);
 
@@ -146,7 +214,7 @@ bool XYDragComponent::hitTest (int x, int y)
     const auto click = juce::Point<int> (x, y).toFloat ();
     const auto centre = juce::Point<int> (getXposition (), getYposition ()).toFloat ();
 
-    if (centre.getDistanceFrom (click) < radius * senseFactor)
+    if (centre.getDistanceFrom (click) < radius + senseFactor)
         return true;
 
     if (wantsHorizontalDrag && std::abs (click.getX() - centre.getX()) < senseFactor + 1.0f)
@@ -160,6 +228,8 @@ bool XYDragComponent::hitTest (int x, int y)
 
 void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 {
+    valueTouched = touchedIndex;
+    
     if (contextMenuParameter && (event.mods.isPopupMenu()))
     {
         juce::PopupMenu menu;
@@ -169,10 +239,14 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
         for (const auto& item : contextMenuParameter->getAllValueStrings())
             menu.addItem (++id, item, true, item == current);
 
+        auto& lf = getParentComponent()->getLookAndFeel();
+        menu.setLookAndFeel (&lf);
+        
         menu.showMenuAsync (juce::PopupMenu::Options()
                             .withTargetComponent (this)
-                            .withTargetScreenArea ({event.getScreenX(), event.getScreenY(), 1, 1}),
-                            [=](int selected)
+                            .withTargetScreenArea ({event.getScreenX(), event.getScreenY(), 1, 1})
+                            .withStandardItemHeight(menuItemHeight),
+                            [=, this](int selected)
         {
             if (selected <= 0)
                 return;
@@ -183,7 +257,7 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
             contextMenuParameter->setValueNotifyingHost (contextMenuParameter->convertTo0to1 (value));
             contextMenuParameter->endChangeGesture();
         });
-
+        
         return;
     }
 
@@ -198,6 +272,13 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 
         yAttachment.beginGesture();
         yAttachment.setNormalisedValue (1.0f - event.position.getY() / float (getHeight()));
+        
+        valueX = (event.position.getX() / float (getWidth()));
+        valueY = (1.0f - event.position.getY() / float (getHeight()));
+        
+        zAttachment.beginGesture();
+        zAttachment.setNormalisedValue (1.0f);
+        valueZ = 1.0f;
 
         repaint();
         return;
@@ -205,11 +286,19 @@ void XYDragComponent::mouseDown (const juce::MouseEvent& event)
 
     updateWhichToDrag (event.position);
 
-    if (mouseOverX || mouseOverDot)
+    if (mouseOverX || mouseOverDot){
         xAttachment.beginGesture();
+    }
 
-    if (mouseOverY || mouseOverDot)
+    if (mouseOverY || mouseOverDot){
         yAttachment.beginGesture();
+    }
+    
+    if (mouseOverX || mouseOverY || mouseOverDot){
+        zAttachment.beginGesture();
+        zAttachment.setNormalisedValue (1.0f);
+        valueZ = 1.0f;
+    }
 }
 
 void XYDragComponent::mouseMove (const juce::MouseEvent& event)
@@ -219,11 +308,15 @@ void XYDragComponent::mouseMove (const juce::MouseEvent& event)
 
 void XYDragComponent::mouseDrag (const juce::MouseEvent& event)
 {
-    if (mouseOverX || mouseOverDot)
+    if (mouseOverX || mouseOverDot){
         xAttachment.setNormalisedValue (event.position.getX() / float (getWidth()));
+        valueX = (event.position.getX() / float (getWidth()));
+    }
 
-    if (mouseOverY || mouseOverDot)
+    if (mouseOverY || mouseOverDot){
         yAttachment.setNormalisedValue (1.0f - event.position.getY() / float (getHeight()));
+        valueY = (1.0f - event.position.getY() / float (getHeight()));
+    }
 }
 
 void XYDragComponent::mouseUp (const juce::MouseEvent& event)
@@ -236,6 +329,43 @@ void XYDragComponent::mouseUp (const juce::MouseEvent& event)
 
     if (mouseOverY || mouseOverDot)
         yAttachment.endGesture();
+    
+    if (mouseOverX || mouseOverY || mouseOverDot){
+        zAttachment.setNormalisedValue (0.0f);
+        zAttachment.endGesture();
+        valueZ = 0.0f;
+    }
+}
+
+void XYDragComponent::mouseDoubleClick (const juce::MouseEvent& event)
+{
+    if (mouseOverDot && doubleClickResets){
+        xAttachment.setNormalisedValue(xDefault);
+        yAttachment.setNormalisedValue(yDefault);
+        zAttachment.setNormalisedValue(zDefault);
+        if (wheelParameter)
+            wheelParameter->setValueNotifyingHost(wheelDefault);
+        if (contextMenuParameter)
+            contextMenuParameter->setValueNotifyingHost(menuDefault);
+    }
+}
+
+void XYDragComponent::mouseWheelMove (const juce::MouseEvent& event, const juce::MouseWheelDetails& details)
+{
+    updateWhichToDrag (event.position);
+
+    if (mouseOverDot && wheelParameter)
+    {
+        wheelParameter->beginChangeGesture();
+        auto range     = wheelParameter->getNormalisableRange();
+        auto lastValue = range.convertFrom0to1 (wheelParameter->getValue());
+        auto interval = details.deltaY > 0.0f ? range.interval : -range.interval;
+        wheelParameter->setValueNotifyingHost (range.convertTo0to1 (juce::jlimit (range.start, range.end, lastValue + interval)));
+        wheelParameter->endChangeGesture();
+        return;
+    }
+
+    juce::Component::mouseWheelMove(event, details);
 }
 
 void XYDragComponent::mouseEnter (const juce::MouseEvent& event)
@@ -260,6 +390,15 @@ int XYDragComponent::getXposition() const
 int XYDragComponent::getYposition() const
 {
     return juce::roundToInt ((1.0f - yAttachment.getNormalisedValue()) * getHeight());
+}
+
+void XYDragComponent::timerCallback()
+{
+    if (valueTouched == touchedIndex)
+        selected = true;
+    else
+        selected = false;
+        
 }
 
 } // namespace foleys

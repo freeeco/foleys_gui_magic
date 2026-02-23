@@ -78,6 +78,13 @@ StylePropertyComponent::StylePropertyComponent (MagicGUIBuilder& builderToUse, j
     remove.setConnectedEdges (juce::TextButton::ConnectedOnLeft | juce::TextButton::ConnectedOnRight);
     remove.onClick = [&]
     {
+        // Break any live binding first before removing the property
+        if (auto* label = dynamic_cast<juce::Label*>(editor.get()))
+            label->getTextValue().referTo (juce::Value());
+        
+        if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+            combo->setText ({}, juce::dontSendNotification);
+
         node.removeProperty (property, &builder.getUndoManager());
         refresh();
     };
@@ -139,8 +146,10 @@ void StylePropertyComponent::resized()
 
 void StylePropertyComponent::mouseDoubleClick (const juce::MouseEvent&)
 {
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     if (inheritedFrom.isValid())
         builder.getMagicToolBox().setNodeToEdit (inheritedFrom);
+#endif
 }
 
 void StylePropertyComponent::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& changedProperty)
@@ -150,6 +159,18 @@ void StylePropertyComponent::valueTreePropertyChanged (juce::ValueTree& tree, co
 
     if (tree == node && property == changedProperty)
         refresh();
+}
+
+void StylePropertyComponent::removeThisProperty()
+{
+    if (auto* label = dynamic_cast<juce::Label*>(editor.get()))
+        label->getTextValue().referTo (juce::Value());
+    
+    if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
+        combo->setText ({}, juce::dontSendNotification);
+
+    node.removeProperty (property, &builder.getUndoManager());
+    refresh();
 }
 
 } // namespace foleys
