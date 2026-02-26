@@ -1042,6 +1042,15 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
         }
 
         componentDragger->dragComponent (this, event, nullptr);
+        
+        if (event.mods.isCtrlDown())
+        {
+            const int gridSize = 4;
+            auto bounds = getBounds();
+            bounds.setPosition (gridSize * (bounds.getX() / gridSize),
+                                gridSize * (bounds.getY() / gridSize));
+            setBounds (bounds);
+        }
 
 #if defined ENABLE_CONSTRAINED_DRAG
         auto bounds = getBounds();

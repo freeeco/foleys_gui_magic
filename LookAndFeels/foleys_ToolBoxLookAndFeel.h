@@ -35,7 +35,7 @@ struct ToolBoxColours
     // Accent
     static inline const juce::Colour accent          { 0xff4a9eff };  // Selection, focus
     static inline const juce::Colour accentDim       { 0xff2d6bbf };  // Pressed accent
-    static inline const juce::Colour accentSubtle    { 0x204a9eff };  // Selection background
+    static inline const juce::Colour accentSubtle    { 0x604a9eff };  // Selection background
 
     // Status
     static inline const juce::Colour danger          { 0xffcf4444 };  // Delete, remove
