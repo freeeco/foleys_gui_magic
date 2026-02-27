@@ -259,6 +259,8 @@ private:
             juce::ResizableBorderComponent::mouseUp (event);
             if (onDragEnd) onDragEnd();
         }
+        
+        void paint (juce::Graphics&) override {}
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BorderDragger)
@@ -333,6 +335,9 @@ private:
     bool hasDuplicatedOnDrag = false;
     juce::String dragStartPosX;
     juce::String dragStartPosY;
+    
+    juce::int64 mouseDownTime = 0;
+    static constexpr juce::int64 dragDelayMs = 150;
     
     melatonin::CachedBlur blur { 8 };
 

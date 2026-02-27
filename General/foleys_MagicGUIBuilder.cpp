@@ -435,14 +435,15 @@ void MagicGUIBuilder::refreshColours()
 void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)
 {
     editMode = shouldEdit;
-
-    if (parent == nullptr)
-        return;
-
+    if (parent == nullptr) return;
     if (root.get() != nullptr)
         root->setEditMode (shouldEdit);
 
-    if (shouldEdit == false && shouldDeselect)
+    // Only restore z-order when LEAVING edit mode
+    if (!shouldEdit && GuiItem::selectionToFront && selectedNode.isValid())
+        restoreZOrderForParentOf (selectedNode);
+
+    if (!shouldEdit && shouldDeselect)
         setSelectedNode (juce::ValueTree());
 
     parent->repaint();
@@ -457,6 +458,9 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
 {
     if (selectedNode != node)
     {
+        if (GuiItem::selectionToFront && selectedNode.isValid())
+            restoreZOrderForParentOf (selectedNode);
+
         if (auto* item = findGuiItem (selectedNode))
             item->setDraggable (false);
 
@@ -482,7 +486,7 @@ void MagicGUIBuilder::draggedItemOnto (juce::ValueTree dragged, juce::ValueTree 
     if (dragged == target)
         return;
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Drag Item Onto");
 
     auto targetParent  = target.getParent();
     auto draggedParent = dragged.getParent();
@@ -493,10 +497,40 @@ void MagicGUIBuilder::draggedItemOnto (juce::ValueTree dragged, juce::ValueTree 
     if (targetParent.isValid() != false && index < 0)
         index = targetParent.indexOf (target);
 
+    juce::ValueTree actualParent;
+
     if (target.getType() == IDs::view)
+    {
         target.addChild (dragged, index, &undo);
+        actualParent = target;
+    }
     else
+    {
         targetParent.addChild (dragged, index, &undo);
+        actualParent = targetParent;
+    }
+
+    // When the parent container uses Contents layout, give newly added children
+    // default dimensions so they fill the entire view rather than having no size
+    
+    if (actualParent.isValid()
+        && actualParent.getProperty (IDs::display).toString() == IDs::contents)
+    {
+        auto* guiItem = findGuiItem (dragged);
+        if (guiItem == nullptr || guiItem->isVisibleByDefault())
+        {
+            if (! dragged.hasProperty (IDs::posX))
+                dragged.setProperty (IDs::posX, "25%", &undo);
+            if (! dragged.hasProperty (IDs::posY))
+                dragged.setProperty (IDs::posY, "25%", &undo);
+            if (! dragged.hasProperty (IDs::posWidth))
+                dragged.setProperty (IDs::posWidth, "50%", &undo);
+            if (! dragged.hasProperty (IDs::posHeight))
+                dragged.setProperty (IDs::posHeight, "50%", &undo);
+        }
+    }
+    
+    setSelectedNode (dragged);
 }
 
 void MagicGUIBuilder::attachToolboxToWindow (juce::Component& window)
@@ -521,6 +555,16 @@ ToolBox& MagicGUIBuilder::getMagicToolBox()
     jassert (magicToolBox.get() != nullptr);
 
     return *magicToolBox;
+}
+
+void MagicGUIBuilder::restoreZOrderForParentOf (const juce::ValueTree& node)
+{
+    auto parent = node.getParent();
+    if (parent.isValid())
+        if (auto* parentItem = findGuiItem (parent))
+            for (int i = 0; i < parent.getNumChildren(); ++i)
+                if (auto* child = findGuiItem (parent.getChild (i)))
+                    child->toFront (false);
 }
 
 #endif

@@ -184,15 +184,19 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         juce::PopupMenu edit;
 
         {
-            juce::PopupMenu::Item it ("Undo");
+            auto undoDesc = undo.getUndoDescription();
+            juce::PopupMenu::Item it (undoDesc.isNotEmpty() ? "Undo " + undoDesc : "Undo");
             it.action = [&] { performUndo(); };
             it.shortcutKeyDescription = "Cmd+Z";
+            it.isEnabled = undo.canUndo();
             edit.addItem (it);
         }
         {
-            juce::PopupMenu::Item it ("Redo");
+            auto redoDesc = undo.getRedoDescription();
+            juce::PopupMenu::Item it (redoDesc.isNotEmpty() ? "Redo " + redoDesc : "Redo");
             it.action = [&] { performRedo(); };
             it.shortcutKeyDescription = "Shift+Cmd+Z";
+            it.isEnabled = undo.canRedo();
             edit.addItem (it);
         }
 
@@ -649,9 +653,10 @@ void ToolBox::performCut()
     {
         juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
         auto p = selected.getParent();
-        if (p.isValid())
+        if (p.isValid()){
             undo.beginNewTransaction ("Cut");
             p.removeChild (selected, &undo);
+        }
     }
 }
 
@@ -666,16 +671,20 @@ void ToolBox::performPaste()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
     auto selected = builder.getSelectedNode();
-    if (paste.isValid() && selected.isValid())
+    if (paste.isValid() && selected.isValid()){
+        undo.beginNewTransaction("Paste");
         builder.draggedItemOnto (paste, selected);
+    }
 }
 
 void ToolBox::performPasteUnique()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
     auto selected = builder.getSelectedNode();
-    if (paste.isValid() && selected.isValid())
+    if (paste.isValid() && selected.isValid()){
+        undo.beginNewTransaction("Paste Unique");
         builder.draggedItemOnto (makeParameterRefsUnique (paste), selected);
+    }
 }
 
 void ToolBox::performPasteDimensions()
@@ -694,7 +703,7 @@ void ToolBox::performPasteDimensions()
         juce::Identifier ("dont-snap-to-pixels")
     };
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Paste Dimensions");
 
     for (const auto& prop : dimensionProps)
         if (paste.hasProperty (prop))
@@ -752,7 +761,7 @@ void ToolBox::performPasteItemProperties()
         juce::Identifier ("opacity-value")
     };
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Paste Item Properties");
 
     for (const auto& prop : itemProps)
         if (paste.hasProperty (prop))
@@ -797,7 +806,7 @@ void ToolBox::performPasteStyling()
         juce::Identifier ("alpha")
     };
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Paste Styling");
 
     for (const auto& prop : stylingProps)
         if (paste.hasProperty (prop))
@@ -811,6 +820,7 @@ void ToolBox::performDuplicate()
 
     if (paste.isValid() && selected.isValid())
     {
+        undo.beginNewTransaction("Duplicate");
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
@@ -833,6 +843,7 @@ void ToolBox::performDuplicateUnique()
 
     if (paste.isValid() && selected.isValid())
     {
+        undo.beginNewTransaction("Duplicate Unique");
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
@@ -943,7 +954,7 @@ void ToolBox::performClearDimensions()
     if (!selected.isValid())
         return;
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Clear Dimensions");
 
     propertiesEditor.removeProperties ({
         juce::Identifier ("pos-x"),
@@ -964,7 +975,7 @@ void ToolBox::performWrapInView()
     if (!parent.isValid())
         return;
 
-    undo.beginNewTransaction();
+    undo.beginNewTransaction("Wrap In View");
 
     auto index = parent.indexOf (selected);
 
@@ -1075,6 +1086,9 @@ void ToolBox::insertSnippet (const juce::File& file)
 
     if (!snippet.isValid())
         return;
+    
+    
+    undo.beginNewTransaction("Insert Snippet");
 
     // If Option/Alt is held, insert as-is (preserves shared parameter refs
     // like BPM). Otherwise make all parameter references unique.
@@ -1414,25 +1428,6 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if (key.isKeyCode ('E') && key.getModifiers().isCommandDown())
     {
         editSwitch.triggerClick();
-        return true;
-    }
-
-    // Cmd+- / Cmd+= - move selected node up/down in tree
-    if (key.isKeyCode ('-') && key.getModifiers().isCommandDown())
-    {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid())
-            builder.draggedItemOnto (selected, selected.getParent(), selected.getParent().indexOf (selected) - 1);
-
-        return true;
-    }
-
-    if (key.isKeyCode ('=') && key.getModifiers().isCommandDown())
-    {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid())
-            builder.draggedItemOnto (selected, selected.getParent(), selected.getParent().indexOf (selected) + 1);
-
         return true;
     }
 
