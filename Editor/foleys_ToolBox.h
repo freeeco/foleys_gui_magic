@@ -204,6 +204,7 @@ private:
     bool temporaryEditMode = false;
 
     void updateToolboxPosition();
+    void offsetDuplicatePosition (juce::ValueTree& paste, const juce::ValueTree& parentNode);
     juce::ResizableCornerComponent resizeCorner { this, nullptr };
     juce::ComponentDragger componentDragger;
 

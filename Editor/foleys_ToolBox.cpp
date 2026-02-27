@@ -397,17 +397,11 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                     if (GuiItem::selectionToFront)
                     {
                         if (auto* item = builder.findGuiItem (selected))
-                            item->toFront (false);
+                            item->toFrontForEditing();
                     }
                     else
                     {
-                        // Rebuild component z-order from the ValueTree
-                        auto parent = selected.getParent();
-                        if (parent.isValid())
-                            if (auto* parentItem = builder.findGuiItem (parent))
-                                for (int i = 0; i < parent.getNumChildren(); ++i)
-                                    if (auto* child = builder.findGuiItem (parent.getChild (i)))
-                                        child->toFront (false);
+                        builder.restoreZOrderForAll ();
                     }
                 }
             };
@@ -820,18 +814,17 @@ void ToolBox::performDuplicate()
 
     if (paste.isValid() && selected.isValid())
     {
-        undo.beginNewTransaction("Duplicate");
+        undo.beginNewTransaction ("Duplicate");
+        offsetDuplicatePosition (paste, selected.getParent());
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
-        
+
         this->setSelectedNode (paste);
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
             if (auto* item = this->treeEditor.getItemForNode (paste))
-            {
                 this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-            }
         });
     }
 }
@@ -843,7 +836,8 @@ void ToolBox::performDuplicateUnique()
 
     if (paste.isValid() && selected.isValid())
     {
-        undo.beginNewTransaction("Duplicate Unique");
+        undo.beginNewTransaction ("Duplicate Unique");
+        offsetDuplicatePosition (paste, selected.getParent());
         builder.draggedItemOnto (paste,
                                  selected.getParent(),
                                  selected.getParent().indexOf (selected) + 1);
@@ -852,9 +846,7 @@ void ToolBox::performDuplicateUnique()
         juce::MessageManager::callAsync ([this, paste]() mutable
         {
             if (auto* item = this->treeEditor.getItemForNode (paste))
-            {
                 this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-            }
         });
     }
 }
@@ -1086,21 +1078,35 @@ void ToolBox::insertSnippet (const juce::File& file)
 
     if (!snippet.isValid())
         return;
-    
-    
-    undo.beginNewTransaction("Insert Snippet");
 
-    // If Option/Alt is held, insert as-is (preserves shared parameter refs
-    // like BPM). Otherwise make all parameter references unique.
+    undo.beginNewTransaction ("Insert Snippet");
+
     const bool optionHeld = juce::ModifierKeys::getCurrentModifiers().isAltDown();
     if (!optionHeld)
         snippet = makeParameterRefsUnique (snippet);
 
     auto selected = builder.getSelectedNode();
-    if (selected.isValid())
-        builder.draggedItemOnto (snippet, selected);
+    auto root = builder.getGuiRootNode();
+
+    if (!selected.isValid() || selected == root)
+    {
+        // Nothing selected or root selected — insert inside root
+        builder.draggedItemOnto (snippet, root);
+    }
     else
-        builder.draggedItemOnto (snippet, builder.getGuiRootNode());
+    {
+        // Insert as sibling: add to parent, right after the selected node
+        auto parent = selected.getParent();
+        if (parent.isValid())
+        {
+            auto index = parent.indexOf (selected) + 1;
+            parent.addChild (snippet, index, &undo);
+        }
+        else
+        {
+            builder.draggedItemOnto (snippet, root);
+        }
+    }
 }
 
 //==============================================================================
@@ -1551,16 +1557,11 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
             if (GuiItem::selectionToFront)
             {
                 if (auto* item = builder.findGuiItem (selected))
-                    item->toFront (false);
+                    item->toFrontForEditing();
             }
             else
             {
-                auto parent = selected.getParent();
-                if (parent.isValid())
-                    if (auto* parentItem = builder.findGuiItem (parent))
-                        for (int i = 0; i < parent.getNumChildren(); ++i)
-                            if (auto* child = builder.findGuiItem (parent.getChild (i)))
-                                child->toFront (false);
+                builder.restoreZOrderForAll ();
             }
         }
 
@@ -1717,9 +1718,12 @@ juce::PropertiesFile::Options ToolBox::getApplicationPropertyStorage()
 
 juce::ValueTree ToolBox::makeParameterRefsUnique (juce::ValueTree tree)
 {
-    // Generate a unique suffix: seconds since year 2000
-    auto secondsSince2000 = juce::String (juce::int64 (
-        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+    // Generate a unique suffix: milliseconds since year 2000
+    auto msSince2000 = juce::String (juce::int64 (
+        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds()));
+
+    int counter = 0;
+    std::map<juce::String, juce::String> valueMap;
 
     std::function<void(juce::ValueTree&)> processTree;
     processTree = [&](juce::ValueTree& node)
@@ -1734,9 +1738,17 @@ juce::ValueTree ToolBox::makeParameterRefsUnique (juce::ValueTree tree)
                 && propValue == propValue.removeCharacters (" \t\n\r")
                 && !propValue.startsWithIgnoreCase ("http"))
             {
+                // If we've already remapped this exact value, reuse the same new value
+                // so that properties sharing the same ID stay linked
+                auto it = valueMap.find (propValue);
+                if (it != valueMap.end())
+                {
+                    node.setProperty (node.getPropertyName (i), it->second, nullptr);
+                    continue;
+                }
+
                 // Strip any existing timestamp suffix to avoid ever-growing strings.
-                // A suffix is a "-" followed by 8+ digits (seconds since 2000 is
-                // currently ~816 million, i.e. 9 digits).
+                // A suffix is a "-" followed by 8+ digits.
                 auto cleanValue = propValue;
                 auto lastDash = propValue.lastIndexOf ("-");
                 if (lastDash >= 0)
@@ -1746,9 +1758,9 @@ juce::ValueTree ToolBox::makeParameterRefsUnique (juce::ValueTree tree)
                         cleanValue = propValue.substring (0, lastDash);
                 }
 
-                node.setProperty (node.getPropertyName (i),
-                                  cleanValue + "-" + secondsSince2000,
-                                  nullptr);
+                auto newValue = cleanValue + "-" + juce::String (msSince2000.getLargeIntValue() + counter++);
+                valueMap[propValue] = newValue;
+                node.setProperty (node.getPropertyName (i), newValue, nullptr);
             }
         }
 
@@ -1758,6 +1770,47 @@ juce::ValueTree ToolBox::makeParameterRefsUnique (juce::ValueTree tree)
 
     processTree (tree);
     return tree;
+}
+
+void ToolBox::offsetDuplicatePosition (juce::ValueTree& paste, const juce::ValueTree& parentNode)
+{
+    if (parentNode.getProperty (IDs::display).toString() != IDs::contents)
+        return;
+
+    auto* parentItem = builder.findGuiItem (parentNode);
+    if (parentItem == nullptr)
+        return;
+
+    auto parentBounds = parentItem->getClientBounds();
+    const int offset = 4;
+
+    auto offsetAxis = [&](const juce::Identifier& posProp,
+                          const juce::Identifier& sizeProp,
+                          int parentSize)
+    {
+        auto posStr  = paste.getProperty (posProp).toString();
+        auto sizeStr = paste.getProperty (sizeProp).toString();
+        if (posStr.isEmpty() || parentSize <= 0) return;
+
+        bool isPct     = posStr.endsWith ("%");
+        double posPx   = isPct ? posStr.getDoubleValue() * 0.01 * parentSize
+                               : posStr.getDoubleValue();
+
+        bool sizePct   = sizeStr.endsWith ("%");
+        double sizePx  = sizePct ? sizeStr.getDoubleValue() * 0.01 * parentSize
+                                 : sizeStr.getDoubleValue();
+
+        double maxPos  = parentSize - sizePx;
+        double newPos  = juce::jmin (posPx + offset, juce::jmax (posPx, maxPos));
+
+        if (isPct)
+            paste.setProperty (posProp, juce::String (newPos * 100.0 / parentSize) + "%", nullptr);
+        else
+            paste.setProperty (posProp, juce::String ((int) newPos), nullptr);
+    };
+
+    offsetAxis (IDs::posX, IDs::posWidth,  parentBounds.getWidth());
+    offsetAxis (IDs::posY, IDs::posHeight, parentBounds.getHeight());
 }
 
 } // namespace foleys

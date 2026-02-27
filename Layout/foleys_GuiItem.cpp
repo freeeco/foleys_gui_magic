@@ -788,15 +788,30 @@ void GuiItem::setEditMode (bool shouldEdit)
         component->setInterceptsMouseClicks (!shouldEdit, !shouldEdit);
 }
 
+void GuiItem::toFrontForEditing()
+{
+    for (auto* comp = getParentComponent(); comp != nullptr; comp = comp->getParentComponent())
+    {
+        if (auto* container = dynamic_cast<Container*> (comp))
+        {
+            if (container->getLayoutMode() == LayoutType::Tabbed)
+                container->showChildForEditing (this);
+        }
+    }
+
+    toFront (false);
+}
+
 void GuiItem::setDraggable (bool selected)
 {
+    if (selected && selectionToFront && magicBuilder.isEditModeOn())
+            toFrontForEditing();
+    
     if (selected &&
-        getParentsLayoutType() == LayoutType::Contents &&
-        configNode != magicBuilder.getGuiRootNode())
+            magicBuilder.isEditModeOn() &&
+            getParentsLayoutType() == LayoutType::Contents &&
+            configNode != magicBuilder.getGuiRootNode())
     {
-        if (selectionToFront && magicBuilder.isEditModeOn())
-            toFront (false);
-        
         borderDragger = std::make_unique<BorderDragger>(this, nullptr);
         componentDragger = std::make_unique<juce::ComponentDragger>();
 

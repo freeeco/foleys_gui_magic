@@ -138,6 +138,8 @@ public:
      */
     void setEditMode (bool shouldEdit) override;
     void setDraggable (bool selected) override;
+    void showChildForEditing (GuiItem* child);
+    void restoreFromEditing();
 #endif
 
 private:

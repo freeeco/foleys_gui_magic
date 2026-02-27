@@ -180,6 +180,7 @@ public:
     
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     static inline bool selectionToFront = true;
+    void toFrontForEditing();
 #endif
     
     void handleValueChanged (juce::Value& source);

@@ -554,6 +554,21 @@ void Container::setDraggable (bool selected)
     GuiItem::setDraggable (selected);
 }
 
+void Container::showChildForEditing (GuiItem* descendant)
+{
+    if (layout != LayoutType::Tabbed || descendant == nullptr)
+        return;
+
+    for (auto& c : children)
+        c->setVisible (c.get() == descendant || c->isParentOf (descendant));
+}
+
+void Container::restoreFromEditing()
+{
+    if (layout == LayoutType::Tabbed)
+        updateSelectedTab();
+}
+
 #endif
 
 //==============================================================================

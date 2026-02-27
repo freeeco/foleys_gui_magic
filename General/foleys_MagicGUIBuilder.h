@@ -223,10 +223,10 @@ public:
     juce::TooltipWindow*  getTooltipWindow();
     
     void refreshColours();
-    
-    void restoreZOrderForParentOf (const juce::ValueTree& node);
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    void restoreZOrderForAll ();
+    
     void attachToolboxToWindow (juce::Component& window);
 
     /**

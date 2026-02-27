@@ -441,7 +441,7 @@ void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)
 
     // Only restore z-order when LEAVING edit mode
     if (!shouldEdit && GuiItem::selectionToFront && selectedNode.isValid())
-        restoreZOrderForParentOf (selectedNode);
+        restoreZOrderForAll();
 
     if (!shouldEdit && shouldDeselect)
         setSelectedNode (juce::ValueTree());
@@ -459,8 +459,8 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
     if (selectedNode != node)
     {
         if (GuiItem::selectionToFront && selectedNode.isValid())
-            restoreZOrderForParentOf (selectedNode);
-
+            restoreZOrderForAll();
+        
         if (auto* item = findGuiItem (selectedNode))
             item->setDraggable (false);
 
@@ -557,14 +557,30 @@ ToolBox& MagicGUIBuilder::getMagicToolBox()
     return *magicToolBox;
 }
 
-void MagicGUIBuilder::restoreZOrderForParentOf (const juce::ValueTree& node)
+void MagicGUIBuilder::restoreZOrderForAll()
 {
-    auto parent = node.getParent();
-    if (parent.isValid())
-        if (auto* parentItem = findGuiItem (parent))
-            for (int i = 0; i < parent.getNumChildren(); ++i)
-                if (auto* child = findGuiItem (parent.getChild (i)))
-                    child->toFront (false);
+    std::function<void (juce::ValueTree)> restore = [&] (juce::ValueTree node)
+    {
+        if (auto* item = findGuiItem (node))
+        {
+            if (auto* container = dynamic_cast<Container*> (item))
+            {
+                if (container->getLayoutMode() == LayoutType::Tabbed)
+                    container->restoreFromEditing();
+            }
+        }
+
+        for (int i = 0; i < node.getNumChildren(); ++i)
+        {
+            if (auto* child = findGuiItem (node.getChild (i)))
+                child->toFront (false);
+        }
+
+        for (int i = 0; i < node.getNumChildren(); ++i)
+            restore (node.getChild (i));
+    };
+
+    restore (getGuiRootNode());
 }
 
 #endif
