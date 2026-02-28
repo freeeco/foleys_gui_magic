@@ -1610,7 +1610,7 @@ void ToolBox::timerCallback (int timer)
         }
         else if (!shouldTempEdit && temporaryEditMode)
         {
-            builder.setEditMode (false, false);
+            builder.setEditMode (false);
             temporaryEditMode = false;
         }
     }

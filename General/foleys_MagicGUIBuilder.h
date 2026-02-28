@@ -232,7 +232,7 @@ public:
     /**
      This method sets the GUI in edit mode, that allows to drag the components around.
      */
-    void setEditMode (bool shouldEdit, bool shouldDeselect = true);
+    void setEditMode (bool shouldEdit, bool shouldDeselect = false);
     bool isEditModeOn() const;
 
     void setSelectedNode (const juce::ValueTree& node);
