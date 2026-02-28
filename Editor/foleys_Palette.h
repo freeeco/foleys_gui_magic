@@ -72,9 +72,18 @@ private:
         int getNumRows() override;
         void paintListBoxItem (int rowNumber, juce::Graphics &g, int width, int height, bool rowIsSelected) override;
         juce::var getDragSourceDescription (const juce::SparseSet<int> &rowsToDescribe) override;
+        void listBoxItemClicked (int row, const juce::MouseEvent& e) override;
+
+        void setListBox (juce::ListBox* lb) { listBox = lb; }
 
     private:
-        juce::StringArray factoryNames;
+        void rebuildVisibleRows();
+
+        juce::StringArray           factoryNames;
+        std::vector<int>            visibleRows;
+        std::set<juce::String>      collapsedCategories;
+        juce::ListBox*              listBox = nullptr;
+
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PaletteListModel)
     };
 

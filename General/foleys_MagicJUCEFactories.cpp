@@ -1704,7 +1704,7 @@ void MagicGUIBuilder::registerJUCEFactories()
     registerFactory (IDs::toggleButton,      &ToggleButtonItem::factory,      "Controls");
     registerFactory (IDs::label,             &LabelItem::factory,             "Controls");
     registerFactory (IDs::plot,              &PlotItem::factory,              "Meters & Plots");
-    registerFactory (IDs::xyDragComponent,   &XYDraggerItem::factory,        "Meters & Plots");
+    registerFactory (IDs::xyDragComponent,   &XYDraggerItem::factory,        "Controls");
     registerFactory (IDs::keyboardComponent, &KeyboardItem::factory,          "Controls");
     registerFactory (IDs::drumpadComponent,  &DrumpadItem::factory,          "Controls");
     registerFactory (IDs::meter,             &LevelMeterItem::factory,        "Meters & Plots");
