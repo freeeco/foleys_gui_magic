@@ -1083,7 +1083,7 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 
         savePosition();
     }
-    else if (event.mouseWasDraggedSinceMouseDown())
+    else if (magicBuilder.isEditModeOn() && event.mouseWasDraggedSinceMouseDown())
     {
         auto* container = juce::DragAndDropContainer::findParentDragContainerFor (this);
         container->startDragging (IDs::dragSelected, this);
