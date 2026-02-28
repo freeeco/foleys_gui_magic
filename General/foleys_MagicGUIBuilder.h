@@ -128,6 +128,7 @@ public:
      Register a factory for Components to be available in the GUI editor. If you need a reference to the application, you can capture that in the factory lambda.
      */
     void registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&));
+    void registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&), const juce::String& category, bool isFavourite = false);
 
     /**
      With that method you can register your custom LookAndFeel class and apply it to different components.
@@ -264,6 +265,8 @@ private:
     std::unique_ptr<juce::Component> overlayDialog;
 
     std::map<juce::Identifier, std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&)> factories;
+    std::map<juce::Identifier, juce::String> factoryCategories;
+    std::set<juce::Identifier> factoryFavourites;
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     bool editMode = false;

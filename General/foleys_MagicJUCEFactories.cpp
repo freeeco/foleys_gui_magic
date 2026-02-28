@@ -1681,18 +1681,35 @@ const juce::Identifier  WebBrowserItem::pUrl            { "url" };
 
 void MagicGUIBuilder::registerJUCEFactories()
 {
-    registerFactory (IDs::slider, &SliderItem::factory);
-    registerFactory (IDs::comboBox, &ComboBoxItem::factory);
-    registerFactory (IDs::textButton, &TextButtonItem::factory);
-    registerFactory (IDs::toggleButton, &ToggleButtonItem::factory);
-    registerFactory (IDs::label, &LabelItem::factory);
-    registerFactory (IDs::plot, &PlotItem::factory);
-    registerFactory (IDs::xyDragComponent, &XYDraggerItem::factory);
-    registerFactory (IDs::keyboardComponent, &KeyboardItem::factory);
-    registerFactory (IDs::drumpadComponent, &DrumpadItem::factory);
-    registerFactory (IDs::meter, &LevelMeterItem::factory);
-    registerFactory ("MidiLearn", &MidiLearnItem::factory);
-    registerFactory (IDs::listBox, &ListBoxItem::factory);
+    
+    //    "Favourites:",
+    //    IDs::view.toString(),
+    //    IDs::slider.toString(),
+    //    "ImageButton",
+    //    "PopupMenu",
+    //    "ParameterLabel",
+    //    "Image",
+    //    "ImageMeter",
+    //    "Text",
+    //    "Rectangle",
+    //    "Evaluate",
+    //    "Trigger",
+    //    "GuiProperty",
+    
+    bool isFavourite = true;
+
+    registerFactory (IDs::slider,            &SliderItem::factory,            "Controls", isFavourite);
+    registerFactory (IDs::comboBox,          &ComboBoxItem::factory,          "Controls");
+    registerFactory (IDs::textButton,        &TextButtonItem::factory,        "Controls");
+    registerFactory (IDs::toggleButton,      &ToggleButtonItem::factory,      "Controls");
+    registerFactory (IDs::label,             &LabelItem::factory,             "Controls");
+    registerFactory (IDs::plot,              &PlotItem::factory,              "Meters & Plots");
+    registerFactory (IDs::xyDragComponent,   &XYDraggerItem::factory,        "Meters & Plots");
+    registerFactory (IDs::keyboardComponent, &KeyboardItem::factory,          "Controls");
+    registerFactory (IDs::drumpadComponent,  &DrumpadItem::factory,          "Controls");
+    registerFactory (IDs::meter,             &LevelMeterItem::factory,        "Meters & Plots");
+    registerFactory ("MidiLearn",            &MidiLearnItem::factory,         "MIDI & Sequencing");
+    registerFactory (IDs::listBox,           &ListBoxItem::factory,           "Controls");
 
 #if JUCE_MODULE_AVAILABLE_juce_gui_extra && JUCE_WEB_BROWSER
     registerFactory (IDs::webBrowser, &WebBrowserItem::factory);

@@ -251,34 +251,72 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<Gu
     factories [type] = factory;
 }
 
+void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&), const juce::String& category, bool isFavourite)
+{
+    registerFactory (type, factory);
+    factoryCategories [type] = category;
+
+    if (isFavourite)
+        factoryFavourites.insert (type);
+}
+
 juce::StringArray MagicGUIBuilder::getFactoryNames() const
 {
-    juce::StringArray names {
-        "Favourites:",
-        IDs::view.toString(),
-        IDs::slider.toString(),
-        "ImageButton",
-        "PopupMenu",
-        "ParameterLabel",
-        "Image",
-        "ImageMeter",
-        "Text",
-        "Rectangle",
-        "Evaluate",
-        "Trigger",
-        "GuiProperty",
-        "Gui Items:"
-    };
+    // Build a map of category -> sorted item names
+    std::map<juce::String, juce::StringArray> categorised;
+    juce::StringArray uncategorised;
+    juce::StringArray favourites;
 
-    juce::StringArray restOfNames { IDs::view.toString() };
-    
-    restOfNames.ensureStorageAllocated (int (factories.size()));
+    // View is a built-in type (not in factories map) — add it manually
+    favourites.add (IDs::view.toString());
+    categorised["Drawing & Layout"].add (IDs::view.toString());
+
     for (const auto& f : factories)
-        restOfNames.add (f.first.toString());
+    {
+        auto name = f.first.toString();
 
-    restOfNames.sortNatural();
-    names.mergeArray(restOfNames);
-    
+        // Collect favourites
+        if (factoryFavourites.count (f.first))
+            favourites.add (name);
+
+        // Place into category or uncategorised
+        auto it = factoryCategories.find (f.first);
+        if (it != factoryCategories.end())
+            categorised[it->second].add (name);
+        else
+            uncategorised.add (name);
+    }
+
+    // Sort items within each category
+    for (auto& [cat, items] : categorised)
+        items.sortNatural();
+
+    uncategorised.sortNatural();
+    favourites.sortNatural();
+
+    // Build final list
+    juce::StringArray names;
+
+    // Favourites first (View pinned at top)
+    names.add ("Favourites:");
+    names.add (IDs::view.toString());
+    favourites.removeString (IDs::view.toString());
+    names.addArray (favourites);
+
+    // Categories alphabetically (std::map is already sorted by key)
+    for (const auto& [cat, items] : categorised)
+    {
+        names.add (cat + ":");
+        names.addArray (items);
+    }
+
+    // Uncategorised items at the end
+    if (uncategorised.size() > 0)
+    {
+        names.add ("Miscellaneous:");
+        names.addArray (uncategorised);
+    }
+
     return names;
 }
 

@@ -90,21 +90,21 @@ void Palette::PaletteListModel::paintListBoxItem (int rowNumber, juce::Graphics 
         g.setColour (EditorColours::selectedBackground.withAlpha (0.5f));
         g.fillRoundedRectangle (b, r);
     }
-    if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+    if (!factoryNames [rowNumber].endsWithChar (':')) {
         g.setColour (EditorColours::outline);
         g.drawRoundedRectangle (b, r, 1);
     }
 
     const auto box = juce::Rectangle<int> (juce::roundToInt (r), 0, juce::roundToInt (width - 2 * r), height);
     
-    if (factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))
+    if (factoryNames [rowNumber].endsWithChar (':'))
         g.setColour (EditorColours::disabledText);
     else
         g.setColour (EditorColours::text);
     
     g.drawFittedText (factoryNames [rowNumber], box, juce::Justification::left, 1);
         
-    if (!(factoryNames [rowNumber].equalsIgnoreCase("Favourites:") || factoryNames [rowNumber].equalsIgnoreCase("Gui Items:"))) {
+    if (!factoryNames [rowNumber].endsWithChar (':')) {
         g.setColour (EditorColours::disabledText);
         g.drawFittedText (juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\xa5")), box, juce::Justification::right, 1);  // ✥
     }
@@ -112,6 +112,9 @@ void Palette::PaletteListModel::paintListBoxItem (int rowNumber, juce::Graphics 
 
 juce::var Palette::PaletteListModel::getDragSourceDescription (const juce::SparseSet<int> &rowsToDescribe)
 {
+    if (factoryNames [rowsToDescribe [0]].endsWithChar (':'))
+        return {};
+
     return juce::ValueTree {factoryNames [rowsToDescribe [0]]}.toXmlString();
 }
 
