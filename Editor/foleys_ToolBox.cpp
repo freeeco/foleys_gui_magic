@@ -83,8 +83,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     addAndMakeVisible (snippetsButton);
     addAndMakeVisible (editSwitch);
     
-    editSwitchLAF = std::make_unique<IconButtonLookAndFeel> (fontAudio);
-    editSwitch.setLookAndFeel (editSwitchLAF.get());
+    editSwitch.setLookAndFeel (&editSwitchLAF);
 
     //==========================================================================
     // File menu
@@ -408,6 +407,16 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             edit.addItem (it);
         }
 
+        edit.addSeparator();
+
+        {
+            juce::PopupMenu::Item it ("Edit Mode");
+            it.isTicked = builder.isEditModeOn();
+            it.shortcutKeyDescription = "Cmd+E";
+            it.action = [&] { editSwitch.triggerClick(); };
+            edit.addItem (it);
+        }
+
         edit.setLookAndFeel (&toolBoxLAF);
         edit.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&editMenu));
     };
@@ -420,9 +429,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     editSwitch.onClick = [&]
     {
         builder.setEditMode (editSwitch.getToggleState());
-        editSwitch.setButtonText (editSwitch.getToggleState()
-            ? juce::String::fromUTF8 (u8"\uf191")   // Unlock
-            : juce::String::fromUTF8 (u8"\uf140"));  // Lock
+        editSwitch.repaint();
     };
 
     //==========================================================================

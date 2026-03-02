@@ -379,7 +379,7 @@ void GuiItem::componentTransform()
     glowAngle = magicBuilder.getStyleProperty (IDs::glowAngle, configNode);
     auto glowOpacityString = magicBuilder.getStyleProperty (IDs::glowOpacity, configNode).toString();
     if (glowOpacityString.isNotEmpty())
-        glowOpacity = magicBuilder.getStyleProperty (IDs::glowOpacity, configNode);
+        glowOpacity = juce::jlimit (0.0f, 1.0f, (float) magicBuilder.getStyleProperty (IDs::glowOpacity, configNode));
     else
         glowOpacity = 1.0f;
         

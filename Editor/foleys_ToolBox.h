@@ -98,16 +98,47 @@ public:
     void setLastLocation (juce::File file);
 
 private:
-    struct IconButtonLookAndFeel : public juce::LookAndFeel_V4
+    /** Draws a padlock icon (locked/unlocked based on toggle state) using simple geometry. */
+    struct PadlockButtonLookAndFeel : public juce::LookAndFeel_V4
     {
-        IconButtonLookAndFeel (juce::Typeface::Ptr tf) : typeface (tf) {}
-        
-        juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
+        void drawButtonText (juce::Graphics& g, juce::TextButton& button,
+                             bool, bool) override
         {
-            return juce::Font (juce::FontOptions (typeface).withHeight (buttonHeight * 0.6f));
+            auto bounds = button.getLocalBounds().toFloat();
+            auto size = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.55f;
+            auto cx = bounds.getCentreX();
+            auto cy = bounds.getCentreY() - 2.0f;
+
+            // Body: filled rounded square
+            float bodyW = size * 0.7f;
+            float bodyH = size * 0.55f;
+            float bodyTop = cy + size * 0.05f;
+            auto body = juce::Rectangle<float> (bodyW, bodyH)
+                            .withCentre ({ cx, bodyTop + bodyH * 0.5f });
+
+            // Shackle: semicircle arc sitting on top of body
+            float shackleR    = bodyW * 0.31f;
+            float shackleThk  = size * 0.12f;
+            bool  locked      = !button.getToggleState();
+            float shackleCY   = body.getY() - 1.1f;
+            if (!locked)
+                shackleCY -= shackleR * 0.24f;
+
+            auto colour = button.findColour (button.getToggleState()
+                ? juce::TextButton::textColourOnId
+                : juce::TextButton::textColourOffId);
+            g.setColour (colour);
+
+            // Draw shackle first — body will paint over the lower half
+            juce::Path shackle;
+            shackle.addCentredArc (cx, shackleCY, shackleR, shackleR,
+                                   0.0f, -juce::MathConstants<float>::pi * (1.2 + locked), 1.2f, true);
+            g.strokePath (shackle, juce::PathStrokeType (shackleThk,
+                juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+            // Draw body on top
+            g.fillRoundedRectangle (body, size * 0.06f);
         }
-        
-        juce::Typeface::Ptr typeface;
     };
 
     enum Timers : int
@@ -173,8 +204,7 @@ private:
     juce::TextButton    editMenu       { TRANS ("Edit") };
     juce::TextButton    viewMenu       { TRANS ("View") };
     juce::TextButton    snippetsButton { TRANS ("Snippets") };
-//    juce::TextButton    editSwitch { juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x92")) };
-    juce::TextButton    editSwitch { juce::String::fromUTF8 (u8"\uf140") };
+    juce::TextButton    editSwitch;
 
     PositionOption      positionOption      { left };
 
@@ -192,8 +222,7 @@ private:
     
     juce::LookAndFeel_V4        defaultLAF;
     ToolBoxLookAndFeel toolBoxLAF;
-    std::unique_ptr<IconButtonLookAndFeel> editSwitchLAF;
-    juce::Typeface::Ptr         fontAudio { juce::Typeface::createSystemTypefaceFor (BinaryData::FontAudio_ttf, BinaryData::FontAudio_ttfSize) };
+    PadlockButtonLookAndFeel    editSwitchLAF;
     
     juce::TooltipWindow tooltipWindow { this, 1500 };  // 500ms delay before showing
     
