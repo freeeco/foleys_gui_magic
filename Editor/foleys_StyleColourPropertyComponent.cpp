@@ -152,16 +152,13 @@ void StyleColourPropertyComponent::refresh()
 
 void StyleColourPropertyComponent::setColourDisplay (juce::Colour colour)
 {
-    if (colour.isTransparent())
-    {
-        editor->setColour (juce::Label::backgroundColourId, EditorColours::background);
+    editor->setColour (juce::Label::backgroundColourId, colour);
+
+    if (colour.getAlpha() < 0x40)
         editor->setColour (juce::Label::textColourId, EditorColours::text);
-    }
     else
-    {
-        editor->setColour (juce::Label::backgroundColourId, colour);
-        editor->setColour (juce::Label::textColourId, colour.contrasting());
-    }
+        editor->setColour (juce::Label::textColourId, colour.withAlpha ((juce::uint8) 0xFF).contrasting());
+
     editor->repaint();
 }
 

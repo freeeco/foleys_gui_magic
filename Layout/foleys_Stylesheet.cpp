@@ -261,8 +261,8 @@ juce::Colour Stylesheet::parseColour (const juce::String& name)
     if (name.startsWithIgnoreCase ("transparent"))
         return juce::Colours::transparentBlack;
 
-    auto padded = name.paddedLeft ('0', 8);
-    return juce::Colours::findColourForName (name, juce::Colour::fromString (padded.length() < 8 ? "ff" + padded : padded));
+    auto padded = name.length() <= 6 ? "FF" + name.paddedLeft ('0', 6) : name.paddedLeft ('0', 8);
+    return juce::Colours::findColourForName (name, juce::Colour::fromString (padded));
 }
 
 juce::LookAndFeel* Stylesheet::getLookAndFeel (const juce::ValueTree& node) const
