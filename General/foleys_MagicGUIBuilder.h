@@ -168,6 +168,9 @@ public:
      This resets the GUI to show a single empty container
      */
     void clearGUI();
+    
+    void prepareForTreeSwap();
+    void completeTreeSwap();
 
     /**
      This is used to display a dialog box. It is called by the GUI editor, but in future it might be reached

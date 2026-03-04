@@ -140,6 +140,18 @@ void MagicGUIBuilder::clearGUI()
     updateComponents();
 }
 
+void MagicGUIBuilder::prepareForTreeSwap()
+{
+    getConfigTree().removeListener (this);
+    root.reset();
+}
+
+void MagicGUIBuilder::completeTreeSwap()
+{
+    getConfigTree().addListener (this);
+    updateComponents();
+}
+
 void MagicGUIBuilder::showOverlayDialog (std::unique_ptr<juce::Component> dialog)
 {
     if (parent == nullptr)
