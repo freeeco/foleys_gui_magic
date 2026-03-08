@@ -160,7 +160,11 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
     if (stylesheet.isClassNode (styleItem))
     {
         for (auto factoryName : builder.getFactoryNames())
+        {
+            if (factoryName.endsWithChar (':'))
+                continue;
             addTypeProperties (factoryName, {});
+        }
     }
     else
     {

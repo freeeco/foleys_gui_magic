@@ -134,6 +134,7 @@
 #include "Widgets/foleys_FileBrowserDialog.h"
 #include "Widgets/foleys_MidiLearnComponent.h"
 #include "Widgets/foleys_MidiDrumpadComponent.h"
+#include "Widgets/toybox_MidiKeyboardComponent.h"
 
 #include "State/foleys_RadioButtonManager.h"
 #include "State/foleys_ParameterManager.h"

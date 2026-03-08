@@ -179,6 +179,7 @@ private:
     void performPasteUnique();
     void performPasteDimensions();
     void performPasteItemProperties();
+    void performPasteReplace();
     void performDuplicate();
     void performDuplicateUnique();
     void performSendToBack();
@@ -231,6 +232,8 @@ private:
     int savedTreeHeightShowing = -1;
     int savedTreeHeightHidden = -1;
     bool temporaryEditMode = false;
+    enum PreviewMode { desktop, ios };
+    int previewMode = desktop;
 
     void updateToolboxPosition();
     void offsetDuplicatePosition (juce::ValueTree& paste, const juce::ValueTree& parentNode);

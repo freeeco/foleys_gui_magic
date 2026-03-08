@@ -123,6 +123,9 @@ public:
      Reread properties from the config ValueTree
      */
     void updateInternal();
+    
+    void suspendNodeListening();
+    void resumeNodeListening();
 
     void paint (juce::Graphics& g) final;
     void resized() override;

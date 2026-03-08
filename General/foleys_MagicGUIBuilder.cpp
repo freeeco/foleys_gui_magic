@@ -97,7 +97,7 @@ std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& 
         
         return item;
     }
-
+    
     DBG ("No factory for: " << node.getType().toString());
     return {};
 }
@@ -150,6 +150,42 @@ void MagicGUIBuilder::completeTreeSwap()
 {
     getConfigTree().addListener (this);
     updateComponents();
+}
+
+void MagicGUIBuilder::setPropertyAndRelayout(const juce::String& targetId,
+                                              const juce::Identifier& property,
+                                              const juce::var& value)
+{
+    auto node = getGuiRootNode();
+    std::function<juce::ValueTree(juce::ValueTree)> findNode = [&](juce::ValueTree tree) -> juce::ValueTree {
+        if (tree.getProperty(IDs::id).toString().equalsIgnoreCase(targetId))
+            return tree;
+        for (auto child : tree) {
+            auto result = findNode(child);
+            if (result.isValid()) return result;
+        }
+        return {};
+    };
+
+    auto target = findNode(node);
+    if (!target.isValid()) return;
+
+    auto* item = findGuiItemWithId(targetId);
+
+    getConfigTree().removeListener(this);
+    if (item) item->suspendNodeListening();
+
+    target.setProperty(property, value, nullptr);
+
+    if (item)
+    {
+        item->configureFlexBoxItem(target);
+        item->resumeNodeListening();
+
+        if (auto* parentItem = item->findParentComponentOfClass<GuiItem>())
+            parentItem->updateLayout();
+    }
+    getConfigTree().addListener(this);
 }
 
 void MagicGUIBuilder::showOverlayDialog (std::unique_ptr<juce::Component> dialog)

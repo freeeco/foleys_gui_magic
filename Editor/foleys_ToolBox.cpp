@@ -170,6 +170,26 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             };
             view.addItem (it);
         }
+        
+        view.addSeparator();
+        
+        view.addSeparator();
+        {
+            juce::PopupMenu previewMenu;
+            previewMenu.addItem ("Desktop", true, previewMode == desktop, [&]
+            {
+                previewMode = desktop;
+                builder.getMagicState().getPropertyAsValue ("system:is-desktop").setValue (true);
+                builder.getMagicState().getPropertyAsValue ("system:is-ios").setValue (false);
+            });
+            previewMenu.addItem ("iOS", true, previewMode == ios, [&]
+            {
+                previewMode = ios;
+                builder.getMagicState().getPropertyAsValue ("system:is-desktop").setValue (false);
+                builder.getMagicState().getPropertyAsValue ("system:is-ios").setValue (true);
+            });
+            view.addSubMenu ("Preview", previewMenu);
+        }
 
         view.setLookAndFeel (&toolBoxLAF);
         view.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&viewMenu));
@@ -225,13 +245,13 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         {
             juce::PopupMenu::Item it ("Paste Unique");
             it.action = [&] { performPasteUnique(); };
-            it.shortcutKeyDescription = "Opt+Cmd+V";
+            it.shortcutKeyDescription = "Shift+Cmd+V";
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste Dimensions");
             it.action = [&] { performPasteDimensions(); };
-            it.shortcutKeyDescription = "Shift+Cmd+V";
+            it.shortcutKeyDescription = "Shift+Control+V";
             edit.addItem (it);
         }
         {
@@ -244,6 +264,12 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Paste Styling");
             it.action = [&] { performPasteStyling(); };
             it.shortcutKeyDescription = "Cmd+T";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Paste Replace");
+            it.action = [&] { performPasteReplace(); };
+            it.shortcutKeyDescription = "Opt+Cmd+V";
             edit.addItem (it);
         }
         
@@ -812,6 +838,46 @@ void ToolBox::performPasteStyling()
     for (const auto& prop : stylingProps)
         if (paste.hasProperty (prop))
             selected.setProperty (prop, paste.getProperty (prop), &undo);
+}
+
+void ToolBox::performPasteReplace()
+{
+    auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
+    auto selected = builder.getSelectedNode();
+
+    if (!paste.isValid())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                "Nothing To Paste",
+                                                "Nothing to paste");
+        return;
+    }
+
+    if (!selected.isValid())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                "Nothing Selected",
+                                                "Nothing selected");
+        return;
+    }
+
+    auto parent = selected.getParent();
+    if (!parent.isValid())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                "Invalid Parent",
+                                                "Invalid parent");
+        return;
+    }
+
+    auto index = parent.indexOf (selected);
+
+    undo.beginNewTransaction ("Paste Replace");
+
+    auto replacement = makeParameterRefsUnique (paste);
+    parent.removeChild (selected, &undo);
+    parent.addChild (replacement, index, &undo);
+    builder.setSelectedNode (replacement);
 }
 
 void ToolBox::performDuplicate()
@@ -1391,12 +1457,20 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         if (key.getModifiers().isShiftDown() && key.getModifiers().isAltDown())
             performPasteItemProperties();
         else if (key.getModifiers().isShiftDown())
-            performPasteDimensions();
-        else if (key.getModifiers().isAltDown())
             performPasteUnique();
+        else if (key.getModifiers().isAltDown())
+            performPasteReplace();
         else
             performPaste();
 
+        return true;
+    }
+
+    // Shift+Control+V - paste dimensions
+    if (key.isKeyCode ('V') && key.getModifiers().isShiftDown() && key.getModifiers().isCtrlDown()
+        && !key.getModifiers().isCommandDown())
+    {
+        performPasteDimensions();
         return true;
     }
 

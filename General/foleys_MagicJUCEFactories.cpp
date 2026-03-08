@@ -44,6 +44,7 @@
 #include "../Widgets/foleys_MagicPlotComponent.h"
 #include "../Widgets/foleys_MidiLearnComponent.h"
 #include "../Widgets/foleys_MidiDrumpadComponent.h"
+#include "../Widgets/toybox_MidiKeyboardComponent.h"
 #include "../Helpers/foleys_PopupMenuHelper.h"
 
 #pragma once

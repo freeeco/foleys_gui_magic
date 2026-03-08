@@ -171,6 +171,7 @@ public:
     
     void prepareForTreeSwap();
     void completeTreeSwap();
+    void setPropertyAndRelayout(const juce::String& targetId, const juce::Identifier& property, const juce::var& value);
 
     /**
      This is used to display a dialog box. It is called by the GUI editor, but in future it might be reached

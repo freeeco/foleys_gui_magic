@@ -127,6 +127,16 @@ void GuiItem::updateInternal()
     repaint();
 }
 
+void GuiItem::suspendNodeListening()
+{
+    configNode.removeListener(this);
+}
+
+void GuiItem::resumeNodeListening()
+{
+    configNode.addListener(this);
+}
+
 void GuiItem::updateColours()
 {
     decorator.updateColours (magicBuilder, configNode);

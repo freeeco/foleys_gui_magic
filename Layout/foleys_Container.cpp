@@ -311,9 +311,20 @@ void Container::updateLayout()
             updateTabbedButtons();
             tabbedButtons->setBounds(clientBounds.removeFromTop (tabbarHeight));
         }
-
+        
+//        for (auto& child : children)
+//            child->setBounds (clientBounds);
+        
+        
+        // Only lay out the visible tab child, not all children.
+        // Since hidden tabs skip setBounds here, Container::updateSelectedTab
+        // must set bounds on the newly visible child when switching tabs.
+        
         for (auto& child : children)
-            child->setBounds (clientBounds);
+        {
+            if (child->isVisible())
+                child->setBounds (clientBounds);
+        }
     }
     else // layout == Layout::Contents
     {
@@ -494,8 +505,26 @@ void Container::valueChanged (juce::Value& source)
     handleValueChanged (source);
 }
 
+// This version of updateSelectedTab doesn't check if the child bounds are already correct
+
+//void Container::updateSelectedTab()
+//{
+//    int tabIndex = 0;
+//    for (auto& child : children)
+//    {
+//        if (!child->getStaticVisibility())
+//        {
+//            child->setVisible (false);
+//            continue;
+//        }
+//        child->setVisible (currentTab == tabIndex++);
+//    }
+//}
+
 void Container::updateSelectedTab()
 {
+    auto clientBounds = viewport.getLocalBounds();
+    
     int tabIndex = 0;
     for (auto& child : children)
     {
@@ -504,7 +533,10 @@ void Container::updateSelectedTab()
             child->setVisible (false);
             continue;
         }
-        child->setVisible (currentTab == tabIndex++);
+        bool shouldShow = (currentTab == tabIndex++);
+        child->setVisible (shouldShow);
+        if (shouldShow && child->getBounds() != clientBounds)
+            child->setBounds (clientBounds);
     }
 }
 
