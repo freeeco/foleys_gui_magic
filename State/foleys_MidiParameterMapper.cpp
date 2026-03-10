@@ -142,28 +142,31 @@ juce::ValueTree MidiParameterMapper::getMappingSettings()
 
 void MidiParameterMapper::recreateMidiMapper()
 {
-    auto mappings = getMappingSettings();
+    auto mappings = settings->settings.getChildWithName (IDs::mappings);
+
     if (! mappings.isValid())
+    {
+        const juce::ScopedLock lock (mappingLock);
+        midiMapper.clear();
         return;
+    }
 
     MidiMapping newMapping;
 
     for (auto item : mappings)
     {
-        int  ccNum   = item.getProperty (IDs::cc, -1);
+        int ccNum = item.getProperty (IDs::cc, -1);
         auto paramID = item.getProperty (IDs::parameter, juce::String()).toString();
+
         if (ccNum < 1 || paramID.isEmpty())
             continue;
 
-        auto* parameter = state.getParameter (paramID);
-        if (parameter == nullptr)
-            continue;
-
-        newMapping [ccNum].push_back (parameter);
+        if (auto* parameter = state.getParameter (paramID))
+            newMapping[ccNum].push_back (parameter);
     }
 
-    juce::ScopedLock lock (mappingLock);
-    midiMapper = newMapping;
+    const juce::ScopedLock lock (mappingLock);
+    midiMapper = std::move (newMapping);
 }
 
 void MidiParameterMapper::valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&)
