@@ -451,7 +451,7 @@ void NewMidiKeyboardComponent::drawBlackNote (int /*midiNoteNumber*/, Graphics& 
     if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
 
     const auto currentOrientation = getOrientation();
-    const auto cornerSize = 3.0f;
+    const auto cornerSize = 4.2f;
 
     // Bottom gap shrinks by 50% when pressed — gives the "pushed in" illusion
     const auto bottomGapFraction = isDown ? 0.045f : 0.09f;
@@ -488,7 +488,7 @@ void NewMidiKeyboardComponent::drawBlackNote (int /*midiNoteNumber*/, Graphics& 
     Path faceShape;
     faceShape.addRoundedRectangle (faceArea.getX(), faceArea.getY(),
                                    faceArea.getWidth(), faceArea.getHeight(),
-                                   cornerSize * 0.6f, cornerSize * 0.6f,
+                                   cornerSize * 0.8f, cornerSize * 0.8f,
                                    false, false,
                                    currentOrientation == horizontalKeyboard,
                                    currentOrientation == horizontalKeyboard);
