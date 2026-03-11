@@ -241,16 +241,39 @@ void MagicGUIBuilder::updateLayout (juce::Rectangle<int> bounds)
 
     if (root.get() != nullptr)
     {
-        if (!stylesheet.setMediaSize (bounds.getWidth(), bounds.getHeight()))
+        auto rootBounds = bounds;
+
+#if JUCE_IOS
+        const auto rootNode = getGuiRootNode();
+        int minW = 0;
+        int minH = 0;
+
+        #ifdef IOS_MIN_WINDOW_WIDTH
+            minW = IOS_MIN_WINDOW_WIDTH;
+        #else
+            minW = static_cast<int> (getStyleProperty (IDs::minWidth, rootNode));
+        #endif
+
+        #ifdef IOS_MIN_WINDOW_HEIGHT
+            minH = IOS_MIN_WINDOW_HEIGHT;
+        #else
+            minH = static_cast<int> (getStyleProperty (IDs::minHeight, rootNode));
+        #endif
+
+        if (minW > 0) rootBounds.setWidth  (juce::jmax (rootBounds.getWidth(),  minW));
+        if (minH > 0) rootBounds.setHeight (juce::jmax (rootBounds.getHeight(), minH));
+#endif
+
+        if (! stylesheet.setMediaSize (bounds.getWidth(), bounds.getHeight()))
         {
             stylesheet.updateValidRanges();
             root->updateInternal();
         }
 
-        if (root->getBounds() == bounds)
+        if (root->getBounds() == rootBounds)
             root->updateLayout();
         else
-            root->setBounds (bounds);
+            root->setBounds (rootBounds);
     }
 
     if (overlayDialog)

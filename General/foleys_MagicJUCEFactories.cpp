@@ -1144,16 +1144,16 @@ public:
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node),
-        keyboard (getMagicState().getKeyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard)
+        keyboard (getMagicState().getKeyboardState(), juce::NewMidiKeyboardComponent::horizontalKeyboard)
     {
         setColourTranslation (
         {
-            { "white-note-color",      juce::MidiKeyboardComponent::whiteNoteColourId },
-            { "black-note-color",      juce::MidiKeyboardComponent::blackNoteColourId },
-            { "key-separator-line-color", juce::MidiKeyboardComponent::keySeparatorLineColourId },
-            { "mouse-over-color",      juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId },
-            { "key-down-color",        juce::MidiKeyboardComponent::keyDownOverlayColourId },
-            { "text-label-color",      juce::MidiKeyboardComponent::textLabelColourId },
+            { "white-note-color",      juce::NewMidiKeyboardComponent::whiteNoteColourId },
+            { "black-note-color",      juce::NewMidiKeyboardComponent::blackNoteColourId },
+            { "key-separator-line-color", juce::NewMidiKeyboardComponent::keySeparatorLineColourId },
+            { "mouse-over-color",      juce::NewMidiKeyboardComponent::mouseOverKeyOverlayColourId },
+            { "key-down-color",        juce::NewMidiKeyboardComponent::keyDownOverlayColourId },
+            { "text-label-color",      juce::NewMidiKeyboardComponent::textLabelColourId },
         });
 
         addAndMakeVisible (keyboard);
@@ -1174,11 +1174,11 @@ public:
 
         auto orientation = getProperty ("orientation").toString();
         if (orientation == "vertical-left")
-            keyboard.setOrientation (juce::MidiKeyboardComponent::verticalKeyboardFacingLeft);
+            keyboard.setOrientation (juce::NewMidiKeyboardComponent::verticalKeyboardFacingLeft);
         else if (orientation == "vertical-right")
-            keyboard.setOrientation (juce::MidiKeyboardComponent::verticalKeyboardFacingRight);
+            keyboard.setOrientation (juce::NewMidiKeyboardComponent::verticalKeyboardFacingRight);
         else
-            keyboard.setOrientation (juce::MidiKeyboardComponent::horizontalKeyboard);
+            keyboard.setOrientation (juce::NewMidiKeyboardComponent::horizontalKeyboard);
     }
     
     std::vector<SettableProperty> getSettableProperties() const override
@@ -1195,7 +1195,7 @@ public:
     }
 
 private:
-    juce::MidiKeyboardComponent keyboard;
+    juce::NewMidiKeyboardComponent keyboard;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardItem)
 };

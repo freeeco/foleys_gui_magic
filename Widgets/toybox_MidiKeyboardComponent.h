@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <melatonin_blur/melatonin_blur.h>
+
 namespace juce
 {
 
@@ -282,6 +284,8 @@ private:
     BigInteger keysPressed, keysCurrentlyDrawnDown;
 
     std::atomic<bool> noPendingUpdates { true };
+
+    melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NewMidiKeyboardComponent)

@@ -304,7 +304,9 @@ void NewMidiKeyboardComponent::focusLost (FocusChangeType)
 //==============================================================================
 void NewMidiKeyboardComponent::drawKeyboardBackground (Graphics& g, Rectangle<float> area)
 {
-    g.fillAll (findColour (whiteNoteColourId));
+    // Dark background — white keys are painted on top with rounded corners,
+    // and the gaps between keys show through as dark separator lines.
+    g.fillAll (findColour (keySeparatorLineColourId));
 
     auto width = area.getWidth();
     auto height = area.getHeight();
@@ -362,56 +364,81 @@ void NewMidiKeyboardComponent::drawKeyboardBackground (Graphics& g, Rectangle<fl
 void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
                                            bool isDown, bool isOver, Colour lineColour, Colour textColour)
 {
-    auto c = Colours::transparentWhite;
-
-    if (isDown)  c = findColour (keyDownOverlayColourId);
-    if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
-
-    g.setColour (c);
-    g.fillRect (area);
-
     const auto currentOrientation = getOrientation();
+    const auto cornerSize = 4.0f;
 
+    // Inset slightly so dark background shows through as key separator gaps
+    auto keyArea = (currentOrientation == horizontalKeyboard)
+                       ? area.reduced (0.5f, 0.0f)
+                       : area.reduced (0.0f, 0.5f);
+
+    // Build a path with only the bottom corners rounded (for horizontal orientation)
+    Path keyShape;
+    keyShape.addRoundedRectangle (keyArea.getX(), keyArea.getY(),
+                                  keyArea.getWidth(), keyArea.getHeight(),
+                                  cornerSize, cornerSize,
+                                  false,  // top-left
+                                  false,  // top-right
+                                  currentOrientation == horizontalKeyboard,   // bottom-left
+                                  currentOrientation == horizontalKeyboard);  // bottom-right
+
+    // 1) Fill with the white note base colour
+    g.setColour (findColour (whiteNoteColourId));
+    g.fillPath (keyShape);
+
+    // 2) Subtle top-to-bottom gradient — slightly darker at the bottom,
+    //    simulating overhead light hitting the face of the key
+    if (currentOrientation == horizontalKeyboard)
+    {
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.0f),  keyArea.getX(), keyArea.getY(),
+                                           Colours::black.withAlpha (0.10f), keyArea.getX(), keyArea.getBottom(),
+                                           false));
+    }
+    else
+    {
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.0f),  keyArea.getX(), keyArea.getY(),
+                                           Colours::black.withAlpha (0.10f), keyArea.getRight(), keyArea.getY(),
+                                           false));
+    }
+    g.fillPath (keyShape);
+
+    // 3) Inner shadow at the top edge — as if the key goes under a panel
+    if (currentOrientation == horizontalKeyboard)
+    {
+        auto shadowHeight = jmin (6.0f, keyArea.getHeight() * 0.04f);
+        g.setGradientFill (ColourGradient (Colours::black.withAlpha (0.08f), keyArea.getX(), keyArea.getY(),
+                                           Colours::black.withAlpha (0.0f),  keyArea.getX(), keyArea.getY() + shadowHeight,
+                                           false));
+        g.fillRect (keyArea.withHeight (shadowHeight));
+    }
+
+    // 4) Overlay hover / key-down state
+    if (isDown || isOver)
+    {
+        auto c = Colours::transparentWhite;
+        if (isDown)       c = findColour (keyDownOverlayColourId);
+        else if (isOver)  c = findColour (mouseOverKeyOverlayColourId);
+
+        g.setColour (c);
+        g.fillPath (keyShape);
+    }
+
+    // 5) Text label (C markers)
     auto text = getWhiteNoteText (midiNoteNumber);
 
     if (text.isNotEmpty())
     {
-//        auto fontHeight = jmin (12.0f, getKeyWidth() * 0.9f);
-        auto fontHeight = jmin (14.0f, getKeyWidth() * 0.9f); // Easier to read text size
+        auto fontHeight = jmin (14.0f, getKeyWidth() * 0.9f);
 
         g.setColour (textColour);
         g.setFont (withDefaultMetrics (FontOptions { fontHeight }).withHorizontalScale (0.8f));
 
         switch (currentOrientation)
         {
-            case horizontalKeyboard:            g.drawText (text, area.withTrimmedLeft (1.0f).withTrimmedBottom (2.0f), Justification::centredBottom, false); break;
-            case verticalKeyboardFacingLeft:    g.drawText (text, area.reduced (2.0f), Justification::centredLeft,   false); break;
-            case verticalKeyboardFacingRight:   g.drawText (text, area.reduced (2.0f), Justification::centredRight,  false); break;
+            case horizontalKeyboard:            g.drawText (text, keyArea.withTrimmedLeft (1.0f).withTrimmedBottom (7.0f), Justification::centredBottom, false); break;
+            case verticalKeyboardFacingLeft:    g.drawText (text, keyArea.reduced (2.0f), Justification::centredLeft,   false); break;
+            case verticalKeyboardFacingRight:   g.drawText (text, keyArea.reduced (2.0f), Justification::centredRight,  false); break;
             default: break;
-        }
-    }
-
-    if (! lineColour.isTransparent())
-    {
-        g.setColour (lineColour);
-
-        switch (currentOrientation)
-        {
-            case horizontalKeyboard:            g.fillRect (area.withWidth (1.0f)); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (area.withHeight (1.0f)); break;
-            case verticalKeyboardFacingRight:   g.fillRect (area.removeFromBottom (1.0f)); break;
-            default: break;
-        }
-
-        if (midiNoteNumber == getRangeEnd())
-        {
-            switch (currentOrientation)
-            {
-                case horizontalKeyboard:            g.fillRect (area.expanded (1.0f, 0).removeFromRight (1.0f)); break;
-                case verticalKeyboardFacingLeft:    g.fillRect (area.expanded (0, 1.0f).removeFromBottom (1.0f)); break;
-                case verticalKeyboardFacingRight:   g.fillRect (area.expanded (0, 1.0f).removeFromTop (1.0f)); break;
-                default: break;
-            }
         }
     }
 }
@@ -420,33 +447,113 @@ void NewMidiKeyboardComponent::drawBlackNote (int /*midiNoteNumber*/, Graphics& 
                                            bool isDown, bool isOver, Colour noteFillColour)
 {
     auto c = noteFillColour;
-
-    if (isDown)  c = c.overlaidWith (findColour (keyDownOverlayColourId));
+    if (isDown)  c = c.brighter (0.30f);
     if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
 
-    g.setColour (c);
-    g.fillRect (area);
+    const auto currentOrientation = getOrientation();
+    const auto cornerSize = 3.0f;
 
-    if (isDown)
+    // Bottom gap shrinks by 50% when pressed — gives the "pushed in" illusion
+    const auto bottomGapFraction = isDown ? 0.045f : 0.09f;
+
+    // Rounded bottom corners to match white keys
+    Path keyShape;
+    keyShape.addRoundedRectangle (area.getX(), area.getY(),
+                                  area.getWidth(), area.getHeight(),
+                                  cornerSize, cornerSize,
+                                  false, false,
+                                  currentOrientation == horizontalKeyboard,
+                                  currentOrientation == horizontalKeyboard);
+
+    // 1) Drop shadow rendered before the key fill
+    blackKeyShadow.render (g, keyShape);
+
+    // 2) Base fill (the dark sides/edges)
+    g.setColour (c);
+    g.fillPath (keyShape);
+
+    // 2) Lighter face on the upper portion of the key
+    auto faceArea = area;
+
+    if (currentOrientation == horizontalKeyboard)
+        faceArea = area.reduced (area.getWidth() * 0.12f, 0.0f)
+                       .withTrimmedBottom (area.getHeight() * bottomGapFraction);
+    else if (currentOrientation == verticalKeyboardFacingLeft)
+        faceArea = area.reduced (0.0f, area.getHeight() * 0.12f)
+                       .withTrimmedLeft (area.getWidth() * bottomGapFraction);
+    else
+        faceArea = area.reduced (0.0f, area.getHeight() * 0.12f)
+                       .withTrimmedRight (area.getWidth() * bottomGapFraction);
+
+    Path faceShape;
+    faceShape.addRoundedRectangle (faceArea.getX(), faceArea.getY(),
+                                   faceArea.getWidth(), faceArea.getHeight(),
+                                   cornerSize * 0.6f, cornerSize * 0.6f,
+                                   false, false,
+                                   currentOrientation == horizontalKeyboard,
+                                   currentOrientation == horizontalKeyboard);
+
+    g.setColour (c.brighter (isDown ? 0.14f : 0.22f));
+    g.fillPath (faceShape);
+
+    // 3) Specular highlight — soft bright spot on the upper third of the face
+    if (currentOrientation == horizontalKeyboard)
     {
-        g.setColour (noteFillColour);
-        g.drawRect (area);
+        auto specHeight = faceArea.getHeight() * 0.35f;
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.09f), faceArea.getX(), faceArea.getY(),
+                                           Colours::white.withAlpha (0.0f),  faceArea.getX(), faceArea.getY() + specHeight,
+                                           false));
+        g.fillRect (faceArea.withHeight (specHeight));
+    }
+
+    // 4) Thin highlight line along the top rim of the face
+    if (currentOrientation == horizontalKeyboard)
+    {
+        g.setColour (Colours::white.withAlpha (0.07f));
+        g.fillRect (faceArea.withHeight (1.0f));
+    }
+
+    // 5) Gradient for depth — lighter at top, slightly lighter at bottom
+    //    to keep contrast visible against the side edges
+    if (currentOrientation == horizontalKeyboard)
+    {
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
+                                           Colours::black.withAlpha (0.06f), area.getX(), area.getBottom(),
+                                           false));
     }
     else
     {
-        g.setColour (c.brighter());
-        auto sideIndent = 1.0f / 8.0f;
-        auto topIndent = 7.0f / 8.0f;
-        auto w = area.getWidth();
-        auto h = area.getHeight();
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
+                                           Colours::black.withAlpha (0.06f), area.getRight(), area.getY(),
+                                           false));
+    }
 
-        switch (getOrientation())
-        {
-            case horizontalKeyboard:            g.fillRect (area.reduced (w * sideIndent, 0).removeFromTop   (h * topIndent)); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (area.reduced (0, h * sideIndent).removeFromRight (w * topIndent)); break;
-            case verticalKeyboardFacingRight:   g.fillRect (area.reduced (0, h * sideIndent).removeFromLeft  (w * topIndent)); break;
-            default: break;
-        }
+    g.fillPath (keyShape);
+
+    // 6) Dark crease where the face meets the lower ledge
+    if (currentOrientation == horizontalKeyboard)
+    {
+        g.setColour (Colours::black.withAlpha (0.18f));
+        g.fillRect (faceArea.getX(), faceArea.getBottom(), faceArea.getWidth(), 1.0f);
+    }
+
+    // 6b) Subtle specular highlight at the lower corners of the face —
+    //     light catching the rounded bottom edge
+    if (currentOrientation == horizontalKeyboard)
+    {
+        auto highlightHeight = faceArea.getHeight() * 0.12f;
+        auto highlightY = faceArea.getBottom() - highlightHeight;
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.0f),  faceArea.getX(), highlightY,
+                                           Colours::white.withAlpha (0.06f), faceArea.getX(), faceArea.getBottom(),
+                                           false));
+        g.fillRect (faceArea.getX(), highlightY, faceArea.getWidth(), highlightHeight);
+    }
+
+    // 7) Overlay key-down tint — reduced opacity so the 3D structure reads through
+    if (isDown)
+    {
+        g.setColour (findColour (keyDownOverlayColourId).withMultipliedAlpha (0.4f));
+        g.fillPath (keyShape);
     }
 }
 
