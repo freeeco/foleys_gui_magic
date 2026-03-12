@@ -515,6 +515,37 @@ void PropertiesEditor::updatePopupMenu()
                 if (p != nullptr)
                     p->deleteClass (name);
             }));
+
+            menu.addSeparator();
+
+            auto classesParent = style.getChildWithName (IDs::classes);
+            auto currentIndex = classesParent.indexOf (styleItem);
+
+            menu.addItem (juce::PopupMenu::Item ("Bring Forward")
+                          .setEnabled (currentIndex > 0)
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), currentIndex]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto cp = p->style.getChildWithName (IDs::classes);
+                    cp.moveChild (currentIndex, currentIndex - 1, &p->undo);
+                    p->updatePopupMenu();
+                    p->nodeSelect.setSelectedId (ComboIDs::ClassEdit + currentIndex - 1, juce::dontSendNotification);
+                }
+            }));
+
+            menu.addItem (juce::PopupMenu::Item ("Send Back")
+                          .setEnabled (currentIndex < classesParent.getNumChildren() - 1)
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), currentIndex]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto cp = p->style.getChildWithName (IDs::classes);
+                    cp.moveChild (currentIndex, currentIndex + 1, &p->undo);
+                    p->updatePopupMenu();
+                    p->nodeSelect.setSelectedId (ComboIDs::ClassEdit + currentIndex + 1, juce::dontSendNotification);
+                }
+            }));
         }
 
         popup->addSubMenu ("Classes", menu);
