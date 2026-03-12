@@ -2038,12 +2038,15 @@ void ToolBox::timerCallback (int timer)
 
         if (shouldTempEdit && !builder.isEditModeOn())
         {
+            treeEditor.getTreeView().setMultiSelectEnabled (false);
             builder.setEditMode (true);
+            builder.setSelectedNode ({});
             temporaryEditMode = true;
         }
         else if (!shouldTempEdit && temporaryEditMode)
         {
             builder.setEditMode (false);
+            treeEditor.getTreeView().setMultiSelectEnabled (true);
             temporaryEditMode = false;
         }
     }
