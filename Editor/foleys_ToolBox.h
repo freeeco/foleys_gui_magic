@@ -170,6 +170,11 @@ private:
      */
     void insertSnippet (const juce::File& file);
 
+    // Multi-select helpers
+    juce::Array<juce::ValueTree> getSelectedNodes() const;
+    void forEachSelected (std::function<void (juce::ValueTree&)> fn);
+    bool hasMultipleSelected() const;
+
     // Edit operations - called from both the Edit menu and keyboard shortcuts
     void performUndo();
     void performRedo();

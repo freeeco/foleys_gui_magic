@@ -44,7 +44,7 @@ GUITreeEditor::GUITreeEditor (MagicGUIBuilder& builderToEdit)
     undo (builder.getUndoManager())
 {
     treeView.setRootItemVisible (true);
-    treeView.setMultiSelectEnabled (false);
+    treeView.setMultiSelectEnabled (true);
 
     setValueTree (tree);
 
@@ -175,7 +175,9 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
         itemToSelect = childItem;
     }
 
-    itemToSelect->setSelected (true, true, juce::dontSendNotification);
+    bool deselectOthers = ! (juce::ModifierKeys::getCurrentModifiers().isCommandDown()
+                          || juce::ModifierKeys::getCurrentModifiers().isShiftDown());
+    itemToSelect->setSelected (true, deselectOthers, juce::dontSendNotification);
     juce::MessageManager::callAsync ([this, itemToSelect]()
     {
         if (itemToSelect != nullptr)
@@ -367,6 +369,17 @@ void GUITreeEditor::expandAll()
     };
 
     expandRecursive (rootItem.get());
+}
+
+juce::Array<juce::ValueTree> GUITreeEditor::getSelectedNodes() const
+{
+    juce::Array<juce::ValueTree> nodes;
+    for (int i = 0; i < treeView.getNumSelectedItems(); ++i)
+    {
+        if (auto* item = dynamic_cast<GuiTreeItem*> (treeView.getSelectedItem (i)))
+            nodes.add (item->getTree());
+    }
+    return nodes;
 }
 
 

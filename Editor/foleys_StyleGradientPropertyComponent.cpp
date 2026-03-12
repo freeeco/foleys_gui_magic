@@ -157,7 +157,8 @@ StyleGradientPropertyComponent::GradientPanel::GradientPanel (GradientBackground
     };
 
     angle.setRange (0, 360, 1);
-    angle.setTextValueSuffix (juce::String::fromUTF8 ("\u00B0"));
+//    angle.setTextValueSuffix (juce::String::fromUTF8 ("\u00B0"));
+    angle.setTextValueSuffix (juce::String::fromUTF8 (u8"\u00B0"));
     addAndMakeVisible (angle);
     angle.setValue (juce::radiansToDegrees (gradient.angle));
     angle.onValueChange = [&]

@@ -69,6 +69,8 @@ public:
     void collapseAll();
     
     void expandAll();
+    
+    juce::Array<juce::ValueTree> getSelectedNodes() const;
 
 private:
     class GuiTreeItem : public juce::TreeViewItem

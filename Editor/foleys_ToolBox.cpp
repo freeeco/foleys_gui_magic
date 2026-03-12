@@ -294,14 +294,15 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Delete");
             it.action = [&]
             {
-                auto selected = builder.getSelectedNode();
-                if (selected.isValid())
+                auto nodes = getSelectedNodes();
+                if (!nodes.isEmpty())
                 {
-                    auto p = selected.getParent();
-                    if (p.isValid())
+                    undo.beginNewTransaction ("Delete");
+                    for (int i = nodes.size(); --i >= 0;)
                     {
-                        undo.beginNewTransaction ("Delete");
-                        p.removeChild (selected, &undo);
+                        auto p = nodes[i].getParent();
+                        if (p.isValid())
+                            p.removeChild (nodes[i], &undo);
                     }
                 }
             };
@@ -312,11 +313,13 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Delete All Children");
             it.action = [&]
             {
-                auto selected = builder.getSelectedNode();
-                if (selected.isValid())
+                auto nodes = getSelectedNodes();
+                if (!nodes.isEmpty())
                 {
                     undo.beginNewTransaction ("Delete All Children");
-                    selected.removeAllChildren (&undo);
+                    for (auto& node : nodes)
+                        if (node.isValid())
+                            node.removeAllChildren (&undo);
                 }
             };
             it.shortcutKeyDescription = "Cmd+Delete";
@@ -663,6 +666,32 @@ ToolBox::~ToolBox()
 // Edit operations
 //==============================================================================
 
+//==============================================================================
+// Multi-select helpers
+//==============================================================================
+
+juce::Array<juce::ValueTree> ToolBox::getSelectedNodes() const
+{
+    // Delegate to tree editor which queries TreeView::getSelectedItem()
+    return treeEditor.getSelectedNodes();
+}
+
+void ToolBox::forEachSelected (std::function<void (juce::ValueTree&)> fn)
+{
+    auto nodes = getSelectedNodes();
+
+    for (auto& node : nodes)
+        if (node.isValid())
+            fn (node);
+}
+
+bool ToolBox::hasMultipleSelected() const
+{
+    return getSelectedNodes().size() > 1;
+}
+
+//==============================================================================
+
 void ToolBox::performUndo()
 {
     undo.undo();
@@ -679,10 +708,16 @@ void ToolBox::performCut()
     if (selected.isValid())
     {
         juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
-        auto p = selected.getParent();
-        if (p.isValid()){
-            undo.beginNewTransaction ("Cut");
-            p.removeChild (selected, &undo);
+
+        auto nodes = getSelectedNodes();
+        undo.beginNewTransaction ("Cut");
+
+        // Remove in reverse child order so indices don't shift
+        for (int i = nodes.size(); --i >= 0;)
+        {
+            auto p = nodes[i].getParent();
+            if (p.isValid())
+                p.removeChild (nodes[i], &undo);
         }
     }
 }
@@ -717,9 +752,9 @@ void ToolBox::performPasteUnique()
 void ToolBox::performPasteDimensions()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
-    auto selected = builder.getSelectedNode();
+    auto nodes = getSelectedNodes();
 
-    if (!paste.isValid() || !selected.isValid())
+    if (!paste.isValid() || nodes.isEmpty())
         return;
 
     static const juce::Identifier dimensionProps[] = {
@@ -732,17 +767,18 @@ void ToolBox::performPasteDimensions()
 
     undo.beginNewTransaction("Paste Dimensions");
 
-    for (const auto& prop : dimensionProps)
-        if (paste.hasProperty (prop))
-            selected.setProperty (prop, paste.getProperty (prop), &undo);
+    for (auto& selected : nodes)
+        for (const auto& prop : dimensionProps)
+            if (paste.hasProperty (prop))
+                selected.setProperty (prop, paste.getProperty (prop), &undo);
 }
 
 void ToolBox::performPasteItemProperties()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
-    auto selected = builder.getSelectedNode();
+    auto nodes = getSelectedNodes();
 
-    if (!paste.isValid() || !selected.isValid())
+    if (!paste.isValid() || nodes.isEmpty())
         return;
 
     static const juce::Identifier itemProps[] = {
@@ -790,17 +826,18 @@ void ToolBox::performPasteItemProperties()
 
     undo.beginNewTransaction("Paste Item Properties");
 
-    for (const auto& prop : itemProps)
-        if (paste.hasProperty (prop))
-            selected.setProperty (prop, paste.getProperty (prop), &undo);
+    for (auto& selected : nodes)
+        for (const auto& prop : itemProps)
+            if (paste.hasProperty (prop))
+                selected.setProperty (prop, paste.getProperty (prop), &undo);
 }
 
 void ToolBox::performPasteStyling()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
-    auto selected = builder.getSelectedNode();
+    auto nodes = getSelectedNodes();
 
-    if (!paste.isValid() || !selected.isValid())
+    if (!paste.isValid() || nodes.isEmpty())
         return;
 
     static const juce::Identifier stylingProps[] = {
@@ -835,9 +872,10 @@ void ToolBox::performPasteStyling()
 
     undo.beginNewTransaction("Paste Styling");
 
-    for (const auto& prop : stylingProps)
-        if (paste.hasProperty (prop))
-            selected.setProperty (prop, paste.getProperty (prop), &undo);
+    for (auto& selected : nodes)
+        for (const auto& prop : stylingProps)
+            if (paste.hasProperty (prop))
+                selected.setProperty (prop, paste.getProperty (prop), &undo);
 }
 
 void ToolBox::performPasteReplace()
@@ -1015,41 +1053,14 @@ void ToolBox::performDeselect()
 
 void ToolBox::performClearDimensions()
 {
-    auto selected = builder.getSelectedNode();
-    if (!selected.isValid())
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty())
         return;
 
     undo.beginNewTransaction("Clear Dimensions");
 
-    propertiesEditor.removeProperties ({
-        juce::Identifier ("pos-x"),
-        juce::Identifier ("pos-y"),
-        juce::Identifier ("pos-width"),
-        juce::Identifier ("pos-height"),
-        juce::Identifier ("dont-snap-to-pixels")
-    });
-}
-
-void ToolBox::performWrapInView()
-{
-    auto selected = builder.getSelectedNode();
-    if (!selected.isValid())
-        return;
-
-    auto parent = selected.getParent();
-    if (!parent.isValid())
-        return;
-
-    undo.beginNewTransaction("Wrap In View");
-
-    auto index = parent.indexOf (selected);
-
-    // Create the wrapper View node
-    juce::ValueTree wrapper ("View");
-
-    // Transfer dimension properties from selected to wrapper,
-    // breaking live bindings before removal
-    static const juce::Identifier dimensionProps[] = {
+    // For multi-select, clear dimensions on each node directly
+    static const juce::Identifier dimProps[] = {
         juce::Identifier ("pos-x"),
         juce::Identifier ("pos-y"),
         juce::Identifier ("pos-width"),
@@ -1057,23 +1068,77 @@ void ToolBox::performWrapInView()
         juce::Identifier ("dont-snap-to-pixels")
     };
 
-    for (const auto& prop : dimensionProps)
-        if (selected.hasProperty (prop))
-            wrapper.setProperty (prop, selected.getProperty (prop), nullptr);
+    for (auto& node : nodes)
+        for (const auto& prop : dimProps)
+            node.removeProperty (prop, &undo);
+}
 
-    propertiesEditor.removeProperties ({
-        juce::Identifier ("pos-x"),
-        juce::Identifier ("pos-y"),
-        juce::Identifier ("pos-width"),
-        juce::Identifier ("pos-height"),
-        juce::Identifier ("dont-snap-to-pixels")
-    });
+void ToolBox::performWrapInView()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty())
+        return;
 
-    // Insert wrapper where the selected node was
-    builder.draggedItemOnto (wrapper, parent, index);
+    // Verify all selected nodes share the same parent
+    auto parent = nodes.getFirst().getParent();
+    if (!parent.isValid())
+        return;
 
-    // Move selected into the wrapper
-    builder.draggedItemOnto (selected, wrapper);
+    for (auto& node : nodes)
+    {
+        if (node.getParent() != parent)
+        {
+            juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                    "Wrap In View",
+                                                    "Selected items must be at the same level.");
+            return;
+        }
+    }
+
+    undo.beginNewTransaction ("Wrap In View");
+
+    // Sort by current index so they stay in order inside the wrapper
+    std::sort (nodes.begin(), nodes.end(),
+       [&](const juce::ValueTree& a, const juce::ValueTree& b)
+       {
+           return parent.indexOf (a) < parent.indexOf (b);
+       });
+
+    int insertIndex = parent.indexOf (nodes.getFirst());
+
+    juce::ValueTree wrapper ("View");
+
+    // Transfer dimension properties only for single selection
+    if (nodes.size() == 1)
+    {
+        auto& selected = nodes.getReference (0);
+
+        static const juce::Identifier dimensionProps[] = {
+            juce::Identifier ("pos-x"),
+            juce::Identifier ("pos-y"),
+            juce::Identifier ("pos-width"),
+            juce::Identifier ("pos-height"),
+            juce::Identifier ("dont-snap-to-pixels")
+        };
+
+        for (const auto& prop : dimensionProps)
+            if (selected.hasProperty (prop))
+                wrapper.setProperty (prop, selected.getProperty (prop), nullptr);
+
+        for (const auto& prop : dimensionProps)
+            selected.removeProperty (prop, &undo);
+    }
+
+    // Insert wrapper where the first selected node was
+    parent.addChild (wrapper, insertIndex, &undo);
+
+    // Remove nodes from parent in reverse order (preserves indices)
+    for (int i = nodes.size(); --i >= 0;)
+        parent.removeChild (nodes[i], &undo);
+
+    // Append them to wrapper in forward order
+    for (auto& node : nodes)
+        wrapper.appendChild (node, &undo);
 
     setSelectedNode (wrapper);
 }
@@ -1400,28 +1465,34 @@ bool ToolBox::keyPressed (const juce::KeyPress& key, juce::Component*)
 
 bool ToolBox::keyPressed (const juce::KeyPress& key)
 {
-    // Delete / Backspace - remove selected node
+    // Delete / Backspace - remove selected node(s)
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && !key.getModifiers().isCommandDown())
     {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid())
+        auto nodes = getSelectedNodes();
+        if (!nodes.isEmpty())
         {
-            auto p = selected.getParent();
-            if (p.isValid())
-                undo.beginNewTransaction ("Delete");
-                p.removeChild (selected, &undo);
+            undo.beginNewTransaction ("Delete");
+            for (int i = nodes.size(); --i >= 0;)
+            {
+                auto p = nodes[i].getParent();
+                if (p.isValid())
+                    p.removeChild (nodes[i], &undo);
+            }
         }
 
         return true;
     }
 
-    // Cmd+Delete - remove all children of selected node
+    // Cmd+Delete - remove all children of selected node(s)
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && key.getModifiers().isCommandDown())
     {
-        auto selected = builder.getSelectedNode();
-        if (selected.isValid()){
+        auto nodes = getSelectedNodes();
+        if (!nodes.isEmpty())
+        {
             undo.beginNewTransaction ("Delete All Children");
-            selected.removeAllChildren (&undo);
+            for (auto& node : nodes)
+                if (node.isValid())
+                    node.removeAllChildren (&undo);
         }
 
         return true;
@@ -1519,49 +1590,57 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
-    // Arrow keys - nudge selected item
+    // Arrow keys - nudge selected item(s)
     if (key.isKeyCode (juce::KeyPress::leftKey))
     {
-        auto selected = builder.getSelectedNode();
-        if (auto* item = builder.findGuiItem (selected))
-        {
-            item->nudgeLeft();
-            return true;
-        }
-        return false;
+        bool handled = false;
+        forEachSelected ([&](auto& node) {
+            if (auto* item = builder.findGuiItem (node))
+            {
+                item->nudgeLeft();
+                handled = true;
+            }
+        });
+        return handled;
     }
 
     if (key.isKeyCode (juce::KeyPress::rightKey))
     {
-        auto selected = builder.getSelectedNode();
-        if (auto* item = builder.findGuiItem (selected))
-        {
-            item->nudgeRight();
-            return true;
-        }
-        return false;
+        bool handled = false;
+        forEachSelected ([&](auto& node) {
+            if (auto* item = builder.findGuiItem (node))
+            {
+                item->nudgeRight();
+                handled = true;
+            }
+        });
+        return handled;
     }
 
     if (key.isKeyCode (juce::KeyPress::upKey))
     {
-        auto selected = builder.getSelectedNode();
-        if (auto* item = builder.findGuiItem (selected))
-        {
-            item->nudgeUp();
-            return true;
-        }
-        return false;
+        bool handled = false;
+        forEachSelected ([&](auto& node) {
+            if (auto* item = builder.findGuiItem (node))
+            {
+                item->nudgeUp();
+                handled = true;
+            }
+        });
+        return handled;
     }
 
     if (key.isKeyCode (juce::KeyPress::downKey))
     {
-        auto selected = builder.getSelectedNode();
-        if (auto* item = builder.findGuiItem (selected))
-        {
-            item->nudgeDown();
-            return true;
-        }
-        return false;
+        bool handled = false;
+        forEachSelected ([&](auto& node) {
+            if (auto* item = builder.findGuiItem (node))
+            {
+                item->nudgeDown();
+                handled = true;
+            }
+        });
+        return handled;
     }
     
     // Cmd+[ - send back, Cmd+{ (Shift+[) - send to back

@@ -512,7 +512,7 @@ void PropertiesEditor::updatePopupMenu()
     auto* popup = nodeSelect.getRootMenu();
     popup->clear();
     
-   popup->addItem (juce::PopupMenu::Item ("Edit Nodes")
+   popup->addItem (juce::PopupMenu::Item ("Edit Tree")
                     .setID (1)
                     .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
     {
@@ -686,7 +686,7 @@ void PropertiesEditor::updatePopupMenu()
                 bool validName = juce::XmlElement::isValidXmlName (id);
 
                 menu.addItem (juce::PopupMenu::Item (validName ? "Node: " + id
-                                                               : "Node: " + id + " (invalid id)")
+                                                               : "Node: " + id + " (Invalid id)")
                               .setID (nodeIndex++)
                               .setEnabled (validName)
                               .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), id]() mutable
