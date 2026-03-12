@@ -50,12 +50,29 @@ StyleBoolPropertyComponent::StyleBoolPropertyComponent (MagicGUIBuilder& builder
 
     addAndMakeVisible (toggle.get());
 
-    toggle->onClick = [&]
+//    toggle->onClick = [&]
+//    {
+//        if (auto* t = dynamic_cast<juce::ToggleButton*>(editor.get()))
+//            node.setProperty (property, t->getToggleState(), &builder.getUndoManager());
+//
+//        refresh();
+//    };
+    
+    // Thsi is safer when using tree editor with multiple items selected -->
+    toggle->onClick = [this]
     {
         if (auto* t = dynamic_cast<juce::ToggleButton*>(editor.get()))
-            node.setProperty (property, t->getToggleState(), &builder.getUndoManager());
+        {
+            auto val = t->getToggleState();
+            auto prop = property;
+            auto nodeRef = node;
+            auto& undoMgr = builder.getUndoManager();
 
-        refresh();
+            juce::MessageManager::callAsync ([nodeRef, prop, val, &undoMgr]() mutable
+            {
+                nodeRef.setProperty (prop, val, &undoMgr);
+            });
+        }
     };
 
     editor = std::move (toggle);

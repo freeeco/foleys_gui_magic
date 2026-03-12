@@ -55,7 +55,8 @@ class MagicGUIBuilder;
 class ToolBox  : public juce::Component,
                  public juce::DragAndDropContainer,
                  public juce::KeyListener,
-                 private juce::MultiTimer
+                 private juce::MultiTimer,
+                 private juce::ValueTree::Listener
 {
 public:
     /**
@@ -191,6 +192,12 @@ private:
     void performSendBack();
     void performBringForward();
     void performBringToFront();
+    void performAlignLeft();
+    void performAlignRight();
+    void performAlignTop();
+    void performAlignBottom();
+    void performAlignVerticalCenters();
+    void performAlignHorizontalCenters();
     void performSelectParent();
     void performDeselect();
     void performPasteStyling();
@@ -239,6 +246,16 @@ private:
     bool temporaryEditMode = false;
     enum PreviewMode { desktop, ios };
     int previewMode = desktop;
+    
+    juce::ValueTree mirroredNode;
+    bool isMirroring = false;
+    
+    // juce::ValueTree::Listener overrides
+    void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
+    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override {}
+    void valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int) override {}
+    void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override {}
+    void valueTreeParentChanged (juce::ValueTree&) override {}
 
     void updateToolboxPosition();
     void offsetDuplicatePosition (juce::ValueTree& paste, const juce::ValueTree& parentNode);

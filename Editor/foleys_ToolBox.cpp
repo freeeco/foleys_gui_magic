@@ -383,6 +383,20 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         edit.addSeparator();
 
         {
+            juce::PopupMenu alignMenu;
+            alignMenu.addItem ("Left",               [&] { performAlignLeft(); });
+            alignMenu.addItem ("Right",              [&] { performAlignRight(); });
+            alignMenu.addItem ("Top",                [&] { performAlignTop(); });
+            alignMenu.addItem ("Bottom",             [&] { performAlignBottom(); });
+            alignMenu.addSeparator();
+            alignMenu.addItem ("Vertical Centers",   [&] { performAlignVerticalCenters(); });
+            alignMenu.addItem ("Horizontal Centers", [&] { performAlignHorizontalCenters(); });
+            edit.addSubMenu ("Align", alignMenu, hasMultipleSelected());
+        }
+
+        edit.addSeparator();
+
+        {
             juce::PopupMenu::Item it ("Select Parent");
             it.action = [&] { performSelectParent(); };
             it.shortcutKeyDescription = "Cmd+P";
@@ -765,6 +779,7 @@ void ToolBox::performPasteDimensions()
         juce::Identifier ("dont-snap-to-pixels")
     };
 
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
     undo.beginNewTransaction("Paste Dimensions");
 
     for (auto& selected : nodes)
@@ -824,6 +839,7 @@ void ToolBox::performPasteItemProperties()
         juce::Identifier ("opacity-value")
     };
 
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
     undo.beginNewTransaction("Paste Item Properties");
 
     for (auto& selected : nodes)
@@ -870,6 +886,7 @@ void ToolBox::performPasteStyling()
         juce::Identifier ("alpha")
     };
 
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
     undo.beginNewTransaction("Paste Styling");
 
     for (auto& selected : nodes)
@@ -1034,6 +1051,213 @@ void ToolBox::performBringToFront()
     parent.moveChild (currentIndex, parent.getNumChildren() - 1, &undo);
 }
 
+//==============================================================================
+// Align operations (multi-select, siblings only)
+//==============================================================================
+
+static juce::var toPositionValue (float pixelValue, int parentSize, const juce::var& originalValue)
+{
+    if (originalValue.toString().containsChar ('%'))
+    {
+        auto pct = parentSize > 0 ? (pixelValue * 100.0f / parentSize) : 0.0f;
+        return juce::String (pct, 1) + "%";
+    }
+
+    return juce::roundToInt (pixelValue);
+}
+
+void ToolBox::performAlignLeft()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    int minX = std::numeric_limits<int>::max();
+    for (auto& node : nodes)
+        if (auto* item = builder.findGuiItem (node))
+            minX = juce::jmin (minX, item->getBounds().getX());
+
+    undo.beginNewTransaction ("Align Left");
+    for (auto& node : nodes)
+    {
+        if (auto* item = builder.findGuiItem (node))
+        {
+            auto parentW = item->getParentComponent() ? item->getParentComponent()->getWidth() : 1;
+            node.setProperty ("pos-x", toPositionValue (minX, parentW, node.getProperty ("pos-x")), &undo);
+        }
+    }
+}
+
+void ToolBox::performAlignRight()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    int maxRight = std::numeric_limits<int>::min();
+    for (auto& node : nodes)
+        if (auto* item = builder.findGuiItem (node))
+            maxRight = juce::jmax (maxRight, item->getBounds().getRight());
+
+    undo.beginNewTransaction ("Align Right");
+    for (auto& node : nodes)
+    {
+        if (auto* item = builder.findGuiItem (node))
+        {
+            auto parentW = item->getParentComponent() ? item->getParentComponent()->getWidth() : 1;
+            node.setProperty ("pos-x", toPositionValue (maxRight - item->getBounds().getWidth(), parentW, node.getProperty ("pos-x")), &undo);
+        }
+    }
+}
+
+void ToolBox::performAlignTop()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    int minY = std::numeric_limits<int>::max();
+    for (auto& node : nodes)
+        if (auto* item = builder.findGuiItem (node))
+            minY = juce::jmin (minY, item->getBounds().getY());
+
+    undo.beginNewTransaction ("Align Top");
+    for (auto& node : nodes)
+    {
+        if (auto* item = builder.findGuiItem (node))
+        {
+            auto parentH = item->getParentComponent() ? item->getParentComponent()->getHeight() : 1;
+            node.setProperty ("pos-y", toPositionValue (minY, parentH, node.getProperty ("pos-y")), &undo);
+        }
+    }
+}
+
+void ToolBox::performAlignBottom()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    int maxBottom = std::numeric_limits<int>::min();
+    for (auto& node : nodes)
+        if (auto* item = builder.findGuiItem (node))
+            maxBottom = juce::jmax (maxBottom, item->getBounds().getBottom());
+
+    undo.beginNewTransaction ("Align Bottom");
+    for (auto& node : nodes)
+    {
+        if (auto* item = builder.findGuiItem (node))
+        {
+            auto parentH = item->getParentComponent() ? item->getParentComponent()->getHeight() : 1;
+            node.setProperty ("pos-y", toPositionValue (maxBottom - item->getBounds().getHeight(), parentH, node.getProperty ("pos-y")), &undo);
+        }
+    }
+}
+
+void ToolBox::performAlignHorizontalCenters()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    bool allPct = true;
+    for (auto& node : nodes)
+        if (!node.getProperty ("pos-x").toString().containsChar ('%')
+         || !node.getProperty ("pos-width").toString().containsChar ('%'))
+            { allPct = false; break; }
+
+    undo.beginNewTransaction ("Align Horizontal Centers");
+
+    if (allPct)
+    {
+        float totalCentre = 0.0f;
+        for (auto& node : nodes)
+            totalCentre += node.getProperty ("pos-x").toString().getFloatValue()
+                         + node.getProperty ("pos-width").toString().getFloatValue() / 2.0f;
+
+        float target = totalCentre / nodes.size();
+
+        for (auto& node : nodes)
+        {
+            float w = node.getProperty ("pos-width").toString().getFloatValue();
+            node.setProperty ("pos-x", juce::String (target - w / 2.0f, 1) + "%", &undo);
+        }
+    }
+    else
+    {
+        float totalCentre = 0.0f;
+        int count = 0;
+        for (auto& node : nodes)
+            if (auto* item = builder.findGuiItem (node))
+                { totalCentre += item->getBounds().getCentreX(); ++count; }
+
+        if (count == 0) return;
+        float target = totalCentre / count;
+
+        for (auto& node : nodes)
+            if (auto* item = builder.findGuiItem (node))
+            {
+                auto parentW = item->getParentComponent() ? item->getParentComponent()->getWidth() : 1;
+                node.setProperty ("pos-x", toPositionValue (target - item->getBounds().getWidth() / 2.0f, parentW, node.getProperty ("pos-x")), &undo);
+            }
+    }
+}
+
+void ToolBox::performAlignVerticalCenters()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+
+    bool allPct = true;
+    for (auto& node : nodes)
+        if (!node.getProperty ("pos-y").toString().containsChar ('%')
+         || !node.getProperty ("pos-height").toString().containsChar ('%'))
+            { allPct = false; break; }
+
+    undo.beginNewTransaction ("Align Vertical Centers");
+
+    if (allPct)
+    {
+        float totalCentre = 0.0f;
+        for (auto& node : nodes)
+            totalCentre += node.getProperty ("pos-y").toString().getFloatValue()
+                         + node.getProperty ("pos-height").toString().getFloatValue() / 2.0f;
+
+        float target = totalCentre / nodes.size();
+
+        for (auto& node : nodes)
+        {
+            float h = node.getProperty ("pos-height").toString().getFloatValue();
+            node.setProperty ("pos-y", juce::String (target - h / 2.0f, 1) + "%", &undo);
+        }
+    }
+    else
+    {
+        float totalCentre = 0.0f;
+        int count = 0;
+        for (auto& node : nodes)
+            if (auto* item = builder.findGuiItem (node))
+                { totalCentre += item->getBounds().getCentreY(); ++count; }
+
+        if (count == 0) return;
+        float target = totalCentre / count;
+
+        for (auto& node : nodes)
+            if (auto* item = builder.findGuiItem (node))
+            {
+                auto parentH = item->getParentComponent() ? item->getParentComponent()->getHeight() : 1;
+                node.setProperty ("pos-y", toPositionValue (target - item->getBounds().getHeight() / 2.0f, parentH, node.getProperty ("pos-y")), &undo);
+            }
+    }
+}
+
 void ToolBox::performSelectParent()
 {
     auto selected = builder.getSelectedNode();
@@ -1057,6 +1281,7 @@ void ToolBox::performClearDimensions()
     if (nodes.isEmpty())
         return;
 
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
     undo.beginNewTransaction("Clear Dimensions");
 
     // For multi-select, clear dimensions on each node directly
@@ -1368,6 +1593,14 @@ bool ToolBox::saveGUI (const juce::File& xmlFile)
 
 void ToolBox::setSelectedNode (const juce::ValueTree& node)
 {
+    if (mirroredNode.isValid())
+        mirroredNode.removeListener (this);
+
+    mirroredNode = node;
+
+    if (mirroredNode.isValid())
+        mirroredNode.addListener (this);
+    
     treeEditor.setSelectedNode (node);
     propertiesEditor.setNodeToEdit (node);
     builder.setSelectedNode (node);
@@ -1376,6 +1609,41 @@ void ToolBox::setSelectedNode (const juce::ValueTree& node)
 void ToolBox::setNodeToEdit (juce::ValueTree node)
 {
     propertiesEditor.setNodeToEdit (node);
+}
+
+void ToolBox::valueTreePropertyChanged (juce::ValueTree& tree,
+                                        const juce::Identifier& property)
+{
+    if (isMirroring || tree != mirroredNode)
+        return;
+
+    auto nodes = getSelectedNodes();
+    if (nodes.size() <= 1)
+        return;
+
+    auto value = tree.getProperty (property);
+
+    juce::MessageManager::callAsync ([safeThis = juce::Component::SafePointer<ToolBox> (this),
+                                      nodes, tree, property, value]() mutable
+    {
+        if (safeThis == nullptr)
+            return;
+
+        safeThis->isMirroring = true;
+
+        for (auto& node : nodes)
+        {
+            if (node != tree && node.isValid())
+            {
+                if (tree.hasProperty (property))
+                    node.setProperty (property, value, &safeThis->undo);
+                else
+                    node.removeProperty (property, &safeThis->undo);
+            }
+        }
+
+        safeThis->isMirroring = false;
+    });
 }
 
 void ToolBox::stateWasReloaded()
@@ -1593,6 +1861,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Arrow keys - nudge selected item(s)
     if (key.isKeyCode (juce::KeyPress::leftKey))
     {
+        const juce::ScopedValueSetter<bool> svs (isMirroring, true);
         bool handled = false;
         forEachSelected ([&](auto& node) {
             if (auto* item = builder.findGuiItem (node))
@@ -1606,6 +1875,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
     if (key.isKeyCode (juce::KeyPress::rightKey))
     {
+        const juce::ScopedValueSetter<bool> svs (isMirroring, true);
         bool handled = false;
         forEachSelected ([&](auto& node) {
             if (auto* item = builder.findGuiItem (node))
@@ -1619,6 +1889,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
     if (key.isKeyCode (juce::KeyPress::upKey))
     {
+        const juce::ScopedValueSetter<bool> svs (isMirroring, true);
         bool handled = false;
         forEachSelected ([&](auto& node) {
             if (auto* item = builder.findGuiItem (node))
@@ -1632,6 +1903,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
 
     if (key.isKeyCode (juce::KeyPress::downKey))
     {
+        const juce::ScopedValueSetter<bool> svs (isMirroring, true);
         bool handled = false;
         forEachSelected ([&](auto& node) {
             if (auto* item = builder.findGuiItem (node))
