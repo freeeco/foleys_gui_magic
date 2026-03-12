@@ -172,6 +172,8 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
 
     juce::Array<juce::PropertyComponent*> additional;
 
+    juce::Identifier resolvedType = styleItem.getType();
+
     if (stylesheet.isClassNode (styleItem))
     {
         for (auto factoryName : builder.getFactoryNames())
@@ -181,12 +183,44 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
             addTypeProperties (factoryName, {});
         }
     }
+    else if (stylesheet.isIdNode (styleItem))
+    {
+        // Find the component type that this id belongs to in the GUI tree
+        auto rawId = styleItem.getType().toString();
+
+        std::function<bool (const juce::ValueTree&)> findType = [&] (const juce::ValueTree& tree) -> bool
+        {
+            auto id = tree.getProperty (IDs::id, {}).toString();
+            if (id == rawId)
+            {
+                resolvedType = tree.getType();
+                return true;
+            }
+            for (const auto& child : tree)
+                if (findType (child))
+                    return true;
+            return false;
+        };
+
+        if (findType (builder.getGuiRootNode()) && resolvedType.isValid())
+            addTypeProperties (resolvedType, additional);
+        else
+        {
+            // ID not found in GUI tree — show all type properties
+            for (auto factoryName : builder.getFactoryNames())
+            {
+                if (factoryName.endsWithChar (':'))
+                    continue;
+                addTypeProperties (factoryName, {});
+            }
+        }
+    }
     else
     {
         addTypeProperties (styleItem.getType(), additional);
     }
 
-    if (styleItem.getType() == IDs::view || stylesheet.isClassNode (styleItem))
+    if (resolvedType == IDs::view || stylesheet.isClassNode (styleItem))
         addContainerProperties();
 
     if (stylesheet.isClassNode (styleItem))
@@ -204,8 +238,8 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
     properties.setSectionOpen (3,true);
     properties.setSectionOpen (4,true);
 
-    // Auto-open the type-specific section when editing a type node
-    if (stylesheet.isTypeNode (styleItem))
+    // Auto-open the type-specific section when editing a type or id node
+    if (stylesheet.isTypeNode (styleItem) || stylesheet.isIdNode (styleItem))
         properties.setSectionOpen (2, true);
 }
 
@@ -649,8 +683,12 @@ void PropertiesEditor::updatePopupMenu()
 
             for (const auto& id : remainingIds)
             {
-                menu.addItem (juce::PopupMenu::Item ("Node: " + id)
+                bool validName = juce::XmlElement::isValidXmlName (id);
+
+                menu.addItem (juce::PopupMenu::Item (validName ? "Node: " + id
+                                                               : "Node: " + id + " (invalid id)")
                               .setID (nodeIndex++)
+                              .setEnabled (validName)
                               .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), id]() mutable
                 {
                     if (p != nullptr)
