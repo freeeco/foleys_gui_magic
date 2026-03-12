@@ -122,6 +122,14 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
 {
     const auto openness = properties.getOpennessState();
 
+    // Clean up empty media node that was created for property binding
+    if (styleItem.isValid())
+    {
+        auto media = styleItem.getChildWithName (IDs::media);
+        if (media.isValid() && media.getNumProperties() == 0 && media.getNumChildren() == 0)
+            styleItem.removeChild (media, nullptr);
+    }
+
     styleItem = node;
     updatePopupMenu();
 
@@ -258,7 +266,7 @@ void PropertiesEditor::addNodeProperties()
         array.add (new juce::BooleanPropertyComponent (styleItem.getPropertyAsValue (IDs::recursive, &undo), IDs::recursive.toString(), {}));
         array.add (new StyleChoicePropertyComponent (builder, IDs::active, styleItem, builder.createPropertiesMenuLambda()));
 
-        auto media = styleItem.getOrCreateChildWithName (IDs::media, &undo);
+        auto media = styleItem.getOrCreateChildWithName (IDs::media, nullptr);
         array.add (new juce::TextPropertyComponent (media.getPropertyAsValue (IDs::minWidth, &undo), IDs::minWidth.toString(), 10, false));
         array.add (new juce::TextPropertyComponent (media.getPropertyAsValue (IDs::maxWidth, &undo), IDs::maxWidth.toString(), 10, false));
         array.add (new juce::TextPropertyComponent (media.getPropertyAsValue (IDs::minHeight, &undo), IDs::minHeight.toString(), 10, false));
@@ -521,7 +529,7 @@ void PropertiesEditor::updatePopupMenu()
             auto classesParent = style.getChildWithName (IDs::classes);
             auto currentIndex = classesParent.indexOf (styleItem);
 
-            menu.addItem (juce::PopupMenu::Item ("Bring Forward")
+            menu.addItem (juce::PopupMenu::Item ("Move Up")
                           .setEnabled (currentIndex > 0)
                           .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), currentIndex]() mutable
             {
@@ -534,7 +542,7 @@ void PropertiesEditor::updatePopupMenu()
                 }
             }));
 
-            menu.addItem (juce::PopupMenu::Item ("Send Back")
+            menu.addItem (juce::PopupMenu::Item ("Move Down")
                           .setEnabled (currentIndex < classesParent.getNumChildren() - 1)
                           .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), currentIndex]() mutable
             {
