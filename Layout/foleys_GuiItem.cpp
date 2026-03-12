@@ -722,7 +722,7 @@ GuiItem* GuiItem::findGuiItem (const juce::ValueTree& node)
 void GuiItem::paintOverChildren (juce::Graphics& g)
 {
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    if (magicBuilder.isEditModeOn() && magicBuilder.getSelectedNode() == configNode)
+    if (magicBuilder.isEditModeOn() && magicBuilder.isNodeSelected (configNode))
     {
         const float handleSize = 5.0f;
         const float lineThickness = 1.0f;
@@ -930,8 +930,7 @@ void GuiItem::savePosition ()
 void GuiItem::mouseDown (const juce::MouseEvent& event)
 {
     if (getParentsLayoutType() == LayoutType::Contents &&
-        configNode != magicBuilder.getGuiRootNode() &&
-        magicBuilder.getSelectedNode() != configNode)
+        configNode != magicBuilder.getGuiRootNode())
     {
         magicBuilder.setSelectedNode (configNode);
     }

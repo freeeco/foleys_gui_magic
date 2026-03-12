@@ -585,6 +585,14 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
     }
 }
 
+bool MagicGUIBuilder::isNodeSelected (const juce::ValueTree& node) const
+{
+    if (magicToolBox)
+        return magicToolBox->isNodeSelected (node);
+
+    return selectedNode == node;
+}
+
 const juce::ValueTree& MagicGUIBuilder::getSelectedNode() const
 {
     return selectedNode;

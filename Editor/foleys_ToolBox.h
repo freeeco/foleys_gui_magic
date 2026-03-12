@@ -97,6 +97,8 @@ public:
     static juce::PropertiesFile::Options getApplicationPropertyStorage();
 
     void setLastLocation (juce::File file);
+    
+    bool isNodeSelected (const juce::ValueTree& node) const;
 
 private:
     /** Draws a padlock icon (locked/unlocked based on toggle state) using simple geometry. */

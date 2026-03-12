@@ -2113,6 +2113,12 @@ void ToolBox::setLastLocation (juce::File file)
 #endif
 }
 
+bool ToolBox::isNodeSelected (const juce::ValueTree& node) const
+{
+    auto nodes = treeEditor.getSelectedNodes();
+    return nodes.contains (node);
+}
+
 std::unique_ptr<juce::FileFilter> ToolBox::getFileFilter()
 {
     return std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");

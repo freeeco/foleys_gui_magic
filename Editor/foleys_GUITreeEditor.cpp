@@ -175,8 +175,10 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
         itemToSelect = childItem;
     }
 
-    bool deselectOthers = ! (juce::ModifierKeys::getCurrentModifiers().isCommandDown()
-                          || juce::ModifierKeys::getCurrentModifiers().isShiftDown());
+    bool alreadySelected = itemToSelect->isSelected();
+    bool deselectOthers = !alreadySelected
+                       && !juce::ModifierKeys::getCurrentModifiers().isCommandDown()
+                       && !juce::ModifierKeys::getCurrentModifiers().isShiftDown();
     itemToSelect->setSelected (true, deselectOthers, juce::dontSendNotification);
     juce::MessageManager::callAsync ([this, itemToSelect]()
     {
