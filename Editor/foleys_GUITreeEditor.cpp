@@ -302,6 +302,9 @@ void GUITreeEditor::GuiTreeItem::itemSelectionChanged (bool isNowSelected)
 {
     if (isNowSelected)
         builder.setSelectedNode (itemNode);
+    else
+        if (auto* item = builder.findGuiItem (itemNode))
+            item->setDraggable (false);
 }
 
 juce::var GUITreeEditor::GuiTreeItem::getDragSourceDescription()

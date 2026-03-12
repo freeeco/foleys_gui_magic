@@ -567,13 +567,12 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
 {
     if (selectedNode != node)
     {
-        if (GuiItem::selectionToFront && selectedNode.isValid())
-            restoreZOrderForAll();
-        
         if (auto* item = findGuiItem (selectedNode))
-            item->setDraggable (false);
+            if (!isNodeSelected (selectedNode))
+                item->setDraggable (false);
 
         selectedNode = node;
+
         if (magicToolBox.get() != nullptr)
             magicToolBox->setSelectedNode (selectedNode);
 
