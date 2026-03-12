@@ -96,16 +96,7 @@ PropertiesEditor::PropertiesEditor (MagicGUIBuilder& builderToEdit)
             auto node = style.getChildWithName (IDs::classes).getChild (index - ComboIDs::ClassEdit);
             setNodeToEdit (node);
         }
-        else if (index >= ComboIDs::NodeEdit)
-        {
-            auto node = style.getChildWithName (IDs::nodes).getChild (index - ComboIDs::NodeEdit);
-            setNodeToEdit (node);
-        }
-        else if (index >= ComboIDs::TypeEdit)
-        {
-            auto node = style.getChildWithName (IDs::types).getChild (index - ComboIDs::TypeEdit);
-            setNodeToEdit (node);
-        }
+        // NodeEdit and TypeEdit items are handled by their setAction lambdas
 
     };
 }
@@ -122,12 +113,28 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
 {
     const auto openness = properties.getOpennessState();
 
-    // Clean up empty media node that was created for property binding
+    // Clean up empty nodes that were created for property binding
     if (styleItem.isValid())
     {
         auto media = styleItem.getChildWithName (IDs::media);
         if (media.isValid() && media.getNumProperties() == 0 && media.getNumChildren() == 0)
             styleItem.removeChild (media, nullptr);
+
+        // Remove empty type nodes created by browsing the Types menu
+        if (builder.getStylesheet().isTypeNode (styleItem)
+            && styleItem.getNumProperties() == 0
+            && styleItem.getNumChildren() == 0)
+        {
+            styleItem.getParent().removeChild (styleItem, nullptr);
+        }
+
+        // Remove empty id nodes created by browsing the Nodes menu
+        if (builder.getStylesheet().isIdNode (styleItem)
+            && styleItem.getNumProperties() == 0
+            && styleItem.getNumChildren() == 0)
+        {
+            styleItem.getParent().removeChild (styleItem, nullptr);
+        }
     }
 
     styleItem = node;
@@ -196,6 +203,10 @@ void PropertiesEditor::setNodeToEdit (juce::ValueTree node)
     properties.restoreOpennessState (*openness);
     properties.setSectionOpen (3,true);
     properties.setSectionOpen (4,true);
+
+    // Auto-open the type-specific section when editing a type node
+    if (stylesheet.isTypeNode (styleItem))
+        properties.setSectionOpen (2, true);
 }
 
 juce::ValueTree& PropertiesEditor::getNodeToEdit()
@@ -476,24 +487,181 @@ void PropertiesEditor::updatePopupMenu()
     }));
     popup->addSeparator();
 
-    auto typesNode = style.getChildWithName (IDs::types);
-    if (typesNode.isValid())
+    auto typesNode = style.getOrCreateChildWithName (IDs::types, nullptr);
     {
         juce::PopupMenu menu;
-        int index = ComboIDs::TypeEdit;
+        int typeIndex = ComboIDs::TypeEdit;
+
+        // Collect and sort configured type names
+        juce::StringArray configuredNames;
         for (const auto& child : typesNode)
-            menu.addItem (juce::PopupMenu::Item ("Type: " + child.getType().toString()).setID (index++));
+            configuredNames.add (child.getType().toString());
+        configuredNames.sort (true);
+
+        // Show configured types first (sorted)
+        for (const auto& name : configuredNames)
+        {
+            auto child = typesNode.getChildWithName (name);
+            menu.addItem (juce::PopupMenu::Item ("Type: " + name)
+                          .setID (typeIndex++)
+                          .setTicked (child == styleItem)
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto types = p->style.getOrCreateChildWithName (IDs::types, nullptr);
+                    auto typeNode = types.getOrCreateChildWithName (name, &p->undo);
+                    p->setNodeToEdit (typeNode);
+                }
+            }));
+        }
+
+        if (builder.getStylesheet().isTypeNode (styleItem))
+        {
+            menu.addSeparator();
+
+            auto name = styleItem.getType().toString();
+            menu.addItem (juce::PopupMenu::Item ("Delete Type \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto types = p->style.getChildWithName (IDs::types);
+                    auto child = types.getChildWithName (name);
+                    if (child.isValid())
+                    {
+                        types.removeChild (child, &p->undo);
+                        p->setNodeToEdit ({});
+                    }
+                }
+            }));
+        }
+
+        menu.addSeparator();
+
+        // Collect and sort remaining type names
+        juce::StringArray remainingNames;
+        for (auto factoryName : builder.getFactoryNames())
+        {
+            if (factoryName.endsWithChar (':'))
+                continue;
+            if (typesNode.getChildWithName (factoryName).isValid())
+                continue;
+            remainingNames.add (factoryName);
+        }
+        remainingNames.sort (true);
+
+        // Then all remaining types (sorted)
+        for (const auto& factoryName : remainingNames)
+        {
+            menu.addItem (juce::PopupMenu::Item ("Type: " + factoryName)
+                          .setID (typeIndex++)
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), factoryName]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto types = p->style.getOrCreateChildWithName (IDs::types, nullptr);
+                    auto typeNode = types.getOrCreateChildWithName (factoryName, &p->undo);
+                    p->setNodeToEdit (typeNode);
+                }
+            }));
+        }
 
         popup->addSubMenu ("Types", menu);
     }
 
-    auto nodesNode = style.getChildWithName (IDs::nodes);
-    if (nodesNode.isValid())
+    auto nodesNode = style.getOrCreateChildWithName (IDs::nodes, nullptr);
     {
-        int index = ComboIDs::NodeEdit;
         juce::PopupMenu menu;
+        int nodeIndex = ComboIDs::NodeEdit;
+
+        // Collect all node IDs from the GUI tree
+        juce::StringArray allNodeIds;
+        std::function<void (const juce::ValueTree&)> collectIds = [&] (const juce::ValueTree& tree)
+        {
+            auto id = tree.getProperty (IDs::id, {}).toString();
+            if (id.isNotEmpty() && ! allNodeIds.contains (id))
+                allNodeIds.add (id);
+
+            for (const auto& child : tree)
+                collectIds (child);
+        };
+        collectIds (builder.getGuiRootNode());
+
+        // Collect and sort configured node names
+        juce::StringArray configuredNames;
         for (const auto& child : nodesNode)
-            menu.addItem (juce::PopupMenu::Item ("Node: " + child.getType().toString()).setID (index++));
+            configuredNames.add (child.getType().toString());
+        configuredNames.sort (true);
+
+        // Show configured nodes first (sorted)
+        for (const auto& name : configuredNames)
+        {
+            auto child = nodesNode.getChildWithName (name);
+            menu.addItem (juce::PopupMenu::Item ("Node: " + name)
+                          .setID (nodeIndex++)
+                          .setTicked (child == styleItem)
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto nodes = p->style.getOrCreateChildWithName (IDs::nodes, nullptr);
+                    auto idNode = nodes.getOrCreateChildWithName (name, &p->undo);
+                    p->setNodeToEdit (idNode);
+                }
+            }));
+        }
+
+        if (builder.getStylesheet().isIdNode (styleItem))
+        {
+            menu.addSeparator();
+
+            auto name = styleItem.getType().toString();
+            menu.addItem (juce::PopupMenu::Item ("Delete Node \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto nodes = p->style.getChildWithName (IDs::nodes);
+                    auto child = nodes.getChildWithName (name);
+                    if (child.isValid())
+                    {
+                        nodes.removeChild (child, &p->undo);
+                        p->setNodeToEdit ({});
+                    }
+                }
+            }));
+        }
+
+        // Collect remaining IDs not yet configured, sorted
+        juce::StringArray remainingIds;
+        for (const auto& id : allNodeIds)
+        {
+            if (nodesNode.getChildWithName (id).isValid())
+                continue;
+            remainingIds.add (id);
+        }
+        remainingIds.sort (true);
+
+        if (! remainingIds.isEmpty())
+        {
+            menu.addSeparator();
+
+            for (const auto& id : remainingIds)
+            {
+                menu.addItem (juce::PopupMenu::Item ("Node: " + id)
+                              .setID (nodeIndex++)
+                              .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), id]() mutable
+                {
+                    if (p != nullptr)
+                    {
+                        auto nodes = p->style.getOrCreateChildWithName (IDs::nodes, nullptr);
+                        auto idNode = nodes.getOrCreateChildWithName (id, &p->undo);
+                        p->setNodeToEdit (idNode);
+                    }
+                }));
+            }
+        }
 
         popup->addSubMenu ("Nodes", menu);
     }
