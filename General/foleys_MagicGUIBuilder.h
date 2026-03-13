@@ -242,6 +242,8 @@ public:
 
     void setSelectedNode (const juce::ValueTree& node);
     const juce::ValueTree& getSelectedNode() const;
+    juce::Array<juce::ValueTree> getSelectedNodes() const;
+
     bool isNodeSelected (const juce::ValueTree& node) const;
 
     void draggedItemOnto (juce::ValueTree dropped, juce::ValueTree target, int index=-1);

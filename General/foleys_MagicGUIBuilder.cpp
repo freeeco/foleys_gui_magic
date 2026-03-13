@@ -597,6 +597,17 @@ const juce::ValueTree& MagicGUIBuilder::getSelectedNode() const
     return selectedNode;
 }
 
+juce::Array<juce::ValueTree> MagicGUIBuilder::getSelectedNodes() const
+{
+    if (magicToolBox)
+        return magicToolBox->getSelectedNodes();
+
+    if (selectedNode.isValid())
+        return { selectedNode };
+
+    return {};
+}
+
 void MagicGUIBuilder::draggedItemOnto (juce::ValueTree dragged, juce::ValueTree target, int index)
 {
     if (dragged == target)

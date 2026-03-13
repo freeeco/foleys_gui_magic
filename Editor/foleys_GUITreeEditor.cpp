@@ -326,12 +326,47 @@ void GUITreeEditor::GuiTreeItem::itemDropped (const juce::DragAndDropTarget::Sou
     const auto text = dragSourceDetails.description.toString();
     if (text == IDs::dragSelected)
     {
-        auto selectedNode = builder.getSelectedNode();
-        if (selectedNode.getParent() == itemNode && selectedNode.getParent().indexOf (selectedNode) < index) {
-                builder.draggedItemOnto (selectedNode, itemNode, index - 1);
-        } else {
-            builder.draggedItemOnto (selectedNode, itemNode, index);
+        auto targetNode = itemNode;
+        auto nodes = builder.getSelectedNodes();
+        auto& undoMgr = builder.getUndoManager();
+        auto* bldr = &builder;
+
+        if (nodes.isEmpty())
+            return;
+
+        undoMgr.beginNewTransaction ("Move Items");
+
+        std::sort (nodes.begin(), nodes.end(),
+                   [](const juce::ValueTree& a, const juce::ValueTree& b)
+                   {
+                       if (a.getParent() == b.getParent())
+                           return a.getParent().indexOf (a) < b.getParent().indexOf (b);
+                       return false;
+                   });
+
+        int offset = 0;
+        for (auto& node : nodes)
+            if (node.getParent() == targetNode && targetNode.indexOf (node) < index)
+                ++offset;
+
+        for (int i = nodes.size(); --i >= 0;)
+        {
+            auto p = nodes[i].getParent();
+            if (p.isValid())
+                p.removeChild (nodes[i], &undoMgr);
         }
+
+        int insertAt = index - offset;
+        if (insertAt < 0) insertAt = 0;
+
+        for (int i = 0; i < nodes.size(); ++i)
+            targetNode.addChild (nodes[i], insertAt + i, &undoMgr);
+        
+        juce::MessageManager::callAsync ([bldr, nodes]()
+            {
+                bldr->getMagicToolBox().selectNodes (nodes);
+            });
+
         return;
     }
 
@@ -378,6 +413,13 @@ void GUITreeEditor::expandAll()
     };
 
     expandRecursive (rootItem.get());
+}
+
+void GUITreeEditor::selectNodes (const juce::Array<juce::ValueTree>& nodes)
+{
+    for (int i = 0; i < nodes.size(); ++i)
+        if (auto* item = getItemForNode (nodes[i]))
+            item->setSelected (true, i == 0, juce::dontSendNotification);
 }
 
 juce::Array<juce::ValueTree> GUITreeEditor::getSelectedNodes() const

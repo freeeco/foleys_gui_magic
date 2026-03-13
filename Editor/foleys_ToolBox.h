@@ -99,6 +99,12 @@ public:
     void setLastLocation (juce::File file);
     
     bool isNodeSelected (const juce::ValueTree& node) const;
+    
+    // Multi-select helpers
+    void selectNodes (const juce::Array<juce::ValueTree>& nodes);
+    juce::Array<juce::ValueTree> getSelectedNodes() const;
+    void forEachSelected (std::function<void (juce::ValueTree&)> fn);
+    bool hasMultipleSelected() const;
 
 private:
     /** Draws a padlock icon (locked/unlocked based on toggle state) using simple geometry. */
@@ -173,11 +179,6 @@ private:
      */
     void insertSnippet (const juce::File& file);
 
-    // Multi-select helpers
-    juce::Array<juce::ValueTree> getSelectedNodes() const;
-    void forEachSelected (std::function<void (juce::ValueTree&)> fn);
-    bool hasMultipleSelected() const;
-
     // Edit operations - called from both the Edit menu and keyboard shortcuts
     void performUndo();
     void performRedo();
@@ -200,11 +201,16 @@ private:
     void performAlignBottom();
     void performAlignVerticalCenters();
     void performAlignHorizontalCenters();
+    void performDistributeHorizontally();
+    void performDistributeVertically();
+    void performSelectAll();
     void performSelectParent();
     void performDeselect();
     void performPasteStyling();
     void performClearDimensions();
     void performWrapInView();
+    void performGroup();
+    void performUngroup();
     void performInsertViewContents();
     void performInsertViewFlexbox();
     void performInsertViewTabbed();

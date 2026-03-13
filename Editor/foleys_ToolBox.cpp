@@ -384,18 +384,30 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
 
         {
             juce::PopupMenu alignMenu;
-            alignMenu.addItem ("Left",               [&] { performAlignLeft(); });
-            alignMenu.addItem ("Right",              [&] { performAlignRight(); });
-            alignMenu.addItem ("Top",                [&] { performAlignTop(); });
-            alignMenu.addItem ("Bottom",             [&] { performAlignBottom(); });
+            alignMenu.addItem ("Left",         [&] { performAlignLeft(); });
+            alignMenu.addItem ("Right",        [&] { performAlignRight(); });
+            alignMenu.addItem ("Top",          [&] { performAlignTop(); });
+            alignMenu.addItem ("Bottom",       [&] { performAlignBottom(); });
             alignMenu.addSeparator();
-            alignMenu.addItem ("Vertical Centers",   [&] { performAlignVerticalCenters(); });
-            alignMenu.addItem ("Horizontal Centers", [&] { performAlignHorizontalCenters(); });
+            alignMenu.addItem ("Horizontally", [&] { performAlignHorizontalCenters(); });
+            alignMenu.addItem ("Vertically",   [&] { performAlignVerticalCenters(); });
             edit.addSubMenu ("Align", alignMenu, hasMultipleSelected());
+        }
+        {
+            juce::PopupMenu distributeMenu;
+            distributeMenu.addItem ("Horizontally", [&] { performDistributeHorizontally(); });
+            distributeMenu.addItem ("Vertically",   [&] { performDistributeVertically(); });
+            edit.addSubMenu ("Distribute", distributeMenu, hasMultipleSelected());
         }
 
         edit.addSeparator();
 
+        {
+            juce::PopupMenu::Item it ("Select All");
+            it.action = [&] { performSelectAll(); };
+            it.shortcutKeyDescription = "Cmd+A";
+            edit.addItem (it);
+        }
         {
             juce::PopupMenu::Item it ("Select Parent");
             it.action = [&] { performSelectParent(); };
@@ -420,6 +432,19 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Wrap in View");
             it.action = [&] { performWrapInView(); };
             it.shortcutKeyDescription = "Cmd+W";
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Group");
+            it.action = [&] { performGroup(); };
+            it.shortcutKeyDescription = "Cmd+G";
+            it.setEnabled (hasMultipleSelected());
+            edit.addItem (it);
+        }
+        {
+            juce::PopupMenu::Item it ("Ungroup");
+            it.action = [&] { performUngroup(); };
+            it.shortcutKeyDescription = "Shift+Cmd+G";
             edit.addItem (it);
         }
         edit.addSeparator();
@@ -493,8 +518,8 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         // Save Snippet As...
         snippets.addItem ("Save Snippet As...", [&, snippetsFolder]()
         {
-            auto selected = builder.getSelectedNode();
-            if (!selected.isValid())
+            auto nodes = getSelectedNodes();
+            if (nodes.isEmpty())
             {
                 juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
                                                        "No Selection",
@@ -505,12 +530,13 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             if (!snippetsFolder.exists())
                 snippetsFolder.createDirectory();
 
-            // Pre-fill filename from node id, falling back to node type
+            // Pre-fill filename from first node's id, falling back to node type
+            auto& first = nodes.getReference (0);
             juce::String defaultName = "snippet";
-            if (selected.hasProperty ("id"))
-                defaultName = selected.getProperty ("id").toString();
-            else if (selected.getType().isValid())
-                defaultName = selected.getType().toString();
+            if (first.hasProperty ("id"))
+                defaultName = first.getProperty ("id").toString();
+            else if (first.getType().isValid())
+                defaultName = first.getType().toString();
 
             auto suggestedFile = snippetsFolder.getChildFile (defaultName).withFileExtension (".xml");
 
@@ -520,14 +546,26 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                                                               juce::FileBrowserComponent::warnAboutOverwriting,
                                                               suggestedFile,
                                                               getFileFilter());
-            dialog->setAcceptFunction ([&, dlg=dialog.get(), selected]
+            dialog->setAcceptFunction ([&, dlg=dialog.get(), nodes]
             {
                 auto snippetFile = dlg->getFile();
                 if (!snippetFile.hasFileExtension (".xml"))
                     snippetFile = snippetFile.withFileExtension (".xml");
 
                 if (auto stream = snippetFile.createOutputStream())
-                    stream->writeString (selected.toXmlString());
+                {
+                    if (nodes.size() == 1)
+                    {
+                        stream->writeString (nodes.getFirst().toXmlString());
+                    }
+                    else
+                    {
+                        juce::ValueTree container ("_multiCopy");
+                        for (auto& node : nodes)
+                            container.appendChild (juce::ValueTree::fromXml (node.toXmlString()), nullptr);
+                        stream->writeString (container.toXmlString());
+                    }
+                }
 
                 builder.closeOverlayDialog();
             });
@@ -684,6 +722,16 @@ ToolBox::~ToolBox()
 // Multi-select helpers
 //==============================================================================
 
+void ToolBox::selectNodes (const juce::Array<juce::ValueTree>& nodes)
+{
+    for (int i = 0; i < nodes.size(); ++i)
+        if (auto* item = treeEditor.getItemForNode (nodes[i]))
+            item->setSelected (true, i == 0, juce::dontSendNotification);
+
+    if (!nodes.isEmpty())
+        builder.setSelectedNode (nodes.getFirst());
+}
+
 juce::Array<juce::ValueTree> ToolBox::getSelectedNodes() const
 {
     // Delegate to tree editor which queries TreeView::getSelectedItem()
@@ -718,49 +766,121 @@ void ToolBox::performRedo()
 
 void ToolBox::performCut()
 {
-    auto selected = builder.getSelectedNode();
-    if (selected.isValid())
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty()) return;
+
+    // Copy to clipboard (same logic as performCopy)
+    if (nodes.size() == 1)
     {
-        juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+        juce::SystemClipboard::copyTextToClipboard (nodes.getFirst().toXmlString());
+    }
+    else
+    {
+        juce::ValueTree container ("_multiCopy");
+        for (auto& node : nodes)
+            container.appendChild (juce::ValueTree::fromXml (node.toXmlString()), nullptr);
+        juce::SystemClipboard::copyTextToClipboard (container.toXmlString());
+    }
 
-        auto nodes = getSelectedNodes();
-        undo.beginNewTransaction ("Cut");
+    undo.beginNewTransaction ("Cut");
 
-        // Remove in reverse child order so indices don't shift
-        for (int i = nodes.size(); --i >= 0;)
-        {
-            auto p = nodes[i].getParent();
-            if (p.isValid())
-                p.removeChild (nodes[i], &undo);
-        }
+    // Remove in reverse child order so indices don't shift
+    for (int i = nodes.size(); --i >= 0;)
+    {
+        auto p = nodes[i].getParent();
+        if (p.isValid())
+            p.removeChild (nodes[i], &undo);
     }
 }
 
 void ToolBox::performCopy()
 {
-    auto selected = builder.getSelectedNode();
-    if (selected.isValid())
-        juce::SystemClipboard::copyTextToClipboard (selected.toXmlString());
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty()) return;
+
+    if (nodes.size() == 1)
+    {
+        juce::SystemClipboard::copyTextToClipboard (nodes.getFirst().toXmlString());
+    }
+    else
+    {
+        // Wrap in a container so clipboard has a single root element
+        juce::ValueTree container ("_multiCopy");
+        for (auto& node : nodes)
+            container.appendChild (juce::ValueTree::fromXml (node.toXmlString()), nullptr);
+        juce::SystemClipboard::copyTextToClipboard (container.toXmlString());
+    }
 }
 
 void ToolBox::performPaste()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
     auto selected = builder.getSelectedNode();
-    if (paste.isValid() && selected.isValid()){
-        undo.beginNewTransaction("Paste");
-        builder.draggedItemOnto (paste, selected);
+    if (!paste.isValid() || !selected.isValid())
+        return;
+
+    undo.beginNewTransaction ("Paste");
+
+    juce::Array<juce::ValueTree> pasted;
+
+    if (paste.getType().toString() == "_multiCopy")
+    {
+        for (int i = 0; i < paste.getNumChildren(); ++i)
+        {
+            auto child = paste.getChild (i).createCopy();
+            builder.draggedItemOnto (child, selected);
+            pasted.add (child);
+        }
     }
+    else
+    {
+        builder.draggedItemOnto (paste, selected);
+        pasted.add (paste);
+    }
+
+    // Select only the pasted items
+    for (int i = 0; i < pasted.size(); ++i)
+        if (auto* item = treeEditor.getItemForNode (pasted[i]))
+            item->setSelected (true, i == 0, juce::dontSendNotification);
+
+    if (!pasted.isEmpty())
+        builder.setSelectedNode (pasted.getLast());
 }
 
 void ToolBox::performPasteUnique()
 {
     auto paste = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard());
     auto selected = builder.getSelectedNode();
-    if (paste.isValid() && selected.isValid()){
-        undo.beginNewTransaction("Paste Unique");
-        builder.draggedItemOnto (makeParameterRefsUnique (paste), selected);
+    if (!paste.isValid() || !selected.isValid())
+        return;
+
+    undo.beginNewTransaction ("Paste Unique");
+
+    juce::Array<juce::ValueTree> pasted;
+
+    if (paste.getType().toString() == "_multiCopy")
+    {
+        for (int i = 0; i < paste.getNumChildren(); ++i)
+        {
+            auto child = makeParameterRefsUnique (paste.getChild (i).createCopy());
+            builder.draggedItemOnto (child, selected);
+            pasted.add (child);
+        }
     }
+    else
+    {
+        auto unique = makeParameterRefsUnique (paste);
+        builder.draggedItemOnto (unique, selected);
+        pasted.add (unique);
+    }
+
+    // Select only the pasted items
+    for (int i = 0; i < pasted.size(); ++i)
+        if (auto* item = treeEditor.getItemForNode (pasted[i]))
+            item->setSelected (true, i == 0, juce::dontSendNotification);
+
+    if (!pasted.isEmpty())
+        builder.setSelectedNode (pasted.getLast());
 }
 
 void ToolBox::performPasteDimensions()
@@ -937,46 +1057,74 @@ void ToolBox::performPasteReplace()
 
 void ToolBox::performDuplicate()
 {
-    auto selected = builder.getSelectedNode();
-    auto paste    = juce::ValueTree::fromXml (selected.toXmlString());
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty()) return;
 
-    if (paste.isValid() && selected.isValid())
+    auto parent = nodes.getFirst().getParent();
+    if (!parent.isValid()) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Duplicate");
+
+    // Sort by index so duplicates stay in order
+    std::sort (nodes.begin(), nodes.end(),
+               [&](const juce::ValueTree& a, const juce::ValueTree& b)
+               {
+                   return parent.indexOf (a) < parent.indexOf (b);
+               });
+
+    // Insert all duplicates after the last selected node
+    int insertAfter = parent.indexOf (nodes.getLast());
+    juce::Array<juce::ValueTree> duplicated;
+
+    for (int i = 0; i < nodes.size(); ++i)
     {
-        undo.beginNewTransaction ("Duplicate");
-        offsetDuplicatePosition (paste, selected.getParent());
-        builder.draggedItemOnto (paste,
-                                 selected.getParent(),
-                                 selected.getParent().indexOf (selected) + 1);
-
-        this->setSelectedNode (paste);
-        juce::MessageManager::callAsync ([this, paste]() mutable
+        auto paste = juce::ValueTree::fromXml (nodes[i].toXmlString());
+        if (paste.isValid())
         {
-            if (auto* item = this->treeEditor.getItemForNode (paste))
-                this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-        });
+            offsetDuplicatePosition (paste, parent);
+            parent.addChild (paste, insertAfter + 1 + i, &undo);
+            duplicated.add (paste);
+        }
     }
+
+    if (!duplicated.isEmpty())
+        selectNodes (duplicated);
 }
 
 void ToolBox::performDuplicateUnique()
 {
-    auto selected = builder.getSelectedNode();
-    auto paste    = makeParameterRefsUnique (juce::ValueTree::fromXml (selected.toXmlString()));
+    auto nodes = getSelectedNodes();
+    if (nodes.isEmpty()) return;
 
-    if (paste.isValid() && selected.isValid())
+    auto parent = nodes.getFirst().getParent();
+    if (!parent.isValid()) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Duplicate Unique");
+
+    std::sort (nodes.begin(), nodes.end(),
+               [&](const juce::ValueTree& a, const juce::ValueTree& b)
+               {
+                   return parent.indexOf (a) < parent.indexOf (b);
+               });
+
+    int insertAfter = parent.indexOf (nodes.getLast());
+    juce::Array<juce::ValueTree> duplicated;
+
+    for (int i = 0; i < nodes.size(); ++i)
     {
-        undo.beginNewTransaction ("Duplicate Unique");
-        offsetDuplicatePosition (paste, selected.getParent());
-        builder.draggedItemOnto (paste,
-                                 selected.getParent(),
-                                 selected.getParent().indexOf (selected) + 1);
-
-        this->setSelectedNode (paste);
-        juce::MessageManager::callAsync ([this, paste]() mutable
+        auto paste = makeParameterRefsUnique (juce::ValueTree::fromXml (nodes[i].toXmlString()));
+        if (paste.isValid())
         {
-            if (auto* item = this->treeEditor.getItemForNode (paste))
-                this->treeEditor.getTreeView().scrollToKeepItemVisible (item);
-        });
+            offsetDuplicatePosition (paste, parent);
+            parent.addChild (paste, insertAfter + 1 + i, &undo);
+            duplicated.add (paste);
+        }
     }
+
+    if (!duplicated.isEmpty())
+        selectNodes (duplicated);
 }
 
 void ToolBox::performSendToBack()
@@ -1258,6 +1406,93 @@ void ToolBox::performAlignVerticalCenters()
     }
 }
 
+//==============================================================================
+// Distribute operations (multi-select, siblings only)
+//==============================================================================
+
+void ToolBox::performDistributeHorizontally()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Distribute Horizontally");
+
+    float pct = 100.0f / nodes.size();
+
+    // Sort by current position so distribution order matches visual order
+    std::sort (nodes.begin(), nodes.end(),
+               [&](const juce::ValueTree& a, const juce::ValueTree& b)
+               {
+                   auto* ia = builder.findGuiItem (a);
+                   auto* ib = builder.findGuiItem (b);
+                   if (ia && ib) return ia->getBounds().getX() < ib->getBounds().getX();
+                   return false;
+               });
+
+    for (int i = 0; i < nodes.size(); ++i)
+    {
+        nodes[i].setProperty ("pos-x",     juce::String (pct * i, 1) + "%", &undo);
+        nodes[i].setProperty ("pos-width", juce::String (pct, 1) + "%", &undo);
+    }
+}
+
+void ToolBox::performDistributeVertically()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2) return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Distribute Vertically");
+
+    float pct = 100.0f / nodes.size();
+
+    // Sort by current position so distribution order matches visual order
+    std::sort (nodes.begin(), nodes.end(),
+               [&](const juce::ValueTree& a, const juce::ValueTree& b)
+               {
+                   auto* ia = builder.findGuiItem (a);
+                   auto* ib = builder.findGuiItem (b);
+                   if (ia && ib) return ia->getBounds().getY() < ib->getBounds().getY();
+                   return false;
+               });
+
+    for (int i = 0; i < nodes.size(); ++i)
+    {
+        nodes[i].setProperty ("pos-y",      juce::String (pct * i, 1) + "%", &undo);
+        nodes[i].setProperty ("pos-height", juce::String (pct, 1) + "%", &undo);
+    }
+}
+
+//==============================================================================
+
+void ToolBox::performSelectAll()
+{
+    auto selected = builder.getSelectedNode();
+    juce::ValueTree parent;
+
+    if (selected.isValid())
+        parent = selected.getParent();
+
+    if (!parent.isValid())
+        parent = builder.getGuiRootNode();
+
+    if (!parent.isValid())
+        return;
+
+    // Select all children of the parent
+    for (int i = 0; i < parent.getNumChildren(); ++i)
+    {
+        auto child = parent.getChild (i);
+        if (auto* item = treeEditor.getItemForNode (child))
+            item->setSelected (true, i == 0, juce::dontSendNotification);
+    }
+
+    // Set primary to first child
+    if (parent.getNumChildren() > 0)
+        builder.setSelectedNode (parent.getChild (0));
+}
+
 void ToolBox::performSelectParent()
 {
     auto selected = builder.getSelectedNode();
@@ -1271,7 +1506,7 @@ void ToolBox::performSelectParent()
 
 void ToolBox::performDeselect()
 {
-    setSelectedNode ({});
+    treeEditor.getTreeView().clearSelectedItems();
     builder.setSelectedNode ({});
 }
 
@@ -1368,6 +1603,248 @@ void ToolBox::performWrapInView()
     setSelectedNode (wrapper);
 }
 
+void ToolBox::performGroup()
+{
+    auto nodes = getSelectedNodes();
+    if (nodes.size() < 2)
+        return;
+
+    // Verify all selected nodes share the same parent
+    auto parent = nodes.getFirst().getParent();
+    if (!parent.isValid())
+        return;
+
+    for (auto& node : nodes)
+    {
+        if (node.getParent() != parent)
+        {
+            juce::AlertWindow::showMessageBoxAsync (juce::AlertWindow::WarningIcon,
+                                                    "Group",
+                                                    "Selected items must be siblings.");
+            return;
+        }
+    }
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Group");
+
+    // Sort by current index
+    std::sort (nodes.begin(), nodes.end(),
+               [&](const juce::ValueTree& a, const juce::ValueTree& b)
+               {
+                   return parent.indexOf (a) < parent.indexOf (b);
+               });
+
+    // Detect whether items use percentage positioning
+    bool usePct = nodes.getFirst().getProperty ("pos-x").toString().containsChar ('%');
+
+    // Capture all pixel bounds BEFORE modifying the tree
+    juce::Rectangle<int> bbox;
+    int parentW = 1, parentH = 1;
+    bool first = true;
+
+    for (auto& node : nodes)
+    {
+        if (auto* item = builder.findGuiItem (node))
+        {
+            auto bounds = item->getBounds();
+
+            // Store bounds as temp properties to survive tree changes
+            node.setProperty ("_groupBoundsX", bounds.getX(), nullptr);
+            node.setProperty ("_groupBoundsY", bounds.getY(), nullptr);
+            node.setProperty ("_groupBoundsW", bounds.getWidth(), nullptr);
+            node.setProperty ("_groupBoundsH", bounds.getHeight(), nullptr);
+            node.setProperty ("_groupHasBounds", true, nullptr);
+
+            if (first)
+            {
+                bbox = bounds;
+                if (auto* pc = item->getParentComponent())
+                {
+                    parentW = pc->getWidth();
+                    parentH = pc->getHeight();
+                }
+                first = false;
+            }
+            else
+            {
+                bbox = bbox.getUnion (bounds);
+            }
+        }
+    }
+
+    if (bbox.isEmpty())
+        return;
+
+    // Guard against zero-width or zero-height bounding box
+    if (bbox.getWidth() == 0)  bbox.setWidth (1);
+    if (bbox.getHeight() == 0) bbox.setHeight (1);
+
+    int insertIndex = parent.indexOf (nodes.getFirst());
+
+    // Create wrapper with contents layout
+    juce::ValueTree wrapper ("View");
+    wrapper.setProperty ("display", "contents", nullptr);
+
+    if (usePct)
+    {
+        wrapper.setProperty ("pos-x",      juce::String (bbox.getX()      * 100.0f / parentW, 1) + "%", nullptr);
+        wrapper.setProperty ("pos-y",      juce::String (bbox.getY()      * 100.0f / parentH, 1) + "%", nullptr);
+        wrapper.setProperty ("pos-width",  juce::String (bbox.getWidth()  * 100.0f / parentW, 1) + "%", nullptr);
+        wrapper.setProperty ("pos-height", juce::String (bbox.getHeight() * 100.0f / parentH, 1) + "%", nullptr);
+    }
+    else
+    {
+        wrapper.setProperty ("pos-x",      bbox.getX(),      nullptr);
+        wrapper.setProperty ("pos-y",      bbox.getY(),      nullptr);
+        wrapper.setProperty ("pos-width",  bbox.getWidth(),  nullptr);
+        wrapper.setProperty ("pos-height", bbox.getHeight(), nullptr);
+    }
+
+    // Insert wrapper
+    parent.addChild (wrapper, insertIndex, &undo);
+
+    // Remove nodes from parent in reverse order
+    for (int i = nodes.size(); --i >= 0;)
+        parent.removeChild (nodes[i], &undo);
+
+    // Add nodes to wrapper with positions relative to the bounding box
+    float bboxW = (float) bbox.getWidth();
+    float bboxH = (float) bbox.getHeight();
+
+    for (auto& node : nodes)
+    {
+        bool hasBounds = (bool) node.getProperty ("_groupHasBounds", false);
+
+        if (hasBounds)
+        {
+            int bx = (int) node.getProperty ("_groupBoundsX");
+            int by = (int) node.getProperty ("_groupBoundsY");
+            int bw = (int) node.getProperty ("_groupBoundsW");
+            int bh = (int) node.getProperty ("_groupBoundsH");
+
+            if (usePct)
+            {
+                node.setProperty ("pos-x",      juce::String ((bx - bbox.getX()) * 100.0f / bboxW, 1) + "%", &undo);
+                node.setProperty ("pos-y",      juce::String ((by - bbox.getY()) * 100.0f / bboxH, 1) + "%", &undo);
+                node.setProperty ("pos-width",  juce::String (bw * 100.0f / bboxW, 1) + "%", &undo);
+                node.setProperty ("pos-height", juce::String (bh * 100.0f / bboxH, 1) + "%", &undo);
+            }
+            else
+            {
+                node.setProperty ("pos-x",      bx - bbox.getX(), &undo);
+                node.setProperty ("pos-y",      by - bbox.getY(), &undo);
+                node.setProperty ("pos-width",  bw,               &undo);
+                node.setProperty ("pos-height", bh,               &undo);
+            }
+        }
+        // else: headless item (no visible component) — keep its existing properties
+
+        // Clean up temp properties
+        node.removeProperty ("_groupBoundsX", nullptr);
+        node.removeProperty ("_groupBoundsY", nullptr);
+        node.removeProperty ("_groupBoundsW", nullptr);
+        node.removeProperty ("_groupBoundsH", nullptr);
+        node.removeProperty ("_groupHasBounds", nullptr);
+
+        wrapper.appendChild (node, &undo);
+    }
+
+    setSelectedNode (wrapper);
+}
+
+void ToolBox::performUngroup()
+{
+    auto selected = builder.getSelectedNode();
+    if (!selected.isValid() || selected.getNumChildren() == 0)
+        return;
+
+    auto grandparent = selected.getParent();
+    if (!grandparent.isValid())
+        return;
+
+    const juce::ScopedValueSetter<bool> svs (isMirroring, true);
+    undo.beginNewTransaction ("Ungroup");
+
+    // Get container's pixel bounds and grandparent dimensions
+    auto* containerItem = builder.findGuiItem (selected);
+    if (!containerItem)
+        return;
+
+    auto containerBounds = containerItem->getBounds();
+
+    // Detect whether the container uses percentage positioning
+    bool usePct = selected.getProperty ("pos-x").toString().containsChar ('%');
+
+    int grandparentW = 1, grandparentH = 1;
+    if (auto* gpc = containerItem->getParentComponent())
+    {
+        grandparentW = gpc->getWidth();
+        grandparentH = gpc->getHeight();
+    }
+
+    int insertIndex = grandparent.indexOf (selected);
+
+    // Collect children and their absolute pixel positions
+    struct ChildInfo
+    {
+        juce::ValueTree node;
+        juce::Rectangle<int> absoluteBounds;
+    };
+    juce::Array<ChildInfo> children;
+
+    for (int i = 0; i < selected.getNumChildren(); ++i)
+    {
+        auto child = selected.getChild (i);
+        if (auto* childItem = builder.findGuiItem (child))
+        {
+            auto childBounds = childItem->getBounds();
+            auto absoluteBounds = childBounds.translated (containerBounds.getX(), containerBounds.getY());
+            children.add ({ child, absoluteBounds });
+        }
+    }
+
+    // Remove children from container in reverse
+    for (int i = children.size(); --i >= 0;)
+        selected.removeChild (children[i].node, &undo);
+
+    // Remove empty container
+    grandparent.removeChild (selected, &undo);
+
+    // Add children to grandparent with absolute positions
+    for (int i = 0; i < children.size(); ++i)
+    {
+        auto& info = children.getReference (i);
+        auto& b = info.absoluteBounds;
+
+        if (usePct)
+        {
+            info.node.setProperty ("pos-x",      juce::String (b.getX()     * 100.0f / grandparentW, 1) + "%", &undo);
+            info.node.setProperty ("pos-y",      juce::String (b.getY()     * 100.0f / grandparentH, 1) + "%", &undo);
+            info.node.setProperty ("pos-width",  juce::String (b.getWidth() * 100.0f / grandparentW, 1) + "%", &undo);
+            info.node.setProperty ("pos-height", juce::String (b.getHeight()* 100.0f / grandparentH, 1) + "%", &undo);
+        }
+        else
+        {
+            info.node.setProperty ("pos-x",      b.getX(),      &undo);
+            info.node.setProperty ("pos-y",      b.getY(),      &undo);
+            info.node.setProperty ("pos-width",  b.getWidth(),  &undo);
+            info.node.setProperty ("pos-height", b.getHeight(), &undo);
+        }
+
+        grandparent.addChild (info.node, insertIndex + i, &undo);
+    }
+
+    // Select all ungrouped children
+    if (!children.isEmpty())
+    {
+        juce::Array<juce::ValueTree> ungrouped;
+        for (auto& info : children)
+            ungrouped.add (info.node);
+        selectNodes (ungrouped);
+    }
+}
+
 void ToolBox::performInsertViewContents()
 {
     auto selected = builder.getSelectedNode();
@@ -1445,29 +1922,47 @@ void ToolBox::insertSnippet (const juce::File& file)
     undo.beginNewTransaction ("Insert Snippet");
 
     const bool optionHeld = juce::ModifierKeys::getCurrentModifiers().isAltDown();
-    if (!optionHeld)
-        snippet = makeParameterRefsUnique (snippet);
 
     auto selected = builder.getSelectedNode();
     auto root = builder.getGuiRootNode();
 
-    if (!selected.isValid() || selected == root)
+    if (snippet.getType().toString() == "_multiCopy")
     {
-        // Nothing selected or root selected — insert inside root
-        builder.draggedItemOnto (snippet, root);
+        // Multi-item snippet — insert each child individually
+        auto target = (selected.isValid() && selected != root && selected.getParent().isValid())
+                        ? selected.getParent() : root;
+        int index = (target != root && target == selected.getParent())
+                        ? target.indexOf (selected) + 1 : -1;
+
+        for (int i = 0; i < snippet.getNumChildren(); ++i)
+        {
+            auto child = snippet.getChild (i).createCopy();
+            if (!optionHeld)
+                child = makeParameterRefsUnique (child);
+            target.addChild (child, index >= 0 ? index + i : -1, &undo);
+        }
     }
     else
     {
-        // Insert as sibling: add to parent, right after the selected node
-        auto parent = selected.getParent();
-        if (parent.isValid())
+        if (!optionHeld)
+            snippet = makeParameterRefsUnique (snippet);
+
+        if (!selected.isValid() || selected == root)
         {
-            auto index = parent.indexOf (selected) + 1;
-            parent.addChild (snippet, index, &undo);
+            builder.draggedItemOnto (snippet, root);
         }
         else
         {
-            builder.draggedItemOnto (snippet, root);
+            auto parent = selected.getParent();
+            if (parent.isValid())
+            {
+                auto index = parent.indexOf (selected) + 1;
+                parent.addChild (snippet, index, &undo);
+            }
+            else
+            {
+                builder.draggedItemOnto (snippet, root);
+            }
         }
     }
 }
@@ -1939,6 +2434,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
+    // Cmd+A - select all siblings
+    if (key.isKeyCode ('A') && key.getModifiers().isCommandDown())
+    {
+        performSelectAll();
+        return true;
+    }
+
     // Cmd+P - select parent
     if (key.isKeyCode ('P') && key.getModifiers().isCommandDown())
     {
@@ -1964,6 +2466,16 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if (key.isKeyCode ('W') && key.getModifiers().isCommandDown())
     {
         performWrapInView();
+        return true;
+    }
+
+    // Cmd+G - group, Shift+Cmd+G - ungroup
+    if (key.isKeyCode ('G') && key.getModifiers().isCommandDown())
+    {
+        if (key.getModifiers().isShiftDown())
+            performUngroup();
+        else
+            performGroup();
         return true;
     }
     

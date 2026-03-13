@@ -70,6 +70,8 @@ public:
     
     void expandAll();
     
+    void selectNodes (const juce::Array<juce::ValueTree>& nodes);
+    
     juce::Array<juce::ValueTree> getSelectedNodes() const;
 
 private:
