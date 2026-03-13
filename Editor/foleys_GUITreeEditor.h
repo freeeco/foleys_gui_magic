@@ -73,6 +73,8 @@ public:
     void selectNodes (const juce::Array<juce::ValueTree>& nodes);
     
     juce::Array<juce::ValueTree> getSelectedNodes() const;
+    
+    void mouseDown (const juce::MouseEvent& e) override;
 
 private:
     class GuiTreeItem : public juce::TreeViewItem
@@ -125,7 +127,20 @@ private:
     juce::ValueTree              tree;
 
     std::unique_ptr<GuiTreeItem> rootItem;
-    juce::TreeView               treeView;
+    class ClickableTreeView : public juce::TreeView
+    {
+    public:
+        std::function<void()> onBackgroundClick;
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            auto* itemUnderMouse = getItemAt (e.getPosition().y);
+            if (itemUnderMouse == nullptr && onBackgroundClick)
+                onBackgroundClick();
+            else
+                juce::TreeView::mouseDown (e);
+        }
+    };
+    ClickableTreeView treeView;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GUITreeEditor)
 };

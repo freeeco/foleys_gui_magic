@@ -202,6 +202,10 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
     {
         juce::PopupMenu edit;
 
+        bool hasSelection = builder.getSelectedNode().isValid();
+        bool hasClipboard = juce::ValueTree::fromXml (juce::SystemClipboard::getTextFromClipboard()).isValid();
+        bool multiSelected = hasMultipleSelected();
+
         {
             auto undoDesc = undo.getUndoDescription();
             juce::PopupMenu::Item it (undoDesc.isNotEmpty() ? "Undo " + undoDesc : "Undo");
@@ -225,18 +229,21 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Cut");
             it.action = [&] { performCut(); };
             it.shortcutKeyDescription = "Cmd+X";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Copy");
             it.action = [&] { performCopy(); };
             it.shortcutKeyDescription = "Cmd+C";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste");
             it.action = [&] { performPaste(); };
             it.shortcutKeyDescription = "Cmd+V";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         
@@ -246,30 +253,35 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Paste Unique");
             it.action = [&] { performPasteUnique(); };
             it.shortcutKeyDescription = "Shift+Cmd+V";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste Dimensions");
             it.action = [&] { performPasteDimensions(); };
             it.shortcutKeyDescription = "Shift+Control+V";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste Item Properties");
             it.action = [&] { performPasteItemProperties(); };
             it.shortcutKeyDescription = "Shift+Opt+Cmd+V";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste Styling");
             it.action = [&] { performPasteStyling(); };
             it.shortcutKeyDescription = "Cmd+T";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Paste Replace");
             it.action = [&] { performPasteReplace(); };
             it.shortcutKeyDescription = "Opt+Cmd+V";
+            it.setEnabled (hasClipboard && hasSelection);
             edit.addItem (it);
         }
         
@@ -279,12 +291,14 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Duplicate");
             it.action = [&] { performDuplicate(); };
             it.shortcutKeyDescription = "Opt+Cmd+D";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Duplicate Unique");
             it.action = [&] { performDuplicateUnique(); };
             it.shortcutKeyDescription = "Cmd+D";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         
@@ -307,6 +321,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                 }
             };
             it.shortcutKeyDescription = "Delete";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
@@ -323,6 +338,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                 }
             };
             it.shortcutKeyDescription = "Cmd+Delete";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         
@@ -350,7 +366,7 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                 insertMenu.addItem (it);
             }
 
-            edit.addSubMenu ("Insert", insertMenu);
+            edit.addSubMenu ("Insert", insertMenu, hasSelection);
         }
         
         edit.addSeparator();
@@ -359,24 +375,28 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Send to Back");
             it.action = [&] { performSendToBack(); };
             it.shortcutKeyDescription = "Shift+Cmd+[";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Send Back");
             it.action = [&] { performSendBack(); };
             it.shortcutKeyDescription = "Cmd+[";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Bring Forward");
             it.action = [&] { performBringForward(); };
             it.shortcutKeyDescription = "Cmd+]";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Bring to Front");
             it.action = [&] { performBringToFront(); };
             it.shortcutKeyDescription = "Shift+Cmd+]";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
 
@@ -391,13 +411,13 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             alignMenu.addSeparator();
             alignMenu.addItem ("Horizontally", [&] { performAlignHorizontalCenters(); });
             alignMenu.addItem ("Vertically",   [&] { performAlignVerticalCenters(); });
-            edit.addSubMenu ("Align", alignMenu, hasMultipleSelected());
+            edit.addSubMenu ("Align", alignMenu, multiSelected);
         }
         {
             juce::PopupMenu distributeMenu;
             distributeMenu.addItem ("Horizontally", [&] { performDistributeHorizontally(); });
             distributeMenu.addItem ("Vertically",   [&] { performDistributeVertically(); });
-            edit.addSubMenu ("Distribute", distributeMenu, hasMultipleSelected());
+            edit.addSubMenu ("Distribute", distributeMenu, multiSelected);
         }
 
         edit.addSeparator();
@@ -412,12 +432,14 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
             juce::PopupMenu::Item it ("Select Parent");
             it.action = [&] { performSelectParent(); };
             it.shortcutKeyDescription = "Cmd+P";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Deselect");
             it.action = [&] { performDeselect(); };
             it.shortcutKeyDescription = "Cmd+U";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
 
@@ -426,25 +448,28 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         {
             juce::PopupMenu::Item it ("Clear Dimensions");
             it.action = [&] { performClearDimensions(); };
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Wrap in View");
             it.action = [&] { performWrapInView(); };
             it.shortcutKeyDescription = "Cmd+W";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Group");
             it.action = [&] { performGroup(); };
             it.shortcutKeyDescription = "Cmd+G";
-            it.setEnabled (hasMultipleSelected());
+            it.setEnabled (multiSelected);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Ungroup");
             it.action = [&] { performUngroup(); };
             it.shortcutKeyDescription = "Shift+Cmd+G";
+            it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         edit.addSeparator();
@@ -823,18 +848,39 @@ void ToolBox::performPaste()
 
     juce::Array<juce::ValueTree> pasted;
 
+    // If selected is a View, paste into it. Otherwise paste after it as a sibling.
+    bool intoContainer = (selected.getType() == IDs::view);
+
     if (paste.getType().toString() == "_multiCopy")
     {
         for (int i = 0; i < paste.getNumChildren(); ++i)
         {
             auto child = paste.getChild (i).createCopy();
-            builder.draggedItemOnto (child, selected);
+            if (intoContainer)
+            {
+                builder.draggedItemOnto (child, selected);
+            }
+            else
+            {
+                auto parent = selected.getParent();
+                int idx = parent.indexOf (selected) + 1 + i;
+                builder.draggedItemOnto (child, parent, idx);
+            }
             pasted.add (child);
         }
     }
     else
     {
-        builder.draggedItemOnto (paste, selected);
+        if (intoContainer)
+        {
+            builder.draggedItemOnto (paste, selected);
+        }
+        else
+        {
+            auto parent = selected.getParent();
+            int idx = parent.indexOf (selected) + 1;
+            builder.draggedItemOnto (paste, parent, idx);
+        }
         pasted.add (paste);
     }
 
@@ -858,20 +904,42 @@ void ToolBox::performPasteUnique()
 
     juce::Array<juce::ValueTree> pasted;
 
+    bool intoContainer = (selected.getType() == IDs::view);
+
     if (paste.getType().toString() == "_multiCopy")
     {
         for (int i = 0; i < paste.getNumChildren(); ++i)
         {
             auto child = makeParameterRefsUnique (paste.getChild (i).createCopy());
-            builder.draggedItemOnto (child, selected);
+            if (intoContainer)
+            {
+                builder.draggedItemOnto (child, selected);
+            }
+            else
+            {
+                auto parent = selected.getParent();
+                int idx = parent.indexOf (selected) + 1 + i;
+                builder.draggedItemOnto (child, parent, idx);
+            }
             pasted.add (child);
         }
     }
     else
     {
-        auto unique = makeParameterRefsUnique (paste);
-        builder.draggedItemOnto (unique, selected);
-        pasted.add (unique);
+        if (intoContainer)
+        {
+            auto unique = makeParameterRefsUnique (paste);
+            builder.draggedItemOnto (unique, selected);
+            pasted.add (unique);
+        }
+        else
+        {
+            auto unique = makeParameterRefsUnique (paste);
+            auto parent = selected.getParent();
+            int idx = parent.indexOf (selected) + 1;
+            builder.draggedItemOnto (unique, parent, idx);
+            pasted.add (unique);
+        }
     }
 
     // Select only the pasted items
@@ -1926,9 +1994,10 @@ void ToolBox::insertSnippet (const juce::File& file)
     auto selected = builder.getSelectedNode();
     auto root = builder.getGuiRootNode();
 
+    juce::Array<juce::ValueTree> inserted;
+
     if (snippet.getType().toString() == "_multiCopy")
     {
-        // Multi-item snippet — insert each child individually
         auto target = (selected.isValid() && selected != root && selected.getParent().isValid())
                         ? selected.getParent() : root;
         int index = (target != root && target == selected.getParent())
@@ -1940,6 +2009,7 @@ void ToolBox::insertSnippet (const juce::File& file)
             if (!optionHeld)
                 child = makeParameterRefsUnique (child);
             target.addChild (child, index >= 0 ? index + i : -1, &undo);
+            inserted.add (child);
         }
     }
     else
@@ -1964,7 +2034,11 @@ void ToolBox::insertSnippet (const juce::File& file)
                 builder.draggedItemOnto (snippet, root);
             }
         }
+        inserted.add (snippet);
     }
+
+    if (!inserted.isEmpty())
+        selectNodes (inserted);
 }
 
 //==============================================================================
@@ -2231,6 +2305,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Delete / Backspace - remove selected node(s)
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && !key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         auto nodes = getSelectedNodes();
         if (!nodes.isEmpty())
         {
@@ -2249,6 +2324,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+Delete - remove all children of selected node(s)
     if ((key.isKeyCode (juce::KeyPress::backspaceKey) || key.isKeyCode (juce::KeyPress::deleteKey)) && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         auto nodes = getSelectedNodes();
         if (!nodes.isEmpty())
         {
@@ -2264,6 +2340,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+Z / Cmd+Shift+Z - undo / redo
     if (key.isKeyCode ('Z') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         if (key.getModifiers().isShiftDown())
             performRedo();
         else
@@ -2275,6 +2352,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+X - cut
     if (key.isKeyCode ('X') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performCut();
         return true;
     }
@@ -2282,12 +2360,14 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+C - copy
     if (key.isKeyCode ('C') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performCopy();
         return true;
     }
 
     if (key.isKeyCode ('V') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         if (key.getModifiers().isShiftDown() && key.getModifiers().isAltDown())
             performPasteItemProperties();
         else if (key.getModifiers().isShiftDown())
@@ -2304,6 +2384,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     if (key.isKeyCode ('V') && key.getModifiers().isShiftDown() && key.getModifiers().isCtrlDown()
         && !key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performPasteDimensions();
         return true;
     }
@@ -2311,6 +2392,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+D - duplicate (plain), Opt+Cmd+D - duplicate unique
     if (key.isKeyCode ('D') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         if (key.getModifiers().isAltDown())
             performDuplicate();
         else
@@ -2322,12 +2404,14 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+S - save, Cmd+Shift+S - save as
     if (key.isKeyCode ('S') && key.getModifiers().isCommandDown() && !key.getModifiers().isShiftDown())
     {
+        flashMenuButton (fileMenu);
         save();
         return true;
     }
 
     if (key.isKeyCode ('S') && key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown())
     {
+        flashMenuButton (fileMenu);
         saveDialog();
         return true;
     }
@@ -2335,6 +2419,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+O - load
     if (key.isKeyCode ('O') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (fileMenu);
         loadDialog();
         return true;
     }
@@ -2342,6 +2427,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+R - refresh
     if (key.isKeyCode ('R') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (fileMenu);
         builder.updateComponents();
         return true;
     }
@@ -2349,6 +2435,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+E - toggle edit mode
     if (key.isKeyCode ('E') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         editSwitch.triggerClick();
         return true;
     }
@@ -2413,11 +2500,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+[ - send back, Cmd+{ (Shift+[) - send to back
     if (key.isKeyCode ('[') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performSendBack();
         return true;
     }
     if (key.isKeyCode ('{') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performSendToBack();
         return true;
     }
@@ -2425,11 +2514,13 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+] - bring forward, Cmd+} (Shift+]) - bring to front
     if (key.isKeyCode (']') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performBringForward();
         return true;
     }
     if (key.isKeyCode ('}') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performBringToFront();
         return true;
     }
@@ -2437,6 +2528,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+A - select all siblings
     if (key.isKeyCode ('A') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performSelectAll();
         return true;
     }
@@ -2444,6 +2536,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+P - select parent
     if (key.isKeyCode ('P') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performSelectParent();
         return true;
     }
@@ -2451,6 +2544,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+U - deselect
     if (key.isKeyCode ('U') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performDeselect();
         return true;
     }
@@ -2458,6 +2552,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+T - paste styling
     if (key.isKeyCode ('T') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performPasteStyling();
         return true;
     }
@@ -2465,6 +2560,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+W - wrap in view
     if (key.isKeyCode ('W') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         performWrapInView();
         return true;
     }
@@ -2472,6 +2568,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+G - group, Shift+Cmd+G - ungroup
     if (key.isKeyCode ('G') && key.getModifiers().isCommandDown())
     {
+        flashMenuButton (editMenu);
         if (key.getModifiers().isShiftDown())
             performUngroup();
         else
@@ -2492,6 +2589,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Alt+Cmd+F - toggle selection to front
     if (key.isKeyCode ('F') && key.getModifiers().isCommandDown() && key.getModifiers().isAltDown())
     {
+        flashMenuButton (editMenu);
         GuiItem::selectionToFront = !GuiItem::selectionToFront;
         if (auto* properties = appProperties.getUserSettings())
             properties->setValue ("selectionToFront", GuiItem::selectionToFront ? "true" : "false");
@@ -2516,6 +2614,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Cmd+N - Insert View (Contents)
     if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && !key.getModifiers().isShiftDown() && !key.getModifiers().isAltDown())
     {
+        flashMenuButton (editMenu);
         performInsertViewContents();
         return true;
     }
@@ -2523,6 +2622,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Shift+Cmd+N - Insert View (Flexbox)
     if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown() && !key.getModifiers().isAltDown())
     {
+        flashMenuButton (editMenu);
         performInsertViewFlexbox();
         return true;
     }
@@ -2530,6 +2630,7 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     // Opt+Cmd+N - Insert View (Tabbed)
     if (key.isKeyCode ('N') && key.getModifiers().isCommandDown() && key.getModifiers().isAltDown() && !key.getModifiers().isShiftDown())
     {
+        flashMenuButton (editMenu);
         performInsertViewTabbed();
         return true;
     }
@@ -2578,6 +2679,16 @@ void ToolBox::setToolboxPosition (PositionOption position)
         stopTimer (Timers::WindowDrag);
     else
         startTimer (Timers::WindowDrag, 100);
+}
+
+void ToolBox::flashMenuButton (juce::TextButton& button)
+{
+    button.setState (juce::Button::buttonDown);
+    juce::Timer::callAfterDelay (80, [safeButton = juce::Component::SafePointer<juce::TextButton> (&button)]()
+    {
+        if (safeButton != nullptr)
+            safeButton->setState (juce::Button::buttonNormal);
+    });
 }
 
 void ToolBox::updateToolboxPosition()

@@ -1033,7 +1033,7 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
         
         if (!hasDuplicatedOnDrag &&
             event.mouseWasDraggedSinceMouseDown() &&
-            event.mods.isAltDown())
+            (event.mods.isAltDown() && !(event.mods.isCommandDown() && event.mods.isShiftDown()))) // Only if temp-edit mode is not active (which uses Cmd + Shift + Alt)
         {
             hasDuplicatedOnDrag = true;
         }
@@ -1052,7 +1052,7 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 #if defined ENABLE_CONSTRAINED_DRAG
         auto bounds = getBounds();
 
-        if (event.mods.isShiftDown())
+        if (event.mods.isShiftDown() && !(event.mods.isCommandDown() && event.mods.isAltDown())) // Only if temp-edit mode is not active (which uses Cmd + Shift + Alt))
         {
             auto drag = event.getOffsetFromDragStart();
             const int lockThreshold = 8;

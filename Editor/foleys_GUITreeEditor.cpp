@@ -49,6 +49,12 @@ GUITreeEditor::GUITreeEditor (MagicGUIBuilder& builderToEdit)
     setValueTree (tree);
 
     addAndMakeVisible (treeView);
+    
+    treeView.onBackgroundClick = [this]()
+    {
+        treeView.clearSelectedItems();
+        builder.setSelectedNode ({});
+    };
 }
 
 void GUITreeEditor::paint (juce::Graphics& g)
@@ -433,5 +439,10 @@ juce::Array<juce::ValueTree> GUITreeEditor::getSelectedNodes() const
     return nodes;
 }
 
+void GUITreeEditor::mouseDown (const juce::MouseEvent&)
+{
+    treeView.clearSelectedItems();
+    builder.setSelectedNode ({});
+}
 
 } // namespace foleys

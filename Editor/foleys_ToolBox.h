@@ -266,6 +266,7 @@ private:
     void valueTreeParentChanged (juce::ValueTree&) override {}
 
     void updateToolboxPosition();
+    void flashMenuButton (juce::TextButton& button);
     void offsetDuplicatePosition (juce::ValueTree& paste, const juce::ValueTree& parentNode);
     juce::ResizableCornerComponent resizeCorner { this, nullptr };
     juce::ComponentDragger componentDragger;
