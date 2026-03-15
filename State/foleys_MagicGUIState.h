@@ -253,7 +253,11 @@ public:
             return false;
         }
     }
-
+    
+    juce::StringArray getPlayheadUIDs() const { return playheadUIDs; }
+    void registerPlayheadUID   (const juce::String& uid) { playheadUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterPlayheadUID (const juce::String& uid) { playheadUIDs.removeString (uid); }
+    
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
     juce::File getResourcesFolder() const;
@@ -261,9 +265,9 @@ public:
 private:
     juce::File resourcesFolder;
 #endif
-
+    
 private:
-
+    
     void addParametersToMenu (const juce::AudioProcessorParameterGroup& group, juce::PopupMenu& menu, int& index) const;
     void addPropertiesToMenu (const juce::ValueTree& tree, juce::ComboBox& combo, juce::PopupMenu& menu, const juce::String& path) const;
 
@@ -286,6 +290,8 @@ private:
     ToyboxPluginAudioProcessor* processor;
     bool needsUpdate = false;
     bool windowSizeInitialized = false;
+    
+    juce::StringArray playheadUIDs;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

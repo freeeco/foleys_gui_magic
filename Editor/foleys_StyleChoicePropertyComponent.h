@@ -60,6 +60,19 @@ private:
 
     juce::StringArray               choices;
     std::function<void(juce::ComboBox&)> menuCreationLambda;
+    struct RefreshableComboBox : public juce::ComboBox
+    {
+        std::function<void(juce::ComboBox&)> refreshLambda;
+        StyleChoicePropertyComponent* owner = nullptr;
+
+        void showPopup() override
+        {
+            clear (juce::dontSendNotification);
+            if (refreshLambda) refreshLambda (*this);
+            if (owner) owner->isPropertiesMenu (*this);
+            juce::ComboBox::showPopup();
+        }
+    };
     juce::Value                     proxy;
 
     bool                            hasCopyPaste = false;

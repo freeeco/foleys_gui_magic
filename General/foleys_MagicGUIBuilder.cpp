@@ -469,6 +469,26 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createTriggerMenuLambda() 
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPlayheadUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getPlayheadUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 juce::var MagicGUIBuilder::getPropertyDefaultValue (juce::Identifier property) const
 {
     // flexbox

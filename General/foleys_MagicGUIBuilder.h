@@ -194,6 +194,7 @@ public:
     std::function<void(juce::ComboBox&)> createParameterMenuLambda() const;
     std::function<void(juce::ComboBox&)> createPropertiesMenuLambda() const;
     std::function<void(juce::ComboBox&)> createTriggerMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createPlayheadUIDMenuLambda() const;
 
     template<typename ObjectType>
     std::function<void(juce::ComboBox&)> createObjectsMenuLambda() const

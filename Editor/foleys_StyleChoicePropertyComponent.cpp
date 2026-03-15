@@ -65,6 +65,9 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
     if (menu == nullptr)
         return false;
 
+    // Detect if this is a UID field
+    bool isUIDField = property.toString().endsWithIgnoreCase ("uid");
+
     juce::PopupMenu::MenuItemIterator iter (*menu, false);
     while (iter.next())
     {
@@ -72,37 +75,69 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
         {
             auto currentValue = node.getProperty (property).toString();
 
-            menu->addItem (NEEDS_TRANS ("Make Value Unique"), [this]()
+            auto makeUniqueLabel = isUIDField
+                ? NEEDS_TRANS ("Make UID Unique")
+                : NEEDS_TRANS ("Make Value Unique");
+
+            menu->addItem (makeUniqueLabel, [this, isUIDField]()
             {
-                auto msSince2000 = juce::String (juce::int64 (
-                    (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds()));
+                auto secondsSince2000 = juce::String (juce::int64 (
+                    (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
 
                 juce::String newValue;
                 auto currentValue = node.getProperty (property).toString();
 
-                if (currentValue.isEmpty())
+                if (isUIDField)
                 {
-                    // No value — same as copy button: generate from node prefix + property
-                    juce::String nodePrefix;
-                    if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
-                        nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
-                    else
-                        nodePrefix = node.getType().toString().replace (" ", "-");
+                    // UID format: NodeType_timestamp
+                    // Derive prefix from property name — "playhead-uid" → "Playhead"
+                    auto propName = property.toString();
+                    auto prefix = propName.upToFirstOccurrenceOf ("-uid", false, true);
+                    prefix = prefix.substring (0, 1).toUpperCase() + prefix.substring (1);
 
-                    newValue = nodePrefix + ":" + property.toString() + "-" + msSince2000;
+                    if (currentValue.isEmpty())
+                    {
+                        newValue = prefix + "_" + secondsSince2000;
+                    }
+                    else
+                    {
+                        // Strip existing timestamp suffix and replace
+                        auto lastUnderscore = currentValue.lastIndexOf ("_");
+                        auto cleanValue = currentValue;
+                        if (lastUnderscore >= 0)
+                        {
+                            auto suffix = currentValue.substring (lastUnderscore + 1);
+                            if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
+                                cleanValue = currentValue.substring (0, lastUnderscore);
+                        }
+                        newValue = cleanValue + "_" + secondsSince2000;
+                    }
                 }
                 else
                 {
-                    // Existing value — strip any existing timestamp suffix, append new one
-                    auto cleanValue = currentValue;
-                    auto lastDash = currentValue.lastIndexOf ("-");
-                    if (lastDash >= 0)
+                    // Original value format
+                    if (currentValue.isEmpty())
                     {
-                        auto suffix = currentValue.substring (lastDash + 1);
-                        if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
-                            cleanValue = currentValue.substring (0, lastDash);
+                        juce::String nodePrefix;
+                        if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
+                            nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
+                        else
+                            nodePrefix = node.getType().toString().replace (" ", "-");
+
+                        newValue = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
                     }
-                    newValue = cleanValue + "-" + msSince2000;
+                    else
+                    {
+                        auto cleanValue = currentValue;
+                        auto lastDash = currentValue.lastIndexOf ("-");
+                        if (lastDash >= 0)
+                        {
+                            auto suffix = currentValue.substring (lastDash + 1);
+                            if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
+                                cleanValue = currentValue.substring (0, lastDash);
+                        }
+                        newValue = cleanValue + "-" + secondsSince2000;
+                    }
                 }
 
                 if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
@@ -186,20 +221,20 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
 
 void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 {
-    auto combo = std::make_unique<juce::ComboBox>();
+    auto combo = std::make_unique<RefreshableComboBox>();
     combo->setEditableText (editable);
 
     if (! choices.isEmpty())
     {
         int index = 0;
         for (const auto& name : choices)
-        {
             combo->addItem (name, ++index);
-        }
     }
     else if (menuCreationLambda)
     {
-        menuCreationLambda (*combo);
+        combo->refreshLambda = menuCreationLambda;
+        combo->owner = this;
+        menuCreationLambda (*combo);   // populate once at init so current value displays
     }
 
     addAndMakeVisible (combo.get());
@@ -247,19 +282,31 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
                 
                 if (currentText.isEmpty())
                 {
-                    auto msSince2000 = juce::String (juce::int64 (
-                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds()));
+                    auto secondsSince2000 = juce::String (juce::int64 (
+                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
 
-                    // Build prefix from node id, falling back to node type name
-                    juce::String nodePrefix;
-                    if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
-                        nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
+                    bool isUIDField = property.toString().endsWithIgnoreCase ("uid");
+
+                    if (isUIDField)
+                    {
+                        // UID format: NodeType_timestamp
+                        auto propName = property.toString();
+                        auto prefix = propName.upToFirstOccurrenceOf ("-uid", false, true);
+                        prefix = prefix.substring (0, 1).toUpperCase() + prefix.substring (1);
+                        currentText = prefix + "_" + secondsSince2000;
+                    }
                     else
-                        nodePrefix = node.getType().toString().replace (" ", "-");
+                    {
+                        // Original value format
+                        juce::String nodePrefix;
+                        if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
+                            nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
+                        else
+                            nodePrefix = node.getType().toString().replace (" ", "-");
 
-                    currentText = nodePrefix + ":" + property.toString() + "-" + msSince2000;
+                        currentText = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                    }
                     
-                    // Write it into the field and the node immediately
                     c->setText (currentText, juce::sendNotificationSync);
                     node.setProperty (property, currentText, &builder.getUndoManager());
                     refresh();
