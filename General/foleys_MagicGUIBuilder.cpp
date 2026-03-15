@@ -489,6 +489,57 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPlayheadUIDMenuLambd
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPlaylistUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getPlaylistUIDs();
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+        combo.addSeparator();
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createClipUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getClipUIDs();
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+        combo.addSeparator();
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createModifierUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getModifierUIDs();
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+        combo.addSeparator();
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 juce::var MagicGUIBuilder::getPropertyDefaultValue (juce::Identifier property) const
 {
     // flexbox

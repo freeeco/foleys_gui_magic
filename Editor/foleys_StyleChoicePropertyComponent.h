@@ -46,20 +46,15 @@ class StyleChoicePropertyComponent  : public StylePropertyComponent,
 {
 public:
     StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, juce::StringArray choices);
-    StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> menuCreationLambda);
+    StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> menuCreationLambda, const juce::String& uidPrefix = {});
 
     void refresh() override;
     void resized() override;
 
-private:
-    void initialiseComboBox (bool editable);
-
     bool isPropertiesMenu (juce::ComboBox& combo);
 
-    void valueChanged (juce::Value& value) override;
+private:
 
-    juce::StringArray               choices;
-    std::function<void(juce::ComboBox&)> menuCreationLambda;
     struct RefreshableComboBox : public juce::ComboBox
     {
         std::function<void(juce::ComboBox&)> refreshLambda;
@@ -73,14 +68,18 @@ private:
             juce::ComboBox::showPopup();
         }
     };
-    juce::Value                     proxy;
+
+    void initialiseComboBox (bool editable);
+    void valueChanged (juce::Value& value) override;
+
+    juce::StringArray                    choices;
+    std::function<void(juce::ComboBox&)> menuCreationLambda;
+    juce::String                         uidPrefix;
+    juce::Value                          proxy;
 
     bool                            hasCopyPaste = false;
-//    juce::TextButton                copyButton { "C" };
-//    juce::TextButton                pasteButton { "P" };
     juce::TextButton                copyButton  { juce::String (juce::CharPointer_UTF8 ("\xe2\x86\xa6")) };  // ↦
     juce::TextButton                pasteButton { juce::String (juce::CharPointer_UTF8 ("\xe2\x87\xa5")) };  // ⇥
-    
 
     static juce::String             clipboard;
 

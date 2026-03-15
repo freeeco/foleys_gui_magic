@@ -55,7 +55,7 @@ StylePropertyComponent* StylePropertyComponent::createComponent (MagicGUIBuilder
         return new StyleBoolPropertyComponent (builder, property.name, node);
 
     if (property.type == SettableProperty::Choice)
-        return new StyleChoicePropertyComponent (builder, property.name, node, property.menuCreationLambda);
+            return new StyleChoicePropertyComponent (builder, property.name, node, property.menuCreationLambda, property.uidPrefix);
 
     if (property.type == SettableProperty::Gradient)
         return new StyleGradientPropertyComponent (builder, property.name, node);

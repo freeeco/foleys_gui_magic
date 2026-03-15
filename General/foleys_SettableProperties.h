@@ -61,7 +61,8 @@ struct SettableProperty
     const PropertyType     type;
     const juce::var        defaultValue;
     const std::function<void(juce::ComboBox&)> menuCreationLambda;
-    const juce::String     tooltip = {};
+    const juce::String     tooltip    = {};
+    const juce::String     uidPrefix  = {};
 };
 
 } // namespace foleys

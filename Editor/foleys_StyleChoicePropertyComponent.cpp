@@ -52,9 +52,10 @@ StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& bui
     initialiseComboBox (false);
 }
 
-StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> lambdaToUse)
+StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> lambdaToUse, const juce::String& uidPrefixToUse)
   : StylePropertyComponent (builderToUse, propertyToUse, nodeToUse),
-    menuCreationLambda (lambdaToUse)
+    menuCreationLambda (lambdaToUse),
+    uidPrefix (uidPrefixToUse)
 {
     initialiseComboBox (false);
 }
@@ -65,9 +66,6 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
     if (menu == nullptr)
         return false;
 
-    // Detect if this is a UID field
-    bool isUIDField = property.toString().endsWithIgnoreCase ("uid");
-
     juce::PopupMenu::MenuItemIterator iter (*menu, false);
     while (iter.next())
     {
@@ -75,11 +73,11 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
         {
             auto currentValue = node.getProperty (property).toString();
 
-            auto makeUniqueLabel = isUIDField
+            auto makeUniqueLabel = uidPrefix.isNotEmpty()
                 ? NEEDS_TRANS ("Make UID Unique")
                 : NEEDS_TRANS ("Make Value Unique");
 
-            menu->addItem (makeUniqueLabel, [this, isUIDField]()
+            menu->addItem (makeUniqueLabel, [this]()
             {
                 auto secondsSince2000 = juce::String (juce::int64 (
                     (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
@@ -87,21 +85,15 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                 juce::String newValue;
                 auto currentValue = node.getProperty (property).toString();
 
-                if (isUIDField)
+                if (uidPrefix.isNotEmpty())
                 {
-                    // UID format: NodeType_timestamp
-                    // Derive prefix from property name — "playhead-uid" → "Playhead"
-                    auto propName = property.toString();
-                    auto prefix = propName.upToFirstOccurrenceOf ("-uid", false, true);
-                    prefix = prefix.substring (0, 1).toUpperCase() + prefix.substring (1);
-
+                    // UID format: Prefix_timestamp
                     if (currentValue.isEmpty())
                     {
-                        newValue = prefix + "_" + secondsSince2000;
+                        newValue = uidPrefix + "_" + secondsSince2000;
                     }
                     else
                     {
-                        // Strip existing timestamp suffix and replace
                         auto lastUnderscore = currentValue.lastIndexOf ("_");
                         auto cleanValue = currentValue;
                         if (lastUnderscore >= 0)
@@ -115,7 +107,7 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                 }
                 else
                 {
-                    // Original value format
+                    // Standard value format
                     if (currentValue.isEmpty())
                     {
                         juce::String nodePrefix;
@@ -239,7 +231,7 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 
     addAndMakeVisible (combo.get());
 
-    // Detect if this is a properties/values menu
+    // Detect if this is a properties/values menu — sets hasCopyPaste
     hasCopyPaste = isPropertiesMenu (*combo);
 
     // For properties menus, make the combo editable so clicking the text
@@ -250,12 +242,7 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
     combo->onChange = [&]
     {
         if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
-        {
-            auto text = c->getText();
-            if (hasCopyPaste)
-                text = text.replace (" ", "-");
-            node.setProperty (property, text, &builder.getUndoManager());
-        }
+            node.setProperty (property, c->getText().replace (" ", "-"), &builder.getUndoManager());
 
         refresh();
     };
@@ -285,19 +272,14 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
                     auto secondsSince2000 = juce::String (juce::int64 (
                         (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
 
-                    bool isUIDField = property.toString().endsWithIgnoreCase ("uid");
-
-                    if (isUIDField)
+                    if (uidPrefix.isNotEmpty())
                     {
-                        // UID format: NodeType_timestamp
-                        auto propName = property.toString();
-                        auto prefix = propName.upToFirstOccurrenceOf ("-uid", false, true);
-                        prefix = prefix.substring (0, 1).toUpperCase() + prefix.substring (1);
-                        currentText = prefix + "_" + secondsSince2000;
+                        // UID format: Prefix_timestamp
+                        currentText = uidPrefix + "_" + secondsSince2000;
                     }
                     else
                     {
-                        // Original value format
+                        // Standard value format
                         juce::String nodePrefix;
                         if (node.hasProperty ("id") && node.getProperty ("id").toString().isNotEmpty())
                             nodePrefix = node.getProperty ("id").toString().replace (" ", "-");
@@ -306,7 +288,8 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
 
                         currentText = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
                     }
-                    
+
+                    // Write it into the field and the node immediately
                     c->setText (currentText, juce::sendNotificationSync);
                     node.setProperty (property, currentText, &builder.getUndoManager());
                     refresh();
@@ -342,8 +325,8 @@ void StyleChoicePropertyComponent::resized()
     {
         const auto buttonW = juce::roundToInt (getHeight() * 0.6f);
         auto buttonsArea = juce::Rectangle<int> (b.getX() - buttonW * 2, b.getY(), buttonW * 2, b.getHeight());
-        pasteButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
-        copyButton.setBounds (buttonsArea);
+        copyButton.setBounds (buttonsArea.removeFromLeft (buttonW).translated (1, 0));
+        pasteButton.setBounds (buttonsArea);
     }
 
     if (editor)

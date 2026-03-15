@@ -254,9 +254,21 @@ public:
         }
     }
     
-    juce::StringArray getPlayheadUIDs() const { return playheadUIDs; }
     void registerPlayheadUID   (const juce::String& uid) { playheadUIDs.addIfNotAlreadyThere (uid); }
     void unregisterPlayheadUID (const juce::String& uid) { playheadUIDs.removeString (uid); }
+    juce::StringArray getPlayheadUIDs() const { return playheadUIDs; }
+    
+    void registerPlaylistUID  (const juce::String& uid) { playlistUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterPlaylistUID(const juce::String& uid) { playlistUIDs.removeString (uid); }
+    juce::StringArray getPlaylistUIDs() const { return playlistUIDs; }
+
+    void registerClipUID  (const juce::String& uid) { clipUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterClipUID(const juce::String& uid) { clipUIDs.removeString (uid); }
+    juce::StringArray getClipUIDs() const { return clipUIDs; }
+
+    void registerModifierUID  (const juce::String& uid) { modifierUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterModifierUID(const juce::String& uid) { modifierUIDs.removeString (uid); }
+    juce::StringArray getModifierUIDs() const { return modifierUIDs; }
     
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
@@ -292,6 +304,9 @@ private:
     bool windowSizeInitialized = false;
     
     juce::StringArray playheadUIDs;
+    juce::StringArray playlistUIDs;
+    juce::StringArray clipUIDs;
+    juce::StringArray modifierUIDs;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };
