@@ -93,7 +93,7 @@ void Container::update()
     const auto tabProperty = magicBuilder.getStyleProperty (IDs::selectedTab, configNode).toString();
     if (tabProperty.isNotEmpty()){
         currentTab.referTo(getMagicState().getPropertyAsValue(tabProperty));
-        currentTab = static_cast<int>(currentTab.getValue());
+        currentTab = static_cast<int> (currentTab.getValue());
     }
 
     auto repaintHz = magicBuilder.getStyleProperty (IDs::repaintHz, configNode).toString();
@@ -354,20 +354,11 @@ void Container::updateLayout()
                                                                      *parameter,
                                                                      [&, parameter](float value)
                                                                      {
-                                                                         int tabIndex = std::round(value);
-                                                                         int numTabs = tabbedButtons->getNumTabs();
-                                                                         if (tabIndex >= numTabs - 1)
-                                                                             tabIndex = numTabs - 1;
-                                                                         if (tabIndex < 0)
-                                                                             tabIndex = 0;
-                                                                         currentTab.setValue(tabIndex);
-                                                                         tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+                                                                         currentTab.setValue (static_cast<int> (std::round (value)));
                                                                          updateSelectedTab();
                                                                      });
             // Initalize current tab value from parameter
-            int roundedParameterValue = std::round(parameter->convertFrom0to1(parameter->getValue()));
-            currentTab.setValue(roundedParameterValue);
-            tabbedButtons->setCurrentTabIndex (currentTab.getValue(), false);
+            currentTab.setValue (static_cast<int> (std::round (parameter->convertFrom0to1 (parameter->getValue()))));
             updateSelectedTab();
         }
     }
@@ -525,6 +516,27 @@ void Container::updateSelectedTab()
 {
     auto clientBounds = viewport.getLocalBounds();
     
+    // Extract int once for consistent comparison and clamping
+    int tab = static_cast<int> (currentTab.getValue());
+
+    // Clamp to valid range [0, numVisibleChildren - 1]
+    int numVisible = 0;
+    for (auto& child : children)
+        if (child->getStaticVisibility())
+            ++numVisible;
+
+    if (numVisible > 0)
+    {
+        int clamped = juce::jlimit (0, numVisible - 1, tab);
+        if (clamped != tab)
+        {
+            tab = clamped;
+            currentTab = tab;
+            if (tabbedButtons)
+                tabbedButtons->setCurrentTabIndex (tab, false);
+        }
+    }
+
     int tabIndex = 0;
     for (auto& child : children)
     {
@@ -533,7 +545,7 @@ void Container::updateSelectedTab()
             child->setVisible (false);
             continue;
         }
-        bool shouldShow = (currentTab == tabIndex++);
+        bool shouldShow = (tab == tabIndex++);
         child->setVisible (shouldShow);
         if (shouldShow && child->getBounds() != clientBounds)
             child->setBounds (clientBounds);
