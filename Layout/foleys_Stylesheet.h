@@ -90,6 +90,13 @@ public:
     juce::ValueTree getCurrentPalette();
 
     /**
+     Switch the active colour palette by name. This sets the "active" property
+     on the palettes node and updates the currentPalette reference.
+     Falls back to the first palette if the name is not found.
+     */
+    void setCurrentPalette (const juce::String& name);
+
+    /**
      Returns all variables for selection in colour values
      */
     juce::StringArray getPaletteEntryNames() const;

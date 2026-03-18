@@ -79,8 +79,45 @@ void Stylesheet::setColourPalette ()
     if (palettesNode.getNumChildren() == 0)
         palettesNode.appendChild (juce::ValueTree ("default"), undo);
 
-    currentPalette = palettesNode.getChild (0);
+    currentPalette.removeListener (this);
+
+    auto activeName = palettesNode.getProperty ("active", {}).toString();
+    if (activeName.isNotEmpty())
+    {
+        auto named = palettesNode.getChildWithName (activeName);
+        if (named.isValid())
+            currentPalette = named;
+        else
+            currentPalette = palettesNode.getChild (0);
+    }
+    else
+    {
+        currentPalette = palettesNode.getChild (0);
+    }
+
     currentPalette.addListener (this);
+}
+
+void Stylesheet::setCurrentPalette (const juce::String& name)
+{
+    if (! currentStyle.isValid())
+        return;
+
+    auto palettesNode = currentStyle.getChildWithName (IDs::palettes);
+    if (! palettesNode.isValid())
+        return;
+
+    auto named = palettesNode.getChildWithName (name);
+    if (! named.isValid())
+        return;
+
+    palettesNode.setProperty ("active", name, &builder.getUndoManager());
+
+    currentPalette.removeListener (this);
+    currentPalette = named;
+    currentPalette.addListener (this);
+
+    builder.updateColours();
 }
 
 void Stylesheet::addPaletteEntry (const juce::String& name, juce::Colour colour, bool keepIfExists)

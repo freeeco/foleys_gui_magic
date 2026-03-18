@@ -89,6 +89,7 @@ PropertiesEditor::PropertiesEditor (MagicGUIBuilder& builderToEdit)
         if (index >= ComboIDs::PaletteEdit)
         {
             auto node = style.getChildWithName (IDs::palettes).getChild (index - ComboIDs::PaletteEdit);
+            builder.getStylesheet().setCurrentPalette (node.getType().toString());
             setNodeToEdit (node);
         }
         else if (index >= ComboIDs::ClassEdit)
@@ -569,7 +570,121 @@ void PropertiesEditor::updatePopupMenu()
                     }
                 }
             }));
+
+            menu.addItem (juce::PopupMenu::Item ("Save Type \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto types = p->style.getChildWithName (IDs::types);
+                auto typeNode = types.getChildWithName (name);
+                if (! typeNode.isValid())
+                    return;
+
+                auto typesFolder = juce::File::getRealUserHomeDirectory()
+                                       .getChildFile ("GitHub")
+                                       .getChildFile ("toybox_plugins")
+                                       .getChildFile ("Stylesheets")
+                                       .getChildFile ("Types");
+                if (! typesFolder.exists())
+                    typesFolder.createDirectory();
+
+                auto suggestedFile = typesFolder.getChildFile (name).withFileExtension (".xml");
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
+                                                                   juce::FileBrowserComponent::saveMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles |
+                                                                   juce::FileBrowserComponent::warnAboutOverwriting,
+                                                                   suggestedFile, std::move (filter));
+                dialog->setAcceptFunction ([p, name, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto types = p->style.getChildWithName (IDs::types);
+                    auto typeNode = types.getChildWithName (name);
+                    if (! typeNode.isValid())
+                        return;
+
+                    auto file = dlg->getFile();
+                    if (! file.hasFileExtension (".xml"))
+                        file = file.withFileExtension (".xml");
+
+                    file.deleteFile();
+                    if (auto stream = file.createOutputStream())
+                        *stream << typeNode.toXmlString();
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
         }
+
+        if (! builder.getStylesheet().isTypeNode (styleItem))
+            menu.addSeparator();
+
+        menu.addItem (juce::PopupMenu::Item ("Load Type...")
+                      .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+        {
+            if (p == nullptr)
+                return;
+
+            auto typesFolder = juce::File::getRealUserHomeDirectory()
+                                   .getChildFile ("GitHub")
+                                   .getChildFile ("toybox_plugins")
+                                   .getChildFile ("Stylesheets")
+                                   .getChildFile ("Types");
+            if (! typesFolder.exists())
+                typesFolder.createDirectory();
+
+            auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+            auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                               juce::FileBrowserComponent::openMode |
+                                                               juce::FileBrowserComponent::canSelectFiles,
+                                                               typesFolder, std::move (filter));
+            dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto file = dlg->getFile();
+                juce::FileInputStream stream (file);
+                if (stream.failedToOpen())
+                    return;
+
+                auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                if (! loaded.isValid())
+                    return;
+
+                auto typeName = loaded.getType();
+                auto types = p->style.getOrCreateChildWithName (IDs::types, nullptr);
+                auto existing = types.getChildWithName (typeName);
+
+                if (existing.isValid())
+                    types.removeChild (existing, &p->undo);
+
+                auto copy = loaded.createCopy();
+                types.appendChild (copy, &p->undo);
+                p->setNodeToEdit (copy);
+
+                p->builder.closeOverlayDialog();
+            });
+            dialog->setCancelFunction ([p]() mutable
+            {
+                if (p != nullptr)
+                    p->builder.closeOverlayDialog();
+            });
+
+            p->builder.showOverlayDialog (std::move (dialog));
+        }));
 
         menu.addSeparator();
 
@@ -665,7 +780,121 @@ void PropertiesEditor::updatePopupMenu()
                     }
                 }
             }));
+
+            menu.addItem (juce::PopupMenu::Item ("Save Node \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto nodes = p->style.getChildWithName (IDs::nodes);
+                auto idNode = nodes.getChildWithName (name);
+                if (! idNode.isValid())
+                    return;
+
+                auto nodesFolder = juce::File::getRealUserHomeDirectory()
+                                       .getChildFile ("GitHub")
+                                       .getChildFile ("toybox_plugins")
+                                       .getChildFile ("Stylesheets")
+                                       .getChildFile ("Nodes");
+                if (! nodesFolder.exists())
+                    nodesFolder.createDirectory();
+
+                auto suggestedFile = nodesFolder.getChildFile (name).withFileExtension (".xml");
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
+                                                                   juce::FileBrowserComponent::saveMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles |
+                                                                   juce::FileBrowserComponent::warnAboutOverwriting,
+                                                                   suggestedFile, std::move (filter));
+                dialog->setAcceptFunction ([p, name, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto nodes = p->style.getChildWithName (IDs::nodes);
+                    auto idNode = nodes.getChildWithName (name);
+                    if (! idNode.isValid())
+                        return;
+
+                    auto file = dlg->getFile();
+                    if (! file.hasFileExtension (".xml"))
+                        file = file.withFileExtension (".xml");
+
+                    file.deleteFile();
+                    if (auto stream = file.createOutputStream())
+                        *stream << idNode.toXmlString();
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
         }
+
+        if (! builder.getStylesheet().isIdNode (styleItem))
+            menu.addSeparator();
+
+        menu.addItem (juce::PopupMenu::Item ("Load Node...")
+                      .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+        {
+            if (p == nullptr)
+                return;
+
+            auto nodesFolder = juce::File::getRealUserHomeDirectory()
+                                   .getChildFile ("GitHub")
+                                   .getChildFile ("toybox_plugins")
+                                   .getChildFile ("Stylesheets")
+                                   .getChildFile ("Nodes");
+            if (! nodesFolder.exists())
+                nodesFolder.createDirectory();
+
+            auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+            auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                               juce::FileBrowserComponent::openMode |
+                                                               juce::FileBrowserComponent::canSelectFiles,
+                                                               nodesFolder, std::move (filter));
+            dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto file = dlg->getFile();
+                juce::FileInputStream stream (file);
+                if (stream.failedToOpen())
+                    return;
+
+                auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                if (! loaded.isValid())
+                    return;
+
+                auto nodeName = loaded.getType();
+                auto nodes = p->style.getOrCreateChildWithName (IDs::nodes, nullptr);
+                auto existing = nodes.getChildWithName (nodeName);
+
+                if (existing.isValid())
+                    nodes.removeChild (existing, &p->undo);
+
+                auto copy = loaded.createCopy();
+                nodes.appendChild (copy, &p->undo);
+                p->setNodeToEdit (copy);
+
+                p->builder.closeOverlayDialog();
+            });
+            dialog->setCancelFunction ([p]() mutable
+            {
+                if (p != nullptr)
+                    p->builder.closeOverlayDialog();
+            });
+
+            p->builder.showOverlayDialog (std::move (dialog));
+        }));
 
         // Collect remaining IDs not yet configured, sorted
         juce::StringArray remainingIds;
@@ -730,6 +959,117 @@ void PropertiesEditor::updatePopupMenu()
                     p->deleteClass (name);
             }));
 
+            menu.addItem (juce::PopupMenu::Item ("Save Class \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto classes = p->style.getChildWithName (IDs::classes);
+                auto classNode = classes.getChildWithName (name);
+                if (! classNode.isValid())
+                    return;
+
+                auto classesFolder = juce::File::getRealUserHomeDirectory()
+                                         .getChildFile ("GitHub")
+                                         .getChildFile ("toybox_plugins")
+                                         .getChildFile ("Stylesheets")
+                                         .getChildFile ("Classes");
+                if (! classesFolder.exists())
+                    classesFolder.createDirectory();
+
+                auto suggestedFile = classesFolder.getChildFile (name).withFileExtension (".xml");
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
+                                                                   juce::FileBrowserComponent::saveMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles |
+                                                                   juce::FileBrowserComponent::warnAboutOverwriting,
+                                                                   suggestedFile, std::move (filter));
+                dialog->setAcceptFunction ([p, name, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto classes = p->style.getChildWithName (IDs::classes);
+                    auto classNode = classes.getChildWithName (name);
+                    if (! classNode.isValid())
+                        return;
+
+                    auto file = dlg->getFile();
+                    if (! file.hasFileExtension (".xml"))
+                        file = file.withFileExtension (".xml");
+
+                    file.deleteFile();
+                    if (auto stream = file.createOutputStream())
+                        *stream << classNode.toXmlString();
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+
+            menu.addItem (juce::PopupMenu::Item ("Load Class...")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto classesFolder = juce::File::getRealUserHomeDirectory()
+                                         .getChildFile ("GitHub")
+                                         .getChildFile ("toybox_plugins")
+                                         .getChildFile ("Stylesheets")
+                                         .getChildFile ("Classes");
+                if (! classesFolder.exists())
+                    classesFolder.createDirectory();
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                                   juce::FileBrowserComponent::openMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles,
+                                                                   classesFolder, std::move (filter));
+                dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto file = dlg->getFile();
+                    juce::FileInputStream stream (file);
+                    if (stream.failedToOpen())
+                        return;
+
+                    auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                    if (! loaded.isValid())
+                        return;
+
+                    auto className = loaded.getType();
+                    auto classes = p->style.getOrCreateChildWithName (IDs::classes, nullptr);
+                    auto existing = classes.getChildWithName (className);
+
+                    if (existing.isValid())
+                        classes.removeChild (existing, &p->undo);
+
+                    auto copy = loaded.createCopy();
+                    classes.appendChild (copy, &p->undo);
+                    p->setNodeToEdit (copy);
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+
             menu.addSeparator();
 
             auto classesParent = style.getChildWithName (IDs::classes);
@@ -761,17 +1101,385 @@ void PropertiesEditor::updatePopupMenu()
                 }
             }));
         }
+        else
+        {
+            menu.addSeparator();
+
+            menu.addItem (juce::PopupMenu::Item ("Load Class...")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto classesFolder = juce::File::getRealUserHomeDirectory()
+                                         .getChildFile ("GitHub")
+                                         .getChildFile ("toybox_plugins")
+                                         .getChildFile ("Stylesheets")
+                                         .getChildFile ("Classes");
+                if (! classesFolder.exists())
+                    classesFolder.createDirectory();
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                                   juce::FileBrowserComponent::openMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles,
+                                                                   classesFolder, std::move (filter));
+                dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto file = dlg->getFile();
+                    juce::FileInputStream stream (file);
+                    if (stream.failedToOpen())
+                        return;
+
+                    auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                    if (! loaded.isValid())
+                        return;
+
+                    auto className = loaded.getType();
+                    auto classes = p->style.getOrCreateChildWithName (IDs::classes, nullptr);
+                    auto existing = classes.getChildWithName (className);
+
+                    if (existing.isValid())
+                        classes.removeChild (existing, &p->undo);
+
+                    auto copy = loaded.createCopy();
+                    classes.appendChild (copy, &p->undo);
+                    p->setNodeToEdit (copy);
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+        }
 
         popup->addSubMenu ("Classes", menu);
     }
 
-    auto palettesNode = style.getChildWithName (IDs::palettes);
-    if (palettesNode.isValid())
+    auto palettesNode = style.getOrCreateChildWithName (IDs::palettes, nullptr);
     {
         int index = ComboIDs::PaletteEdit;
         juce::PopupMenu menu;
+
+        auto activeName = palettesNode.getProperty ("active", {}).toString();
+        if (activeName.isEmpty() && palettesNode.getNumChildren() > 0)
+            activeName = palettesNode.getChild (0).getType().toString();
+
         for (const auto& child : palettesNode)
-            menu.addItem (juce::PopupMenu::Item ("Palette: " + child.getType().toString()).setID (index++));
+            menu.addItem (juce::PopupMenu::Item ("Palette: " + child.getType().toString())
+                          .setID (index++)
+                          .setTicked (child.getType().toString() == activeName));
+
+        menu.addSeparator();
+
+        menu.addItem (juce::PopupMenu::Item ("New Palette...")
+                      .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+        {
+            if (p == nullptr)
+                return;
+
+            static juce::String editorID { "paletteName" };
+        #if JUCE_VERSION > 0x60008
+            auto iconType = juce::MessageBoxIconType::QuestionIcon;
+        #else
+            auto iconType = juce::AlertWindow::QuestionIcon;
+        #endif
+
+            auto alert = std::make_unique<juce::AlertWindow> (TRANS ("New colour palette"),
+                                                               TRANS ("Enter a name:"),
+                                                               iconType,
+                                                               p.getComponent());
+            alert->addTextEditor (editorID, "palette");
+            alert->addButton (TRANS ("Cancel"), 0);
+            alert->addButton (TRANS ("Ok"), 1);
+            alert->centreAroundComponent (p->getTopLevelComponent(), 350, 200);
+            auto* alertPtr = alert.get();
+            alert->enterModalState (true,
+                                    juce::ModalCallbackFunction::create ([p, alertPtr] (int result) mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                if (result > 0)
+                {
+                    if (auto* editor = alertPtr->getTextEditor (editorID))
+                    {
+                        auto name = editor->getText().replaceCharacters (".&$@ ", "---__");
+                        if (name.isNotEmpty())
+                        {
+                            auto palettes = p->style.getOrCreateChildWithName (IDs::palettes, nullptr);
+                            if (! palettes.getChildWithName (name).isValid())
+                            {
+                                juce::ValueTree newPalette (name);
+                                palettes.appendChild (newPalette, &p->undo);
+                                p->builder.getStylesheet().setCurrentPalette (name);
+                                p->setNodeToEdit (newPalette);
+                            }
+                        }
+                    }
+                }
+            }), true);
+            alert.release();
+        }));
+
+        if (builder.getStylesheet().isColourPaletteNode (styleItem))
+        {
+            auto name = styleItem.getType().toString();
+
+            menu.addItem (juce::PopupMenu::Item ("Delete Palette \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p != nullptr)
+                {
+                    auto palettes = p->style.getChildWithName (IDs::palettes);
+                    auto child = palettes.getChildWithName (name);
+                    if (child.isValid())
+                    {
+                        palettes.removeChild (child, &p->undo);
+                        p->builder.getStylesheet().setColourPalette();
+                        p->setNodeToEdit ({});
+                    }
+                }
+            }));
+
+            menu.addItem (juce::PopupMenu::Item ("Rename Palette \"" + name + "\"...")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                static juce::String editorID { "paletteRename" };
+            #if JUCE_VERSION > 0x60008
+                auto iconType = juce::MessageBoxIconType::QuestionIcon;
+            #else
+                auto iconType = juce::AlertWindow::QuestionIcon;
+            #endif
+
+                auto alert = std::make_unique<juce::AlertWindow> (TRANS ("Rename palette"),
+                                                                   TRANS ("Enter new name:"),
+                                                                   iconType,
+                                                                   p.getComponent());
+                alert->addTextEditor (editorID, name);
+                alert->addButton (TRANS ("Cancel"), 0);
+                alert->addButton (TRANS ("Ok"), 1);
+                alert->centreAroundComponent (p->getTopLevelComponent(), 350, 200);
+                auto* alertPtr = alert.get();
+                alert->enterModalState (true,
+                                        juce::ModalCallbackFunction::create ([p, alertPtr, name] (int result) mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    if (result > 0)
+                    {
+                        if (auto* editor = alertPtr->getTextEditor (editorID))
+                        {
+                            auto newName = editor->getText().replaceCharacters (".&$@ ", "---__");
+                            if (newName.isNotEmpty() && newName != name)
+                            {
+                                auto palettes = p->style.getChildWithName (IDs::palettes);
+                                auto oldNode = palettes.getChildWithName (name);
+                                if (oldNode.isValid())
+                                {
+                                    juce::ValueTree renamed (newName);
+                                    for (int i = 0; i < oldNode.getNumProperties(); ++i)
+                                        renamed.setProperty (oldNode.getPropertyName (i),
+                                                             oldNode.getProperty (oldNode.getPropertyName (i)),
+                                                             nullptr);
+
+                                    auto idx = palettes.indexOf (oldNode);
+                                    palettes.removeChild (oldNode, &p->undo);
+                                    palettes.addChild (renamed, idx, &p->undo);
+                                    p->builder.getStylesheet().setCurrentPalette (newName);
+                                    p->setNodeToEdit (renamed);
+                                }
+                            }
+                        }
+                    }
+                }), true);
+                alert.release();
+            }));
+
+            menu.addSeparator();
+
+            menu.addItem (juce::PopupMenu::Item ("Save Palette \"" + name + "\"")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this), name]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto palettes = p->style.getChildWithName (IDs::palettes);
+                auto paletteNode = palettes.getChildWithName (name);
+                if (! paletteNode.isValid())
+                    return;
+
+                auto palettesFolder = juce::File::getRealUserHomeDirectory()
+                                          .getChildFile ("GitHub")
+                                          .getChildFile ("toybox_plugins")
+                                          .getChildFile ("Stylesheets")
+                                          .getChildFile ("Palettes");
+                if (! palettesFolder.exists())
+                    palettesFolder.createDirectory();
+
+                auto suggestedFile = palettesFolder.getChildFile (name).withFileExtension (".xml");
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Save"),
+                                                                   juce::FileBrowserComponent::saveMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles |
+                                                                   juce::FileBrowserComponent::warnAboutOverwriting,
+                                                                   suggestedFile, std::move (filter));
+                dialog->setAcceptFunction ([p, name, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto palettes = p->style.getChildWithName (IDs::palettes);
+                    auto paletteNode = palettes.getChildWithName (name);
+                    if (! paletteNode.isValid())
+                        return;
+
+                    auto file = dlg->getFile();
+                    if (! file.hasFileExtension (".xml"))
+                        file = file.withFileExtension (".xml");
+
+                    file.deleteFile();
+                    if (auto stream = file.createOutputStream())
+                        *stream << paletteNode.toXmlString();
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+
+            menu.addItem (juce::PopupMenu::Item ("Load Palette...")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto palettesFolder = juce::File::getRealUserHomeDirectory()
+                                          .getChildFile ("GitHub")
+                                          .getChildFile ("toybox_plugins")
+                                          .getChildFile ("Stylesheets")
+                                          .getChildFile ("Palettes");
+                if (! palettesFolder.exists())
+                    palettesFolder.createDirectory();
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                                   juce::FileBrowserComponent::openMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles,
+                                                                   palettesFolder, std::move (filter));
+                dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto file = dlg->getFile();
+                    juce::FileInputStream stream (file);
+                    if (stream.failedToOpen())
+                        return;
+
+                    auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                    if (! loaded.isValid())
+                        return;
+
+                    auto paletteName = loaded.getType();
+                    auto palettes = p->style.getOrCreateChildWithName (IDs::palettes, nullptr);
+                    auto existing = palettes.getChildWithName (paletteName);
+
+                    if (existing.isValid())
+                        palettes.removeChild (existing, &p->undo);
+
+                    auto copy = loaded.createCopy();
+                    palettes.appendChild (copy, &p->undo);
+                    p->builder.getStylesheet().setCurrentPalette (copy.getType().toString());
+                    p->setNodeToEdit (copy);
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+        }
+        else
+        {
+            menu.addItem (juce::PopupMenu::Item ("Load Palette...")
+                          .setAction ([p = juce::Component::SafePointer<PropertiesEditor>(this)]() mutable
+            {
+                if (p == nullptr)
+                    return;
+
+                auto palettesFolder = juce::File::getRealUserHomeDirectory()
+                                          .getChildFile ("GitHub")
+                                          .getChildFile ("toybox_plugins")
+                                          .getChildFile ("Stylesheets")
+                                          .getChildFile ("Palettes");
+                if (! palettesFolder.exists())
+                    palettesFolder.createDirectory();
+
+                auto filter = std::make_unique<juce::WildcardFileFilter> ("*.xml", "*", "XML files");
+                auto dialog = std::make_unique<FileBrowserDialog> (NEEDS_TRANS ("Cancel"), NEEDS_TRANS ("Load"),
+                                                                   juce::FileBrowserComponent::openMode |
+                                                                   juce::FileBrowserComponent::canSelectFiles,
+                                                                   palettesFolder, std::move (filter));
+                dialog->setAcceptFunction ([p, dlg = dialog.get()]() mutable
+                {
+                    if (p == nullptr)
+                        return;
+
+                    auto file = dlg->getFile();
+                    juce::FileInputStream stream (file);
+                    if (stream.failedToOpen())
+                        return;
+
+                    auto loaded = juce::ValueTree::fromXml (stream.readEntireStreamAsString());
+                    if (! loaded.isValid())
+                        return;
+
+                    auto paletteName = loaded.getType();
+                    auto palettes = p->style.getOrCreateChildWithName (IDs::palettes, nullptr);
+                    auto existing = palettes.getChildWithName (paletteName);
+
+                    if (existing.isValid())
+                        palettes.removeChild (existing, &p->undo);
+
+                    auto copy = loaded.createCopy();
+                    palettes.appendChild (copy, &p->undo);
+                    p->builder.getStylesheet().setCurrentPalette (copy.getType().toString());
+                    p->setNodeToEdit (copy);
+
+                    p->builder.closeOverlayDialog();
+                });
+                dialog->setCancelFunction ([p]() mutable
+                {
+                    if (p != nullptr)
+                        p->builder.closeOverlayDialog();
+                });
+
+                p->builder.showOverlayDialog (std::move (dialog));
+            }));
+        }
 
         popup->addSubMenu ("Colour Palettes", menu);
     }
