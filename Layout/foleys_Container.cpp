@@ -519,11 +519,8 @@ void Container::updateSelectedTab()
     // Extract int once for consistent comparison and clamping
     int tab = static_cast<int> (currentTab.getValue());
 
-    // Clamp to valid range [0, numVisibleChildren - 1]
-    int numVisible = 0;
-    for (auto& child : children)
-        if (child->getStaticVisibility())
-            ++numVisible;
+    // Clamp to valid range [0, numVisibleTabs - 1]
+    int numVisible = tabbedButtons ? tabbedButtons->getNumTabs() : static_cast<int> (children.size());
 
     if (numVisible > 0)
     {
