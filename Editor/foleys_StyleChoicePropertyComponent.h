@@ -47,7 +47,8 @@ class StyleChoicePropertyComponent  : public StylePropertyComponent,
 public:
     StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, juce::StringArray choices);
     StyleChoicePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse, std::function<void(juce::ComboBox&)> menuCreationLambda, const juce::String& uidPrefix = {});
-
+    ~StyleChoicePropertyComponent() override;
+    
     void refresh() override;
     void resized() override;
 
@@ -62,9 +63,12 @@ private:
 
         void showPopup() override
         {
-            clear (juce::dontSendNotification);
-            if (refreshLambda) refreshLambda (*this);
-            if (owner) owner->isPropertiesMenu (*this);
+            if (refreshLambda)
+            {
+                clear (juce::dontSendNotification);
+                refreshLambda (*this);
+                if (owner) owner->isPropertiesMenu (*this);
+            }
             juce::ComboBox::showPopup();
         }
     };

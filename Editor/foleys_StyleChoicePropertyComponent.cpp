@@ -60,6 +60,12 @@ StyleChoicePropertyComponent::StyleChoicePropertyComponent (MagicGUIBuilder& bui
     initialiseComboBox (false);
 }
 
+StyleChoicePropertyComponent::~StyleChoicePropertyComponent()
+{
+    proxy.removeListener (this);
+    editor.reset();
+}
+
 bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
 {
     auto* menu = combo.getRootMenu();

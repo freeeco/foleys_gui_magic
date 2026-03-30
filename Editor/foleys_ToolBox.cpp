@@ -112,7 +112,15 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         }
 
         file.addSeparator();
-        file.addItem ("Clear", [&] { builder.clearGUI(); });
+        
+        file.addItem ("Clear", [&]
+        {
+            builder.prepareForTreeSwap();
+            builder.clearGUI();
+            builder.completeTreeSwap();
+            stateWasReloaded();
+        });
+        
         file.addSeparator();
 
         {
