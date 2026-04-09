@@ -533,10 +533,21 @@ public:
         {
             button.onClick = [this, radioValue]
             {
-                property.setValue (radioValue);
+                if (!radioValue.isVoid())
+                    property.setValue (radioValue);   // radio behaviour
 
                 if (triggerToCall)
                     triggerToCall();
+            };
+            
+            button.onStateChange = [this, radioValue]
+            {
+                const bool down = button.isDown();
+                if (down != wasDown && radioValue.isVoid())
+                {
+                    wasDown = down;
+                    property.setValue (down ? 1 : 0);
+                }
             };
         }
         else
@@ -572,6 +583,7 @@ private:
     std::unique_ptr<juce::ButtonParameterAttachment> attachment;
     std::function<void()> triggerToCall;
     juce::Value property;
+    bool wasDown = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TextButtonItem)
 };
