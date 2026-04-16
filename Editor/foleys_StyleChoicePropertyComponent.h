@@ -74,6 +74,7 @@ private:
     };
 
     void initialiseComboBox (bool editable);
+    void selectCurrentValue (juce::ComboBox& c);
     void valueChanged (juce::Value& value) override;
 
     juce::StringArray                    choices;

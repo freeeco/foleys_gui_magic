@@ -228,11 +228,17 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
         for (const auto& name : choices)
             combo->addItem (name, ++index);
     }
+    
     else if (menuCreationLambda)
     {
-        combo->refreshLambda = menuCreationLambda;
+        combo->refreshLambda = [this] (juce::ComboBox& c)
+        {
+            menuCreationLambda (c);
+            selectCurrentValue (c); // <-- After the menu is rebuilt, it re-selects the current value if that value exists in the rebuilt item list
+        };
+
         combo->owner = this;
-        menuCreationLambda (*combo);   // populate once at init so current value displays
+        combo->refreshLambda (*combo);
     }
 
     addAndMakeVisible (combo.get());
@@ -320,6 +326,20 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
     }
 
     proxy.addListener (this);
+}
+
+void StyleChoicePropertyComponent::selectCurrentValue (juce::ComboBox& c)
+{
+    auto currentValue = lookupValue().toString();
+
+    for (int i = 0; i < c.getNumItems(); ++i)
+    {
+        if (c.getItemText (i) == currentValue)
+        {
+            c.setSelectedId (c.getItemId (i), juce::dontSendNotification);
+            return;
+        }
+    }
 }
 
 void StyleChoicePropertyComponent::resized()
