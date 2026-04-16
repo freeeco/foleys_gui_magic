@@ -866,7 +866,8 @@ void ToolBox::performPaste()
             auto child = paste.getChild (i).createCopy();
             if (intoContainer)
             {
-                builder.draggedItemOnto (child, selected);
+                int idx = selected.getNumChildren();   // append to end, incrementing per iteration
+                builder.draggedItemOnto (child, selected, idx);
             }
             else
             {
@@ -881,7 +882,7 @@ void ToolBox::performPaste()
     {
         if (intoContainer)
         {
-            builder.draggedItemOnto (paste, selected);
+            builder.draggedItemOnto (paste, selected, selected.getNumChildren());
         }
         else
         {
