@@ -1126,10 +1126,10 @@ void ToolBox::performPasteReplace()
 
     undo.beginNewTransaction ("Paste Replace");
 
-    auto replacement = makeParameterRefsUnique (paste);
+//    auto replacement = makeParameterRefsUnique (paste);
     parent.removeChild (selected, &undo);
-    parent.addChild (replacement, index, &undo);
-    builder.setSelectedNode (replacement);
+    parent.addChild (paste, index, &undo);
+    builder.setSelectedNode (paste);
 }
 
 void ToolBox::performDuplicate()

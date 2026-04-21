@@ -93,8 +93,11 @@ void GUITreeEditor::setValueTree (juce::ValueTree& refTree)
     if (restorer.get() != nullptr)
         treeView.restoreOpennessState (*restorer, true);
     
-    juce::MessageManager::callAsync ([=, this]() {
-        treeView.getViewport()->setViewPosition(0, scrollPosition);
+    juce::Component::SafePointer<GUITreeEditor> safeThis (this);
+    juce::MessageManager::callAsync ([safeThis, scrollPosition]()
+    {
+        if (safeThis != nullptr)
+            safeThis->treeView.getViewport()->setViewPosition (0, scrollPosition);
     });
 }
 
@@ -190,10 +193,17 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
         deselectOthers = true;
 
     itemToSelect->setSelected (true, deselectOthers, juce::dontSendNotification);
-    juce::MessageManager::callAsync ([this, itemToSelect]()
+
+    juce::Component::SafePointer<GUITreeEditor> safeThis (this);
+    juce::ValueTree nodeCopy = node;
+
+    juce::MessageManager::callAsync ([safeThis, nodeCopy]()
     {
-        if (itemToSelect != nullptr)
-            treeView.scrollToKeepItemVisible (itemToSelect);
+        if (safeThis == nullptr)
+            return;
+
+        if (auto* item = safeThis->getItemForNode (nodeCopy))
+            safeThis->treeView.scrollToKeepItemVisible (item);
     });
 }
 
