@@ -298,14 +298,14 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
         {
             juce::PopupMenu::Item it ("Duplicate");
             it.action = [&] { performDuplicate(); };
-            it.shortcutKeyDescription = "Opt+Cmd+D";
+            it.shortcutKeyDescription = "Cmd+D";
             it.setEnabled (hasSelection);
             edit.addItem (it);
         }
         {
             juce::PopupMenu::Item it ("Duplicate Unique");
             it.action = [&] { performDuplicateUnique(); };
-            it.shortcutKeyDescription = "Cmd+D";
+            it.shortcutKeyDescription = "Opt+Cmd+D";
             it.setEnabled (hasSelection);
             edit.addItem (it);
         }
@@ -2403,9 +2403,9 @@ bool ToolBox::keyPressed (const juce::KeyPress& key)
     {
         flashMenuButton (editMenu);
         if (key.getModifiers().isAltDown())
-            performDuplicate();
-        else
             performDuplicateUnique();
+        else
+            performDuplicate();
 
         return true;
     }
