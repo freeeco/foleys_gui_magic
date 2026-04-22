@@ -254,8 +254,12 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
     combo->onChange = [&]
     {
         if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
-            node.setProperty (property, c->getText().replace (" ", "-"), &builder.getUndoManager());
-
+        {
+            auto text = c->getText();
+            if (uidPrefix.isNotEmpty())
+                text = text.replace (" ", "-");
+            node.setProperty (property, text, &builder.getUndoManager());
+        }
         refresh();
     };
 
