@@ -528,7 +528,7 @@ void Container::updateSelectedTab()
         if (clamped != tab)
         {
             tab = clamped;
-            currentTab = tab;
+//            currentTab = tab;
             if (tabbedButtons)
                 tabbedButtons->setCurrentTabIndex (tab, false);
         }
