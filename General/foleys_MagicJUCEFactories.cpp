@@ -1191,6 +1191,8 @@ public:
             keyboard.setOrientation (juce::NewMidiKeyboardComponent::verticalKeyboardFacingRight);
         else
             keyboard.setOrientation (juce::NewMidiKeyboardComponent::horizontalKeyboard);
+        
+        keyboard.setNoteColourProvider (getMagicState().getNoteColourProvider());
     }
     
     std::vector<SettableProperty> getSettableProperties() const override

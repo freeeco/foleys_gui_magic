@@ -270,6 +270,11 @@ public:
     void unregisterModifierUID(const juce::String& uid) { modifierUIDs.removeString (uid); }
     juce::StringArray getModifierUIDs() const { return modifierUIDs; }
     
+    using NoteColourProvider = std::function<std::optional<juce::Colour>(int)>;
+    void                        setNoteColourProvider (NoteColourProvider fn) { noteColourProvider = std::move (fn); }
+    const NoteColourProvider&   getNoteColourProvider() const noexcept        { return noteColourProvider; }
+
+    
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
     juce::File getResourcesFolder() const;
@@ -307,6 +312,8 @@ private:
     juce::StringArray playlistUIDs;
     juce::StringArray clipUIDs;
     juce::StringArray modifierUIDs;
+    
+    NoteColourProvider noteColourProvider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

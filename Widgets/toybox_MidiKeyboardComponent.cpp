@@ -87,6 +87,13 @@ void NewMidiKeyboardComponent::setMidiChannelsToDisplay (int midiChannelMask)
 }
 
 //==============================================================================
+void NewMidiKeyboardComponent::setNoteColourProvider (std::function<std::optional<Colour>(int)> fn)
+{
+    noteColourProvider = fn;
+    repaint();
+}
+
+//==============================================================================
 void NewMidiKeyboardComponent::clearKeyMappings()
 {
     resetAnyKeysInUse();
@@ -245,18 +252,37 @@ void NewMidiKeyboardComponent::mouseExit (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::timerCallback()
 {
-    if (noPendingUpdates.exchange (true))
+    const bool noMidiUpdates = noPendingUpdates.exchange (true);
+
+    // If no MIDI updates AND no colour provider, nothing can have changed.
+    if (noMidiUpdates && ! noteColourProvider)
         return;
 
     for (auto i = getRangeStart(); i <= getRangeEnd(); ++i)
     {
         const auto isOn = state.isNoteOnForChannels (midiInChannelMask, i);
+        bool needsRepaint = false;
 
         if (keysCurrentlyDrawnDown[i] != isOn)
         {
             keysCurrentlyDrawnDown.setBit (i, isOn);
-            repaintNote (i);
+            needsRepaint = true;
         }
+
+        if (noteColourProvider)
+        {
+            const auto custom = noteColourProvider (i);
+            const uint32_t argb = custom.has_value() ? custom->getARGB() : 0u;
+
+            if (lastColourArgb[(size_t) i] != argb)
+            {
+                lastColourArgb[(size_t) i] = argb;
+                needsRepaint = true;
+            }
+        }
+
+        if (needsRepaint)
+            repaintNote (i);
     }
 }
 
@@ -382,8 +408,9 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
                                   currentOrientation == horizontalKeyboard,   // bottom-left
                                   currentOrientation == horizontalKeyboard);  // bottom-right
 
-    // 1) Fill with the white note base colour
-    g.setColour (findColour (whiteNoteColourId));
+    // 1) Fill with the white note base colour (overridden by trigger colour if set)
+    auto custom = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
+    g.setColour (custom.value_or (findColour (whiteNoteColourId)));
     g.fillPath (keyShape);
 
     // 2) Subtle top-to-bottom gradient — slightly darker at the bottom,
@@ -415,11 +442,20 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     // 4) Overlay hover / key-down state
     if (isDown || isOver)
     {
-        auto c = Colours::transparentWhite;
-        if (isDown)       c = findColour (keyDownOverlayColourId);
-        else if (isOver)  c = findColour (mouseOverKeyOverlayColourId);
+        if (custom)
+        {
+            // Darken the custom colour directly — keeps the hue, just deeper
+            auto c = isDown ? custom->darker (0.65f) : custom->darker (0.15f);
+            g.setColour (c);
+        }
+        else
+        {
+            auto c = Colours::transparentWhite;
+            if (isDown)       c = findColour (keyDownOverlayColourId);
+            else if (isOver)  c = findColour (mouseOverKeyOverlayColourId);
+            g.setColour (c);
+        }
 
-        g.setColour (c);
         g.fillPath (keyShape);
     }
 
@@ -441,14 +477,41 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
             default: break;
         }
     }
+    
+    // 6) Darker separator hairlines when this key has a custom colour
+    if (custom)
+    {
+        g.setColour (custom->darker (0.6f));
+
+        if (currentOrientation == horizontalKeyboard)
+        {
+            g.fillRect (area.getX(),                area.getY(), 0.5f, area.getHeight());
+            g.fillRect (area.getRight() - 0.5f,     area.getY(), 0.5f, area.getHeight());
+        }
+        else
+        {
+            g.fillRect (area.getX(), area.getY(),               area.getWidth(), 0.5f);
+            g.fillRect (area.getX(), area.getBottom() - 0.5f,   area.getWidth(), 0.5f);
+        }
+    }
 }
 
-void NewMidiKeyboardComponent::drawBlackNote (int /*midiNoteNumber*/, Graphics& g, Rectangle<float> area,
+void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
                                            bool isDown, bool isOver, Colour noteFillColour)
 {
-    auto c = noteFillColour;
-    if (isDown)  c = c.brighter (0.30f);
-    if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
+    auto custom = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
+    auto c = custom.value_or (noteFillColour);
+
+    if (custom)
+    {
+        if (isDown)      c = c.darker (0.65f);
+        else if (isOver) c = c.darker (0.15f);
+    }
+    else
+    {
+        if (isDown)      c = c.brighter (0.30f);
+        if (isOver)      c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
+    }
 
     const auto currentOrientation = getOrientation();
     const auto cornerSize = 4.2f;

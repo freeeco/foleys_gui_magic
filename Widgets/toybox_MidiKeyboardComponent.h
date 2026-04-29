@@ -156,6 +156,13 @@ public:
         relative.
     */
     void setKeyPressBaseOctave (int newOctaveNumber);
+    
+    //==============================================================================
+    /** Sets a callback that returns an optional override colour for each MIDI note.
+        The keyboard polls this from its 20Hz timer and repaints keys whose colour
+        has changed. Pass nullptr to disable.
+    */
+    void setNoteColourProvider (std::function<std::optional<Colour>(int midiNote)> fn);
 
     //==============================================================================
     /** A set of colour IDs to use to change the colour of various aspects of the keyboard.
@@ -284,6 +291,9 @@ private:
     BigInteger keysPressed, keysCurrentlyDrawnDown;
 
     std::atomic<bool> noPendingUpdates { true };
+    
+    std::function<std::optional<Colour>(int)> noteColourProvider;
+    std::array<uint32_t, 128> lastColourArgb {};
 
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 
