@@ -37,6 +37,7 @@
 #include "foleys_MagicPluginEditor.h"
 #include "foleys_StringDefinitions.h"
 #include "../State/foleys_MagicProcessorState.h"
+#include "../../toybox_plugins/Libraries/MidiEditor/MidiEditor/MidiComponent.h"
 
 
 namespace foleys
@@ -208,6 +209,30 @@ void MagicPluginEditor::resized()
 {
     builder->updateLayout (getLocalBounds());
     processorState.setLastEditorSize (getWidth(), getHeight());
+}
+
+
+bool MagicPluginEditor::broadcastKeyToComponents (juce::Component* root,
+                                      const juce::KeyPress& key)
+{
+    if (root == nullptr) return false;
+
+    bool handled = false;
+
+    if (auto* mc = dynamic_cast<MusicDevs::MidiComponent*> (root))
+        if (mc->keyPressed (key))
+            handled = true;
+
+    for (auto* child : root->getChildren())
+        if (broadcastKeyToComponents (child, key))
+            handled = true;
+
+    return handled;
+}
+
+bool MagicPluginEditor::keyPressed (const juce::KeyPress& key)
+{
+    return broadcastKeyToComponents (this, key);
 }
 
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000

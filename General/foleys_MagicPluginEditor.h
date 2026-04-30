@@ -87,6 +87,10 @@ public:
 
     void resized() override;
     
+    bool keyPressed (const juce::KeyPress& key) override;
+    
+    bool broadcastKeyToComponents (juce::Component* root, const juce::KeyPress& key);
+    
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
     void parentHierarchyChanged() override;
 #endif
