@@ -1605,9 +1605,17 @@ void ToolBox::performClearDimensions()
         juce::Identifier ("dont-snap-to-pixels")
     };
 
+    // Disconnect the properties editor before removing — live Value
+    // bindings from StylePropertyComponents write "" back otherwise.
+    propertiesEditor.setNodeToEdit (juce::ValueTree());
+
     for (auto& node : nodes)
         for (const auto& prop : dimProps)
             node.removeProperty (prop, &undo);
+
+    // Rebuild the properties panel on the current selection
+    if (nodes.size() == 1)
+        propertiesEditor.setNodeToEdit (nodes.getFirst());
 }
 
 void ToolBox::performWrapInView()
@@ -1661,6 +1669,11 @@ void ToolBox::performWrapInView()
         for (const auto& prop : dimensionProps)
             if (selected.hasProperty (prop))
                 wrapper.setProperty (prop, selected.getProperty (prop), nullptr);
+
+        // Disconnect the properties editor before removing properties —
+        // live Value bindings from StylePropertyComponents write "" back
+        // into the tree when removeProperty fires, preventing true removal.
+        propertiesEditor.setNodeToEdit (juce::ValueTree());
 
         for (const auto& prop : dimensionProps)
             selected.removeProperty (prop, &undo);
