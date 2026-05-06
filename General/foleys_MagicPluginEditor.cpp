@@ -232,6 +232,24 @@ bool MagicPluginEditor::broadcastKeyToComponents (juce::Component* root,
 
 bool MagicPluginEditor::keyPressed (const juce::KeyPress& key)
 {
+    if (key.getModifiers().isCommandDown()
+        && ! key.getModifiers().isShiftDown()
+        && ! key.getModifiers().isAltDown())
+    {
+        const auto keyCode = key.getKeyCode();
+
+        if (keyCode >= '1' && keyCode <= '8')
+        {
+            auto trigger = processorState.getTrigger ("Select Snapshot " + juce::String (keyCode - '0'));
+
+            if (trigger != nullptr)
+            {
+                trigger();
+                return true;
+            }
+        }
+    }
+
     return broadcastKeyToComponents (this, key);
 }
 
