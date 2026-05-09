@@ -163,6 +163,12 @@ public:
         has changed. Pass nullptr to disable.
     */
     void setNoteColourProvider (std::function<std::optional<Colour>(int midiNote)> fn);
+    
+    /** Sets a callback that returns an optional label for each MIDI note.
+        Polled from the 20Hz timer; keys whose label changed are repainted.
+        The trigger should only return a value for the first (lowest) note
+        of its range; other notes return nullopt. Pass nullptr to disable. */
+    void setNoteLabelProvider (std::function<std::optional<String>(int midiNote)> fn);
 
     //==============================================================================
     /** A set of colour IDs to use to change the colour of various aspects of the keyboard.
@@ -180,7 +186,8 @@ public:
         mouseOverKeyOverlayColourId     = 0x1005003,  /**< This colour will be overlaid on the normal note colour. */
         keyDownOverlayColourId          = 0x1005004,  /**< This colour will be overlaid on the normal note colour. */
         textLabelColourId               = 0x1005005,
-        shadowColourId                  = 0x1005006
+        shadowColourId                  = 0x1005006,
+        keyLabelTextColourId            = 0x1005007
     };
 
     //==============================================================================
@@ -261,6 +268,8 @@ public:
     void focusLost (FocusChangeType) override;
     /** @internal */
     void colourChanged() override;
+    /** @internal */
+    void paint (Graphics& g) override;
 
 private:
     //==============================================================================
@@ -276,6 +285,8 @@ private:
     void updateNoteUnderMouse (Point<float>, bool isDown, int fingerNum);
     void updateNoteUnderMouse (const MouseEvent&, bool isDown);
     void repaintNote (int midiNoteNumber);
+    void drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
+                          std::optional<Colour> baseFill, int midiNoteNumber);
 
     //==============================================================================
     MidiKeyboardState& state;
@@ -294,6 +305,9 @@ private:
     
     std::function<std::optional<Colour>(int)> noteColourProvider;
     std::array<uint32_t, 128> lastColourArgb {};
+    
+    std::function<std::optional<String>(int)> noteLabelProvider;
+    juce::Typeface::Ptr typeface;
 
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 

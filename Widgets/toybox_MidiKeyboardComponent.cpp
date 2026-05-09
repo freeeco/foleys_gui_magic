@@ -40,6 +40,7 @@ NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUs
     : KeyboardComponentBase (orientationToUse), state (stateToUse)
 {
     state.addListener (this);
+    setLowestVisibleKey (24);
 
     // initialise with a default set of qwerty key-mappings.
     const std::string_view keys { "awsedftgyhujkolp;" };
@@ -90,6 +91,12 @@ void NewMidiKeyboardComponent::setMidiChannelsToDisplay (int midiChannelMask)
 void NewMidiKeyboardComponent::setNoteColourProvider (std::function<std::optional<Colour>(int)> fn)
 {
     noteColourProvider = fn;
+    repaint();
+}
+
+void NewMidiKeyboardComponent::setNoteLabelProvider (std::function<std::optional<String>(int)> fn)
+{
+    noteLabelProvider = fn;
     repaint();
 }
 
@@ -202,6 +209,13 @@ void NewMidiKeyboardComponent::updateNoteUnderMouse (Point<float> pos, bool isDo
     }
 }
 
+void NewMidiKeyboardComponent::paint (Graphics& g)
+{
+    g.fillAll (juce::Colours::darkgrey);
+
+    KeyboardComponentBase::paint (g);
+}
+
 void NewMidiKeyboardComponent::repaintNote (int noteNum)
 {
     if (getRangeStart() <= noteNum && noteNum <= getRangeEnd())
@@ -254,9 +268,10 @@ void NewMidiKeyboardComponent::timerCallback()
 {
     const bool noMidiUpdates = noPendingUpdates.exchange (true);
 
-    // If no MIDI updates AND no colour provider, nothing can have changed.
     if (noMidiUpdates && ! noteColourProvider)
         return;
+
+    bool labelsChanged = false;
 
     for (auto i = getRangeStart(); i <= getRangeEnd(); ++i)
     {
@@ -284,6 +299,12 @@ void NewMidiKeyboardComponent::timerCallback()
         if (needsRepaint)
             repaintNote (i);
     }
+
+    // Label content changed somewhere — the leftmost-visible-per-label
+    // computation may now resolve to a different note than before, so
+    // repaint everything rather than guessing which keys are affected.
+    if (labelsChanged)
+        repaint();
 }
 
 bool NewMidiKeyboardComponent::keyStateChanged (bool /*isKeyDown*/)
@@ -467,7 +488,18 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
         auto fontHeight = jmin (14.0f, getKeyWidth() * 0.9f);
 
         g.setColour (textColour);
-        g.setFont (withDefaultMetrics (FontOptions { fontHeight }).withHorizontalScale (0.8f));
+        auto fontOptions = FontOptions { fontHeight };
+        #ifdef DEFAULT_FONT_NAME
+            if (! typeface)
+            {
+                int dataSize = 0;
+                if (auto* data = BinaryData::getNamedResource (DEFAULT_FONT_NAME, dataSize))
+                    typeface = Typeface::createSystemTypefaceFor (data, (size_t) dataSize);
+            }
+            if (typeface)
+                fontOptions = FontOptions (typeface).withHeight (fontHeight);
+        #endif
+        g.setFont (withDefaultMetrics (fontOptions).withHorizontalScale (0.8f));
 
         switch (currentOrientation)
         {
@@ -494,6 +526,9 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
             g.fillRect (area.getX(), area.getBottom() - 0.5f,   area.getWidth(), 0.5f);
         }
     }
+    
+    // 7) Label (rotated 90° CCW, painted on the leftmost visible note per label)
+    drawLabelForKey (g, keyArea, custom, midiNoteNumber);
 }
 
 void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
@@ -618,6 +653,9 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
         g.setColour (findColour (keyDownOverlayColourId).withMultipliedAlpha (0.4f));
         g.fillPath (keyShape);
     }
+    
+    // 8) Label (rotated 90° CCW, painted on the leftmost visible note per label)
+    drawLabelForKey (g, area, custom, midiNoteNumber);
 }
 
 String NewMidiKeyboardComponent::getWhiteNoteText (int midiNoteNumber)
@@ -632,6 +670,89 @@ void NewMidiKeyboardComponent::colourChanged()
 {
     setOpaque (findColour (whiteNoteColourId).isOpaque());
     repaint();
+}
+
+void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
+                                                std::optional<Colour> baseFill,
+                                                int midiNoteNumber)
+{
+    if (! noteLabelProvider)
+        return;
+
+    const auto myLabel = noteLabelProvider (midiNoteNumber);
+    if (! myLabel.has_value() || myLabel->isEmpty())
+        return;
+
+    // X fraction within the key — black-key overlap pushes C/F leftwards
+    // and E/B rightwards; everything else stays centred.
+    auto xFraction = [] (int n)
+    {
+        switch (n % 12)
+        {
+            case 0:           return 0.34f;  // C
+            case 4: case 11:  return 0.75f;  // E, B
+            case 5:           return 0.25f;  // F
+            case 7:           return 0.45f;  // G
+            case 9:           return 0.60f;  // A
+            default:          return 0.50f;  // D, and all black keys
+        }
+    };
+
+    auto labelCentre = [&] (int n, Rectangle<float> r)
+    {
+        return Point<float> { r.getX() + r.getWidth() * xFraction (n), r.getCentreY() };
+    };
+
+    // Visibility area: shrink by the scroll-button overlay so labels
+    // don't hide under the buttons at the keyboard's ends.
+    auto bounds = getLocalBounds().toFloat();
+    // + half the rotated label's horizontal extent (font height ≤ 13) so
+    // the label itself — not just its centre — clears the scroll buttons.
+    const auto buttonInset = (float) getScrollButtonWidth() + 7.0f;
+    bounds = (getOrientation() == horizontalKeyboard)
+                 ? bounds.reduced (buttonInset, 0.0f)
+                 : bounds.reduced (0.0f, buttonInset);
+
+    const auto myCentre = labelCentre (midiNoteNumber, keyArea);
+    if (! bounds.contains (myCentre))
+        return;
+
+    // Walk backwards within our contiguous range. The moment we hit a note
+    // that doesn't carry our label, we've crossed into a different range
+    // (or a gap) and any earlier same-label notes belong to a separate
+    // trigger that should render its own label.
+    for (int j = midiNoteNumber - 1; j >= getRangeStart(); --j)
+    {
+        const auto other = noteLabelProvider (j);
+        if (! other.has_value() || *other != *myLabel)
+            break;
+
+        if (bounds.contains (labelCentre (j, getRectangleForKey (j))))
+            return;
+    }
+
+    // Draw the rotated label.
+    Graphics::ScopedSaveState save (g);
+    g.addTransform (AffineTransform::rotation (-MathConstants<float>::halfPi, myCentre.x, myCentre.y));
+
+    const auto labelBounds = Rectangle<float> (keyArea.getHeight(), keyArea.getWidth()).withCentre (myCentre);
+    const auto fontHeight  = jmin (15.0f, keyArea.getWidth() * 0.65f);
+
+    auto fontOptions = FontOptions { fontHeight };
+    #ifdef DEFAULT_FONT_NAME
+        if (! typeface)
+        {
+            int dataSize = 0;
+            if (auto* data = BinaryData::getNamedResource (DEFAULT_FONT_NAME, dataSize))
+                typeface = Typeface::createSystemTypefaceFor (data, (size_t) dataSize);
+        }
+        if (typeface)
+            fontOptions = FontOptions (typeface).withHeight (fontHeight);
+    #endif
+    g.setFont (withDefaultMetrics (fontOptions));
+
+    g.setColour (findColour (textLabelColourId));
+    g.drawFittedText (*myLabel, labelBounds.toNearestInt(), Justification::centred, 1, 0.85f);
 }
 
 //==============================================================================

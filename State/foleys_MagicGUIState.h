@@ -274,6 +274,10 @@ public:
     void                        setNoteColourProvider (NoteColourProvider fn) { noteColourProvider = std::move (fn); }
     const NoteColourProvider&   getNoteColourProvider() const noexcept        { return noteColourProvider; }
 
+    using NoteLabelProvider = std::function<std::optional<juce::String>(int)>;
+    void                       setNoteLabelProvider (NoteLabelProvider fn) { noteLabelProvider = std::move (fn); }
+    const NoteLabelProvider&   getNoteLabelProvider() const noexcept       { return noteLabelProvider; }
+
     
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void setResourcesFolder (const juce::String& name);
@@ -314,6 +318,7 @@ private:
     juce::StringArray modifierUIDs;
     
     NoteColourProvider noteColourProvider;
+    NoteLabelProvider noteLabelProvider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

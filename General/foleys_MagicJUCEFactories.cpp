@@ -1193,6 +1193,7 @@ public:
             keyboard.setOrientation (juce::NewMidiKeyboardComponent::horizontalKeyboard);
         
         keyboard.setNoteColourProvider (getMagicState().getNoteColourProvider());
+        keyboard.setNoteLabelProvider (getMagicState().getNoteLabelProvider());
     }
     
     std::vector<SettableProperty> getSettableProperties() const override
