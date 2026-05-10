@@ -591,7 +591,11 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
                                    currentOrientation == horizontalKeyboard,
                                    currentOrientation == horizontalKeyboard);
 
-    g.setColour (c.brighter (isDown ? 0.14f : 0.22f));
+    const auto faceTint = custom
+        ? (isDown ?  0.14f :  0.10f)   // slight less brighter on coloured keys
+        : (isDown ?  0.14f :  0.22f);  // original brighten for default look
+
+    g.setColour (faceTint >= 0.0f ? c.brighter (faceTint) : c.darker (-faceTint));
     g.fillPath (faceShape);
 
     // 3) Specular highlight — soft bright spot on the upper third of the face
