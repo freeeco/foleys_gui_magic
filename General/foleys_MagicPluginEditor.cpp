@@ -209,6 +209,13 @@ void MagicPluginEditor::resized()
 {
     builder->updateLayout (getLocalBounds());
     processorState.setLastEditorSize (getWidth(), getHeight());
+
+    if (onResizedOnce)
+    {
+        auto fn = std::move (onResizedOnce);
+        onResizedOnce = nullptr;     // clear before calling, so callback may schedule another
+        fn();
+    }
 }
 
 

@@ -539,7 +539,7 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
 
     if (custom)
     {
-        if (isDown)      c = c.darker (0.65f);
+        if (isDown)      c = c.darker (0.9f);
         else if (isOver) c = c.darker (0.15f);
     }
     else
@@ -569,20 +569,20 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     // 2) Base fill (the dark sides/edges)
     g.setColour (c);
     g.fillPath (keyShape);
-
+    
     // 2) Lighter face on the upper portion of the key
     auto faceArea = area;
-
+    
     if (currentOrientation == horizontalKeyboard)
         faceArea = area.reduced (area.getWidth() * 0.12f, 0.0f)
-                       .withTrimmedBottom (area.getHeight() * bottomGapFraction);
+        .withTrimmedBottom (area.getHeight() * bottomGapFraction);
     else if (currentOrientation == verticalKeyboardFacingLeft)
         faceArea = area.reduced (0.0f, area.getHeight() * 0.12f)
-                       .withTrimmedLeft (area.getWidth() * bottomGapFraction);
+        .withTrimmedLeft (area.getWidth() * bottomGapFraction);
     else
         faceArea = area.reduced (0.0f, area.getHeight() * 0.12f)
-                       .withTrimmedRight (area.getWidth() * bottomGapFraction);
-
+        .withTrimmedRight (area.getWidth() * bottomGapFraction);
+    
     Path faceShape;
     faceShape.addRoundedRectangle (faceArea.getX(), faceArea.getY(),
                                    faceArea.getWidth(), faceArea.getHeight(),
@@ -590,13 +590,15 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
                                    false, false,
                                    currentOrientation == horizontalKeyboard,
                                    currentOrientation == horizontalKeyboard);
-
+    
     const auto faceTint = custom
-        ? (isDown ?  0.14f :  0.10f)   // slight less brighter on coloured keys
-        : (isDown ?  0.14f :  0.22f);  // original brighten for default look
-
-    g.setColour (faceTint >= 0.0f ? c.brighter (faceTint) : c.darker (-faceTint));
-    g.fillPath (faceShape);
+    ? (isDown ?  0.14f :  0.10f)   // slight less brighter on coloured keys
+    : (isDown ?  0.14f :  0.22f);  // original brighten for default look
+    
+    if (! isDown){
+        g.setColour (faceTint >= 0.0f ? c.brighter (faceTint) : c.darker (-faceTint));
+        g.fillPath (faceShape);
+    }
 
     // 3) Specular highlight — soft bright spot on the upper third of the face
     if (currentOrientation == horizontalKeyboard)
@@ -609,28 +611,32 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     }
 
     // 4) Thin highlight line along the top rim of the face
-    if (currentOrientation == horizontalKeyboard)
+    if (currentOrientation == horizontalKeyboard && ! isDown)
     {
         g.setColour (Colours::white.withAlpha (0.07f));
         g.fillRect (faceArea.withHeight (1.0f));
     }
 
-    // 5) Gradient for depth — lighter at top, slightly lighter at bottom
-    //    to keep contrast visible against the side edges
-    if (currentOrientation == horizontalKeyboard)
+    // 5) Gradient for depth — lighter at top, slightly darker at bottom
+    //    (skipped when pressed, since the white-at-top component reads
+    //    as sheen and we want the pressed state matte)
+    if (! isDown)
     {
-        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
-                                           Colours::black.withAlpha (0.06f), area.getX(), area.getBottom(),
-                                           false));
-    }
-    else
-    {
-        g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
-                                           Colours::black.withAlpha (0.06f), area.getRight(), area.getY(),
-                                           false));
-    }
+        if (currentOrientation == horizontalKeyboard)
+        {
+            g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
+                                               Colours::black.withAlpha (0.06f), area.getX(), area.getBottom(),
+                                               false));
+        }
+        else
+        {
+            g.setGradientFill (ColourGradient (Colours::white.withAlpha (0.10f), area.getX(), area.getY(),
+                                               Colours::black.withAlpha (0.06f), area.getRight(), area.getY(),
+                                               false));
+        }
 
-    g.fillPath (keyShape);
+        g.fillPath (keyShape);
+    }
 
     // 6) Dark crease where the face meets the lower ledge
     if (currentOrientation == horizontalKeyboard)
@@ -651,8 +657,9 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
         g.fillRect (faceArea.getX(), highlightY, faceArea.getWidth(), highlightHeight);
     }
 
-    // 7) Overlay key-down tint — reduced opacity so the 3D structure reads through
-    if (isDown)
+    // 7) Overlay key-down tint — only for default-look keys. Custom-coloured
+    //    keys are already pressed-state-darkened
+    if (isDown && ! custom)
     {
         g.setColour (findColour (keyDownOverlayColourId).withMultipliedAlpha (0.4f));
         g.fillPath (keyShape);

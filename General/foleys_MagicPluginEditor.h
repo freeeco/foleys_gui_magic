@@ -91,6 +91,8 @@ public:
     
     bool broadcastKeyToComponents (juce::Component* root, const juce::KeyPress& key);
     
+    std::function<void()> onResizedOnce;
+    
 #if JUCE_WINDOWS && JUCE_VERSION >= 0x80000
     void parentHierarchyChanged() override;
 #endif
