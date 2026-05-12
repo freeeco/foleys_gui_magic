@@ -268,7 +268,7 @@ void NewMidiKeyboardComponent::timerCallback()
 {
     const bool noMidiUpdates = noPendingUpdates.exchange (true);
 
-    if (noMidiUpdates && ! noteColourProvider)
+    if (noMidiUpdates && ! noteColourProvider && ! noteLabelProvider)
         return;
 
     bool labelsChanged = false;
@@ -293,6 +293,18 @@ void NewMidiKeyboardComponent::timerCallback()
             {
                 lastColourArgb[(size_t) i] = argb;
                 needsRepaint = true;
+            }
+        }
+
+        if (noteLabelProvider)
+        {
+            const auto custom = noteLabelProvider (i);
+            const String newLabel = custom.has_value() ? *custom : String();
+
+            if (lastLabels[(size_t) i] != newLabel)
+            {
+                lastLabels[(size_t) i] = newLabel;
+                labelsChanged = true;
             }
         }
 

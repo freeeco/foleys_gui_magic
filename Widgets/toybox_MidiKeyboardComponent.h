@@ -307,6 +307,7 @@ private:
     std::array<uint32_t, 128> lastColourArgb {};
     
     std::function<std::optional<String>(int)> noteLabelProvider;
+    std::array<String, 128> lastLabels {};
     juce::Typeface::Ptr typeface;
 
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
