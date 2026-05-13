@@ -242,7 +242,9 @@ namespace IDs
 
 StyleColourPropertyComponent::ColourPanel::ColourSelectorWithSwatches::ColourSelectorWithSwatches()
 {
+   #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     properties.setStorageParameters (ToolBox::getApplicationPropertyStorage());
+   #endif
     swatchColours.resize (32, juce::Colour());
 
     loadSwatches();

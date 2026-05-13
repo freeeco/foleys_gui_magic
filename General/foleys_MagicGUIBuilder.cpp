@@ -634,33 +634,33 @@ bool MagicGUIBuilder::isEditModeOn() const
     return editMode;
 }
 
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
+
 void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
 {
     if (selectedNode != node)
     {
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
         if (auto* item = findGuiItem (selectedNode))
             if (!isNodeSelected (selectedNode))
                 item->setDraggable (false);
+       #endif
 
         selectedNode = node;
 
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
         if (magicToolBox.get() != nullptr)
             magicToolBox->setSelectedNode (selectedNode);
 
         if (auto* item = findGuiItem (selectedNode))
             item->setDraggable (true);
+#endif
 
         if (parent != nullptr)
             parent->repaint();
     }
-}
-
-bool MagicGUIBuilder::isNodeSelected (const juce::ValueTree& node) const
-{
-    if (magicToolBox)
-        return magicToolBox->isNodeSelected (node);
-
-    return selectedNode == node;
 }
 
 const juce::ValueTree& MagicGUIBuilder::getSelectedNode() const
@@ -670,13 +670,27 @@ const juce::ValueTree& MagicGUIBuilder::getSelectedNode() const
 
 juce::Array<juce::ValueTree> MagicGUIBuilder::getSelectedNodes() const
 {
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     if (magicToolBox)
         return magicToolBox->getSelectedNodes();
+#endif
 
     if (selectedNode.isValid())
         return { selectedNode };
 
     return {};
+}
+
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+
+bool MagicGUIBuilder::isNodeSelected (const juce::ValueTree& node) const
+{
+    if (magicToolBox)
+        return magicToolBox->isNodeSelected (node);
+
+    return selectedNode == node;
 }
 
 void MagicGUIBuilder::draggedItemOnto (juce::ValueTree dragged, juce::ValueTree target, int index)

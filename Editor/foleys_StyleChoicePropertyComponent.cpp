@@ -256,6 +256,45 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
         if (auto* c = dynamic_cast<juce::ComboBox*>(editor.get()))
         {
             auto text = c->getText();
+
+            // Parse note-name entry ("C3" -> "60", etc.)
+            if (property.toString().containsIgnoreCase("note"))
+            {
+                auto parseNoteName = [] (const juce::String& input) -> int
+                {
+                    auto s = input.trim();
+                    if (s.isEmpty()) return -1;
+
+                    auto first = juce::CharacterFunctions::toUpperCase (s[0]);
+                    if (first < 'A' || first > 'G') return -1;
+
+                    static constexpr int semitones[] = { 9, 11, 0, 2, 4, 5, 7 };
+                    int note = semitones[first - 'A'];
+                    int idx  = 1;
+
+                    if (idx < s.length())
+                    {
+                        auto a = s[idx];
+                        if      (a == '#') { ++note; ++idx; }
+                        else if (a == 'b') { --note; ++idx; }
+                    }
+
+                    auto octaveStr = s.substring (idx);
+                    if (octaveStr.isEmpty() || ! octaveStr.containsOnly ("-0123456789"))
+                        return -1;
+
+                    int midi = (octaveStr.getIntValue() + 2) * 12 + note;   // C3 = 60
+                    return (midi >= 0 && midi <= 127) ? midi : -1;
+                };
+
+                auto n = parseNoteName (text);
+                if (n >= 0)
+                {
+                    text = juce::String (n);
+                    c->setText (text, juce::dontSendNotification);
+                }
+            }
+
             if (uidPrefix.isNotEmpty())
                 text = text.replace (" ", "-");
             node.setProperty (property, text, &builder.getUndoManager());

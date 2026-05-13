@@ -243,15 +243,19 @@ public:
      */
     void setEditMode (bool shouldEdit, bool shouldDeselect = false);
     bool isEditModeOn() const;
-
+#endif
+    
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
     void setSelectedNode (const juce::ValueTree& node);
     const juce::ValueTree& getSelectedNode() const;
     juce::Array<juce::ValueTree> getSelectedNodes() const;
-
+#endif
+    
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+    
     bool isNodeSelected (const juce::ValueTree& node) const;
 
     void draggedItemOnto (juce::ValueTree dropped, juce::ValueTree target, int index=-1);
-
     ToolBox& getMagicToolBox();
 #endif
     
@@ -281,9 +285,12 @@ private:
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     bool editMode = false;
-    juce::ValueTree selectedNode;
 
     std::unique_ptr<ToolBox> magicToolBox;
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
+    juce::ValueTree selectedNode;
 #endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIBuilder)

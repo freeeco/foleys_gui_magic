@@ -82,22 +82,38 @@
 #include "LookAndFeels/foleys_LookAndFeel.cpp"
 #include "LookAndFeels/foleys_Skeuomorphic.cpp"
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
 
 namespace EditorColours
 {
-    static juce::Colour background;
-    static juce::Colour outline;
-    static juce::Colour text;
-    static juce::Colour disabledText;
-    static juce::Colour removeButton;
-    static juce::Colour selectedBackground;
+    juce::Colour background         = foleys::ToolBoxColours::bg;
+    juce::Colour outline            = foleys::ToolBoxColours::border;
+    juce::Colour text               = foleys::ToolBoxColours::text;
+    juce::Colour disabledText       = foleys::ToolBoxColours::textDim;
+    juce::Colour removeButton       = foleys::ToolBoxColours::textDim.darker (0.4f);
+    juce::Colour selectedBackground = foleys::ToolBoxColours::accent;
 }
+
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
 #include "Editor/foleys_ToolBox.cpp"
 #include "Editor/foleys_GUITreeEditor.cpp"
 #include "Editor/foleys_PropertiesEditor.cpp"
 #include "Editor/foleys_Palette.cpp"
+
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
+
+#include "Editor/foleys_StylePropertyComponent.h"
+#include "Editor/foleys_StyleTextPropertyComponent.h"
+#include "Editor/foleys_StyleBoolPropertyComponent.h"
+#include "Editor/foleys_StyleColourPropertyComponent.h"
+#include "Editor/foleys_StyleGradientPropertyComponent.h"
+#include "Editor/foleys_StyleChoicePropertyComponent.h"
+#include "Editor/foleys_MultiListPropertyComponent.h"
 
 #include "Editor/foleys_MultiListPropertyComponent.cpp"
 #include "Editor/foleys_StylePropertyComponent.cpp"
@@ -107,4 +123,4 @@ namespace EditorColours
 #include "Editor/foleys_StyleGradientPropertyComponent.cpp"
 #include "Editor/foleys_StyleChoicePropertyComponent.cpp"
 
-#endif // FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#endif
