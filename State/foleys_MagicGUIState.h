@@ -277,6 +277,10 @@ public:
     using NoteLabelProvider = std::function<std::optional<juce::String>(int)>;
     void                       setNoteLabelProvider (NoteLabelProvider fn) { noteLabelProvider = std::move (fn); }
     const NoteLabelProvider&   getNoteLabelProvider() const noexcept       { return noteLabelProvider; }
+    
+    using NoteTooltipProvider = std::function<std::optional<juce::String>(int)>;
+    void                       setNoteTooltipProvider (NoteTooltipProvider fn) { noteTooltipProvider = std::move (fn); }
+    const NoteTooltipProvider& getNoteTooltipProvider() const noexcept         { return noteTooltipProvider; }
 
     
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
@@ -319,6 +323,7 @@ private:
     
     NoteColourProvider noteColourProvider;
     NoteLabelProvider noteLabelProvider;
+    NoteTooltipProvider noteTooltipProvider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MagicGUIState)
 };

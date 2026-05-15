@@ -100,6 +100,11 @@ void NewMidiKeyboardComponent::setNoteLabelProvider (std::function<std::optional
     repaint();
 }
 
+void NewMidiKeyboardComponent::setNoteTooltipProvider (std::function<std::optional<String>(int)> fn)
+{
+    noteTooltipProvider = std::move (fn);
+}
+
 //==============================================================================
 void NewMidiKeyboardComponent::clearKeyMappings()
 {

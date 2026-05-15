@@ -1194,6 +1194,7 @@ public:
         
         keyboard.setNoteColourProvider (getMagicState().getNoteColourProvider());
         keyboard.setNoteLabelProvider (getMagicState().getNoteLabelProvider());
+        keyboard.setNoteTooltipProvider (getMagicState().getNoteTooltipProvider());
     }
     
     std::vector<SettableProperty> getSettableProperties() const override

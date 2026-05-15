@@ -60,8 +60,9 @@ namespace juce
     @tags{Audio}
 */
 class NewMidiKeyboardComponent  : public KeyboardComponentBase,
-                                         private MidiKeyboardState::Listener,
-                                         private Timer
+                                  private MidiKeyboardState::Listener,
+                                  public juce::TooltipClient,
+                                  private Timer
 {
 public:
     //==============================================================================
@@ -169,6 +170,11 @@ public:
         The trigger should only return a value for the first (lowest) note
         of its range; other notes return nullopt. Pass nullptr to disable. */
     void setNoteLabelProvider (std::function<std::optional<String>(int midiNote)> fn);
+    
+    /** Sets a callback that returns an optional tooltip string for each MIDI note.
+        Polled by TooltipWindow on the message thread when the mouse hovers.
+        Pass nullptr to disable. */
+    void setNoteTooltipProvider (std::function<std::optional<String>(int midiNote)> fn);
 
     //==============================================================================
     /** A set of colour IDs to use to change the colour of various aspects of the keyboard.
@@ -309,10 +315,32 @@ private:
     std::function<std::optional<String>(int)> noteLabelProvider;
     std::array<String, 128> lastLabels {};
     juce::Typeface::Ptr typeface;
+    
+    std::function<std::optional<String>(int)> noteTooltipProvider;
 
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 
     //==============================================================================
+    
+    juce::String getTooltip() override
+    {
+        if (! noteTooltipProvider)
+            return {};
+
+        const auto pos = getMouseXYRelative();
+        if (! reallyContains (pos, false))
+            return {};
+
+        const int note = getNoteAndVelocityAtPosition (pos.toFloat()).note;
+        if (note < 0)
+            return {};
+
+        if (auto tip = noteTooltipProvider (note))
+            return *tip;
+
+        return {};
+    }
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NewMidiKeyboardComponent)
 };
 
