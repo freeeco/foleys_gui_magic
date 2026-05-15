@@ -49,6 +49,241 @@
 namespace foleys
 {
 
+#if JUCE_IOS
+
+class MagicGUIBuilder::IOSTooltipOverlay  : public juce::Component
+{
+public:
+    class CloseButton  : public juce::Button
+    {
+    public:
+        CloseButton()
+            : juce::Button ("CLOSE")
+        {
+        }
+
+        void paintButton (juce::Graphics& g,
+                          bool shouldDrawButtonAsHighlighted,
+                          bool shouldDrawButtonAsDown) override
+        {
+            juce::ignoreUnused (shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+
+            auto bounds = getLocalBounds().toFloat().reduced (0.5f);
+
+            g.setColour (juce::Colour (0xff151515));
+            g.fillRoundedRectangle (bounds, 7.0f);
+
+            auto font = [] (float h)
+            {
+               #ifdef DEFAULT_FONT_NAME
+                int dataSize = 0;
+
+                if (auto* data = BinaryData::getNamedResource (DEFAULT_FONT_NAME, dataSize))
+                {
+                    auto typeface = juce::Typeface::createSystemTypefaceFor (data, static_cast<size_t> (dataSize));
+
+                    if (typeface != nullptr)
+                        return juce::Font (juce::FontOptions (typeface).withHeight (h));
+                }
+               #endif
+
+                return juce::Font (juce::FontOptions (h));
+            } (18.0f);
+
+            g.setFont (font);
+            g.setColour (juce::Colours::white.withAlpha (0.92f));
+            g.drawFittedText ("CLOSE",
+                              getLocalBounds().reduced (3, 0),
+                              juce::Justification::centred,
+                              1);
+        }
+    };
+
+    explicit IOSTooltipOverlay (MagicGUIBuilder& builderToUse)
+        : builder (builderToUse)
+    {
+        setInterceptsMouseClicks (true, true);
+
+        addAndMakeVisible (closeButton);
+
+        closeButton.onClick = [this]
+        {
+            setActive (false);
+        };
+
+        setVisible (false);
+    }
+
+    void setActive (bool shouldBeActive)
+    {
+        active = shouldBeActive;
+        setVisible (active);
+
+        if (auto* tooltip = builder.getTooltipWindow())
+            tooltip->hideTip();
+
+        if (active)
+            toFront (false);
+
+        repaint();
+    }
+
+    bool isActive() const
+    {
+        return active;
+    }
+
+    void resized() override
+    {
+        closeButton.setBounds (getWidth() - 86, 8, 76, 32);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colours::white.withAlpha (0.10f));
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (! active)
+            return;
+
+        showTipAtScreenPosition (e.getScreenPosition());
+    }
+
+    void mouseDrag (const juce::MouseEvent& e) override
+    {
+        if (! active)
+            return;
+
+        showTipAtScreenPosition (e.getScreenPosition());
+    }
+
+private:
+    MagicGUIBuilder& builder;
+    CloseButton closeButton;
+
+    bool active = false;
+
+    void showTipAtScreenPosition (juce::Point<int> screenPos)
+    {
+        auto* root = builder.getRootItem();
+
+        if (root == nullptr)
+            return;
+
+        juce::Component* target = nullptr;
+        juce::String tip;
+
+        {
+            // While we're querying the component underneath us, hide ourselves
+            // from hit-testing. JUCE's Component::reallyContains() (used both
+            // directly by tooltip clients and internally by helpers such as
+            // KeyboardComponentBase::getNoteAndVelocityAtPosition) walks the
+            // sibling stack via getComponentAt(); because this overlay sits in
+            // front of everything and intercepts mouse clicks, those checks
+            // would otherwise treat the real target as "obscured" and bail out.
+            //
+            // The in-flight touch is already routed to us by JUCE's mouse
+            // capture, so toggling interceptsMouseClicks for the duration of
+            // the lookup does not disrupt the current event sequence.
+            ScopedInterceptsOff transparentForHitTest { *this };
+
+            target = findDeepestComponentAtScreenPos (*root, screenPos, this);
+            tip    = findTooltipFor (target);
+        }
+
+        if (auto* tooltip = builder.getTooltipWindow())
+        {
+            if (tip.isNotEmpty())
+            {
+                tooltip->displayTip (screenPos.translated (0, -20), tip);
+
+                // Keep the manually displayed tooltip above the modal help overlay.
+                // This is harmless if TooltipWindow is already implemented as a floating layer,
+                // and important if it is parented as a normal component inside the root.
+                tooltip->toFront (false);
+            }
+            else
+            {
+                tooltip->hideTip();
+            }
+        }
+    }
+
+    //==============================================================================
+    /** RAII helper that temporarily disables mouse-click interception on a
+        component, restoring the previous state on destruction. Used during the
+        tooltip lookup so that obscured components correctly report themselves
+        via getComponentAt() / reallyContains().
+    */
+    struct ScopedInterceptsOff
+    {
+        explicit ScopedInterceptsOff (juce::Component& c) noexcept
+            : comp (c)
+        {
+            comp.getInterceptsMouseClicks (prevSelf, prevChildren);
+            comp.setInterceptsMouseClicks (false, false);
+        }
+
+        ~ScopedInterceptsOff() noexcept
+        {
+            comp.setInterceptsMouseClicks (prevSelf, prevChildren);
+        }
+
+        juce::Component& comp;
+        bool prevSelf     = true;
+        bool prevChildren = true;
+    };
+
+    static juce::Component* findDeepestComponentAtScreenPos (juce::Component& root,
+                                                             juce::Point<int> screenPos,
+                                                             const juce::Component* componentToIgnore)
+    {
+        if (&root == componentToIgnore)
+            return nullptr;
+
+        if (! root.isShowing())
+            return nullptr;
+
+        auto localPoint = root.getLocalPoint (nullptr, screenPos);
+
+        if (! root.getLocalBounds().contains (localPoint))
+            return nullptr;
+
+        for (int i = root.getNumChildComponents(); --i >= 0;)
+        {
+            if (auto* child = root.getChildComponent (i))
+            {
+                if (child == componentToIgnore)
+                    continue;
+
+                if (auto* found = findDeepestComponentAtScreenPos (*child, screenPos, componentToIgnore))
+                    return found;
+            }
+        }
+
+        return &root;
+    }
+
+    static juce::String findTooltipFor (juce::Component* component)
+    {
+        for (auto* c = component; c != nullptr; c = c->getParentComponent())
+        {
+            if (auto* tooltipClient = dynamic_cast<juce::TooltipClient*> (c))
+            {
+                auto tip = tooltipClient->getTooltip();
+
+                if (tip.isNotEmpty())
+                    return tip;
+            }
+        }
+
+        return {};
+    }
+};
+
+#endif
 
 MagicGUIBuilder::MagicGUIBuilder (MagicGUIState& state)
   : magicState (state)
@@ -223,10 +458,27 @@ void MagicGUIBuilder::updateComponents()
 
     updateStylesheet();
 
+#if JUCE_IOS
+    if (iosTooltipOverlay != nullptr)
+        if (auto* oldParent = iosTooltipOverlay->getParentComponent())
+            oldParent->removeChildComponent (iosTooltipOverlay.get());
+#endif
+
     root = createRootItem (getGuiRootNode());
     parent->addAndMakeVisible (root.get());
 
     root->setBounds (parent->getLocalBounds());
+
+#if JUCE_IOS
+    if (iosTooltipOverlay != nullptr)
+    {
+        root->addAndMakeVisible (*iosTooltipOverlay);
+        iosTooltipOverlay->setBounds (root->getLocalBounds());
+
+        if (iosTooltipOverlay->isActive())
+            iosTooltipOverlay->toFront (false);
+    }
+#endif
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     if (root.get() != nullptr)
@@ -275,6 +527,19 @@ void MagicGUIBuilder::updateLayout (juce::Rectangle<int> bounds)
         else
             root->setBounds (rootBounds);
     }
+
+#if JUCE_IOS
+    if (iosTooltipOverlay != nullptr && root != nullptr)
+    {
+        if (iosTooltipOverlay->getParentComponent() != root.get())
+            root->addAndMakeVisible (*iosTooltipOverlay);
+
+        iosTooltipOverlay->setBounds (root->getLocalBounds());
+
+        if (iosTooltipOverlay->isActive())
+            iosTooltipOverlay->toFront (false);
+    }
+#endif
 
     if (overlayDialog)
     {
@@ -602,6 +867,30 @@ juce::TooltipWindow* MagicGUIBuilder::getTooltipWindow()
     else
         return nullptr;
 }
+
+#if JUCE_IOS
+
+void MagicGUIBuilder::setIOSTooltipModeEnabled (bool shouldBeEnabled)
+{
+    if (root == nullptr)
+        return;
+
+    if (iosTooltipOverlay == nullptr)
+        iosTooltipOverlay = std::make_unique<IOSTooltipOverlay> (*this);
+
+    if (iosTooltipOverlay->getParentComponent() != root.get())
+        root->addAndMakeVisible (*iosTooltipOverlay);
+
+    iosTooltipOverlay->setBounds (root->getLocalBounds());
+    iosTooltipOverlay->setActive (shouldBeEnabled);
+}
+
+bool MagicGUIBuilder::isIOSTooltipModeEnabled() const
+{
+    return iosTooltipOverlay != nullptr && iosTooltipOverlay->isActive();
+}
+
+#endif
 
 void MagicGUIBuilder::refreshColours()
 {

@@ -230,6 +230,11 @@ public:
     juce::UndoManager& getUndoManager();
     
     juce::TooltipWindow*  getTooltipWindow();
+
+#if JUCE_IOS
+    void setIOSTooltipModeEnabled (bool shouldBeEnabled);
+    bool isIOSTooltipModeEnabled() const;
+#endif
     
     void refreshColours();
 
@@ -278,6 +283,11 @@ private:
     std::unique_ptr<RootItem> root;
 
     std::unique_ptr<juce::Component> overlayDialog;
+
+#if JUCE_IOS
+    class IOSTooltipOverlay;
+    std::unique_ptr<IOSTooltipOverlay> iosTooltipOverlay;
+#endif
 
     std::map<juce::Identifier, std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&)> factories;
     std::map<juce::Identifier, juce::String> factoryCategories;
