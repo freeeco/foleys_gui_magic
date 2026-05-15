@@ -1179,7 +1179,7 @@ public:
         keyboard.setKeyWidth (size);
         
 #if JUCE_IOS
-        keyboard.setScrollButtonWidth(26);
+        keyboard.setScrollButtonWidth(20);
 #else
         keyboard.setScrollButtonWidth(12);
 #endif

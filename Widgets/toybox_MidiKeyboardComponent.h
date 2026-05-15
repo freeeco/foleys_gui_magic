@@ -327,16 +327,7 @@ private:
         if (! noteTooltipProvider)
             return {};
 
-       #if JUCE_IOS
-        // Read the live position from the main mouse source.
-        const auto pos = getLocalPoint (nullptr,
-                                        juce::Desktop::getInstance()
-                                            .getMainMouseSource()
-                                            .getScreenPosition()
-                                            .roundToInt());
-       #else
         const auto pos = getMouseXYRelative();
-       #endif
 
         if (! getLocalBounds().contains (pos))
             return {};

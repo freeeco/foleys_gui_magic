@@ -506,7 +506,7 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
 
         g.setColour (textColour);
         auto fontOptions = FontOptions { fontHeight };
-        #ifdef DEFAULT_FONT_NAME
+#ifdef DEFAULT_FONT_NAME
             if (! typeface)
             {
                 int dataSize = 0;
@@ -515,7 +515,7 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
             }
             if (typeface)
                 fontOptions = FontOptions (typeface).withHeight (fontHeight);
-        #endif
+#endif
         g.setFont (withDefaultMetrics (fontOptions).withHorizontalScale (0.8f));
 
         switch (currentOrientation)
@@ -767,7 +767,7 @@ void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> ke
     const auto fontHeight  = jmin (15.0f, keyArea.getWidth() * 0.65f);
 
     auto fontOptions = FontOptions { fontHeight };
-    #ifdef DEFAULT_FONT_NAME
+#ifdef DEFAULT_FONT_NAME
         if (! typeface)
         {
             int dataSize = 0;
@@ -776,7 +776,7 @@ void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> ke
         }
         if (typeface)
             fontOptions = FontOptions (typeface).withHeight (fontHeight);
-    #endif
+#endif
     g.setFont (withDefaultMetrics (fontOptions));
 
     g.setColour (findColour (textLabelColourId));
