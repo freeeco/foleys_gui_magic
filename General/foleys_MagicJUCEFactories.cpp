@@ -155,7 +155,10 @@ public:
                     
                     parameterValue.referTo (slider.getValueObject());
                 } else {
-                    slider.getValueObject().referTo (getMagicState().getPropertyAsValue (valueID));
+                    auto property = getMagicState().getPropertyAsValue (valueID);
+                    if (attachment != nullptr)
+                        property.setValue (slider.getValue());
+                    slider.getValueObject().referTo (property);
                 }
             }
         }
