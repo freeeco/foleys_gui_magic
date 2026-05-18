@@ -1156,6 +1156,7 @@ public:
     FOLEYS_DECLARE_GUI_FACTORY (KeyboardItem)
     
     static const juce::String      pKeyWidth;
+    static const juce::String      pInitialLowestKeyShowing;
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node),
@@ -1181,6 +1182,11 @@ public:
             size = 50.0f;
         keyboard.setKeyWidth (size);
         
+        int lowestKey = int (getProperty (pInitialLowestKeyShowing));
+        if (!lowestKey)
+            lowestKey = 24;
+        keyboard.setInitialLowestKeyShowing (lowestKey);
+        
 #if JUCE_IOS
         keyboard.setScrollButtonWidth(20);
 #else
@@ -1204,6 +1210,7 @@ public:
     {
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} , "Width of each white key in pixels" });
+        props.push_back ({ configNode, pInitialLowestKeyShowing,      SettableProperty::Number, {}, {} , "Sets the initial lowest visible key" });
         
         return props;
     }
@@ -1218,7 +1225,8 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardItem)
 };
-const juce::String      KeyboardItem::pKeyWidth             {"key-width"};
+const juce::String      KeyboardItem::pKeyWidth                     {"key-width"};
+const juce::String      KeyboardItem::pInitialLowestKeyShowing      {"initial-lowest-key"};
 
 //==============================================================================
 

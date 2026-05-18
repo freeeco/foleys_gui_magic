@@ -40,7 +40,7 @@ NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUs
     : KeyboardComponentBase (orientationToUse), state (stateToUse)
 {
     state.addListener (this);
-    setLowestVisibleKey (24);
+    setLowestVisibleKey (initialLowestKeyShowing);
 
     // initialise with a default set of qwerty key-mappings.
     const std::string_view keys { "awsedftgyhujkolp;" };

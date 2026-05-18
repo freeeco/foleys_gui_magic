@@ -276,6 +276,14 @@ public:
     void colourChanged() override;
     /** @internal */
     void paint (Graphics& g) override;
+    
+    void setInitialLowestKeyShowing(int keyNumber) {
+        initialLowestKeyShowing = keyNumber;
+        setLowestVisibleKey (keyNumber);
+        repaint();
+    };
+    
+    int getInitialLowestKeyShowing() {return initialLowestKeyShowing; };
 
 private:
     //==============================================================================
@@ -293,6 +301,7 @@ private:
     void repaintNote (int midiNoteNumber);
     void drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
                           std::optional<Colour> baseFill, int midiNoteNumber);
+    int initialLowestKeyShowing = 24;
 
     //==============================================================================
     MidiKeyboardState& state;
