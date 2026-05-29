@@ -42,17 +42,23 @@ NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUs
     state.addListener (this);
     setLowestVisibleKey (initialLowestKeyShowing);
 
-    // initialise with a default set of qwerty key-mappings.
-    const std::string_view keys { "awsedftgyhujkolp;" };
+    const bool standalone = juce::PluginHostType::getPluginLoadedAs()
+                          == juce::AudioProcessor::wrapperType_Standalone;
 
-    for (const char& c : keys)
-        setKeyPressForNote ({c, 0, 0}, (int) std::distance (keys.data(), &c));
+    if (standalone)
+    {
+        const std::string_view keys { "awsedftgyhujkolp;" };
+        for (const char& c : keys)
+            setKeyPressForNote ({c, 0, 0}, (int) std::distance (keys.data(), &c));
+    }
 
     mouseOverNotes.insertMultiple (0, -1, 32);
     mouseDownNotes.insertMultiple (0, -1, 32);
 
     colourChanged();
-    setWantsKeyboardFocus (true);
+
+    setWantsKeyboardFocus           (standalone);
+    setMouseClickGrabsKeyboardFocus (standalone);
 
     startTimerHz (20);
 }
