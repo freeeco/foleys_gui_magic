@@ -270,6 +270,10 @@ public:
     void unregisterModifierUID(const juce::String& uid) { modifierUIDs.removeString (uid); }
     juce::StringArray getModifierUIDs() const { return modifierUIDs; }
     
+    void registerLFOUID   (const juce::String& uid) { lfoUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterLFOUID (const juce::String& uid) { lfoUIDs.removeString (uid); }
+    juce::StringArray getLFOUIDs() const { return lfoUIDs; }
+    
     using NoteColourProvider = std::function<std::optional<juce::Colour>(int)>;
     void                        setNoteColourProvider (NoteColourProvider fn) { noteColourProvider = std::move (fn); }
     const NoteColourProvider&   getNoteColourProvider() const noexcept        { return noteColourProvider; }
@@ -320,6 +324,7 @@ private:
     juce::StringArray playlistUIDs;
     juce::StringArray clipUIDs;
     juce::StringArray modifierUIDs;
+    juce::StringArray lfoUIDs;
     
     NoteColourProvider noteColourProvider;
     NoteLabelProvider noteLabelProvider;
