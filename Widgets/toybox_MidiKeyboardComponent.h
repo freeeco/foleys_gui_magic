@@ -36,6 +36,11 @@
 
 #include <melatonin_blur/melatonin_blur.h>
 
+// Forward declaration only — the keyboard holds a pointer to the builder for
+// the inline trigger editor, and resolves the container tree through it. The
+// full definition is pulled in by the foleys module unity build in the .cpp.
+namespace foleys { class MagicGUIBuilder; }
+
 namespace juce
 {
 
@@ -193,7 +198,8 @@ public:
         keyDownOverlayColourId          = 0x1005004,  /**< This colour will be overlaid on the normal note colour. */
         textLabelColourId               = 0x1005005,
         shadowColourId                  = 0x1005006,
-        keyLabelTextColourId            = 0x1005007
+        keyLabelTextColourId            = 0x1005007,
+        editOutlineColourId             = 0x1005008   /**< Outline drawn around trigger key-groups in edit mode. */
     };
 
     //==============================================================================
@@ -285,6 +291,34 @@ public:
     
     int getInitialLowestKeyShowing() {return initialLowestKeyShowing; };
 
+    //==============================================================================
+    // Inline trigger editing (edit mode).
+    //
+    // When edit mode is on, clicking a key opens an editing menu instead of
+    // playing the note. The keyboard owns the edit-mode flag (it needs it for
+    // its own outline drawing) and a nested TriggerEditor that does the data
+    // side (resolving a key to node(s) in the container tree and performing
+    // copy / cut / paste / clear / colour / add-from-preset). See setEditContext.
+
+    /** Turns inline trigger editing on/off. While on, key clicks open the edit
+        menu and don't play notes; the trigger-group outlines are drawn. */
+    void setEditMode (bool shouldBeOn);
+    bool isEditMode() const noexcept { return editMode; }
+
+    /** Gives the editor the builder + the id of the container node whose
+        triggers this keyboard edits. Must match the container id used by the
+        Trigger Bank Editor item if you want them to edit the same bank. */
+    void setEditContext (foleys::MagicGUIBuilder* builder, const String& containerID);
+
+    /** Folder scanned for the "Add Trigger" preset menu (e.g. the plugin's
+        Triggers folder). When empty / missing, the submenu is disabled. */
+    void setTriggerPresetFolder (const File& folder);
+
+    /** Sets the note whose trigger group is currently "active" (its menu is
+        open) so the keyboard can draw a heavier outline on that run.
+        -1 clears it. Driven internally by the editor's menu lifetime. */
+    void setActiveEditNote (int note);
+
 private:
     //==============================================================================
     void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override final;
@@ -301,6 +335,16 @@ private:
     void repaintNote (int midiNoteNumber);
     void drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
                           std::optional<Colour> baseFill, int midiNoteNumber);
+
+    /** Draws the edit-mode outline for a key when editMode is on, using the
+        colour provider for trigger presence and an adjacency check for the
+        run edges. The active group (menu open) is drawn heavier. */
+    /** Draws the edit-mode outline for one key when editMode is on, using the
+        colour provider for trigger presence and an adjacency check for the run
+        edges. Drawn per-key (from drawWhiteNote/drawBlackNote) so black keys
+        mask the white-key boundary verticals. The active group is drawn heavier. */
+    void drawEditOutline (Graphics& g, Rectangle<float> area, int midiNoteNumber);
+
     int initialLowestKeyShowing = 24;
 
     //==============================================================================
@@ -330,6 +374,64 @@ private:
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 
     //==============================================================================
+    // Edit-mode state.
+    bool editMode       = false;
+    int  activeEditNote = -1;   // note whose group is highlighted while its menu is open
+    int  activeRunStart = -1;   // computed run extent of the active note, for the heavy outline
+    int  activeRunEnd   = -1;
+
+    //==============================================================================
+    /** Plain nested helper — not a Component, never shown, no bounds, no paint.
+        Owns the data side of inline editing: resolves a clicked key to the
+        node(s) in the container tree and performs copy / cut / paste / clear /
+        colour / add-from-preset, plus building the menu. Its lifetime equals
+        the keyboard's, so the owner SafePointer used in showMenuForKey also
+        guards `this`. */
+    class TriggerEditor
+    {
+    public:
+        explicit TriggerEditor (NewMidiKeyboardComponent& o) : owner (o) {}
+
+        void setContext (foleys::MagicGUIBuilder* b, const String& id) { builder = b; containerID = id; }
+        void setPresetFolder (const File& f) { presetFolder = f; }
+
+        void showMenuForKey (int note, Point<int> screenPos);
+
+    private:
+        ValueTree        getContainer() const;
+        Array<ValueTree> findNodesForKey (int note) const;
+        static ValueTree findNodeByID (ValueTree tree, const String& id);
+        static bool      nodeCoversKey (const ValueTree& node, int note);
+
+        // Fixed-slot model — mirrors TriggerBankEditorComponent. The bank is a
+        // pool of MidiTrigger slots (trigger-index 0..N); we fill empty slots
+        // in place and clear them in place, never adding or removing slots.
+        static bool      isEmptySlot        (const ValueTree& node);
+        Array<ValueTree> findEmptySlots     (const ValueTree& container, int count) const;
+        static ValueTree propertiesOnlyCopy (const ValueTree& node);
+        void             clearPropertiesOfNode (ValueTree node, UndoManager* um);
+        void             fillSlot           (ValueTree slot, const ValueTree& payload, UndoManager* um);
+
+        void copyKeys        (const Array<ValueTree>& nodes);
+        void pasteToKey      (int note);
+        void clearKey        (int note);
+        void clearAll();
+        void setColourForKey (int note, Colour colour);
+        void applyPresetFile (int note, const File& file);
+        void insertPayloadAtKey (ValueTree payloadRoot, int note);
+        void buildPresetMenu (PopupMenu& menu, const File& folder,
+                              std::vector<File>& files, int baseId);
+        static void remapNoteRanges (ValueTree node, int delta);
+
+        NewMidiKeyboardComponent& owner;
+        foleys::MagicGUIBuilder*  builder = nullptr;
+        String                    containerID;
+        File                      presetFolder;
+    };
+
+    TriggerEditor triggerEditor { *this };
+
+    //==============================================================================
     
     juce::String getTooltip() override
     {
@@ -355,4 +457,3 @@ private:
 };
 
 } // namespace juce
-

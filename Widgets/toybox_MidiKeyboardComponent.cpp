@@ -35,6 +35,66 @@
 namespace juce
 {
 
+namespace
+{
+    //==============================================================================
+    // Trigger node property tables (used only by the inline TriggerEditor).
+
+    // (low, high) note-range property pairs that define a trigger node's key
+    // footprint. Used to resolve a clicked key to the node(s) sitting on it.
+    struct TriggerRangePair { const char* lo; const char* hi; };
+
+    const std::vector<TriggerRangePair> kTriggerRangePairs
+    {
+        { "select-low-note-value",    "select-high-note-value"    },
+        { "retrigger-low-note-value", "retrigger-high-note-value" },
+        { "stop-low-note-value",      "stop-high-note-value"      },
+        { "gate-low-note-value",      "gate-high-note-value"      },
+        { "transpose-low-note-value", "transpose-high-note-value" },
+        { "trigger-low-note-value",   "trigger-high-note-value"   },
+    };
+
+    // Every note-valued property — the range pairs above plus the transpose
+    // root, which is a position inside the range and so shifts with it on
+    // paste. remapNoteRanges adds the (single, pre-clamped) delta to each of
+    // these that's present on a node.
+    const StringArray kTriggerNoteValuedProps
+    {
+        "select-low-note-value",    "select-high-note-value",
+        "retrigger-low-note-value", "retrigger-high-note-value",
+        "stop-low-note-value",      "stop-high-note-value",
+        "gate-low-note-value",      "gate-high-note-value",
+        "transpose-low-note-value", "transpose-high-note-value",
+        "transpose-root-note-value",
+        "trigger-low-note-value",   "trigger-high-note-value",
+    };
+
+    // 20 distinguishable colours offered in the key menu's Colour submenu.
+    struct TriggerNamedColour { String name; Colour colour; };
+
+    const std::vector<TriggerNamedColour> kTriggerColours
+    {
+        { "Red",        Colour (0xffe53935) }, { "Orange",     Colour (0xfffb8c00) },
+        { "Amber",      Colour (0xffffb300) }, { "Yellow",     Colour (0xfffdd835) },
+        { "Lime",       Colour (0xffc0ca33) }, { "Green",      Colour (0xff43a047) },
+        { "Teal",       Colour (0xff00897b) }, { "Cyan",       Colour (0xff00acc1) },
+        { "Light Blue", Colour (0xff039be5) }, { "Blue",       Colour (0xff1e88e5) },
+        { "Indigo",     Colour (0xff3949ab) }, { "Violet",     Colour (0xff8e24aa) },
+        { "Magenta",    Colour (0xffd81b60) }, { "Pink",       Colour (0xffec407a) },
+        { "Rose",       Colour (0xfff06292) }, { "Brown",      Colour (0xff6d4c41) },
+        { "Slate",      Colour (0xff546e7a) }, { "Grey",       Colour (0xff9e9e9e) },
+        { "Mint",       Colour (0xff66bb6a) }, { "Lavender",   Colour (0xff9575cd) },
+    };
+
+    // Menu result-id ranges.
+    enum
+    {
+        miCopy = 1, miCut, miPaste, miClear, miClearAll,
+        miColourBase  = 100,    // + index into kTriggerColours
+        miPresetBase  = 1000    // + index into the captured preset-files vector
+    };
+}
+
 //==============================================================================
 NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUse, Orientation orientationToUse)
     : KeyboardComponentBase (orientationToUse), state (stateToUse)
@@ -54,6 +114,13 @@ NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUs
 
     mouseOverNotes.insertMultiple (0, -1, 32);
     mouseDownNotes.insertMultiple (0, -1, 32);
+
+    // The standard MidiKeyboardComponent colour IDs (0x1005000–0x1005006) get
+    // their defaults from LookAndFeel_V2. editOutlineColourId is a custom ID the
+    // L&F doesn't know, so seed a default here — otherwise findColour trips a
+    // jassertfalse when the stylesheet hasn't set "edit-outline-color". The
+    // stylesheet still overrides this when the colour is specified.
+    setColour (editOutlineColourId, Colours::white.withAlpha (0.65f));
 
     colourChanged();
 
@@ -552,6 +619,11 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     
     // 7) Label (rotated 90° CCW, painted on the leftmost visible note per label)
     drawLabelForKey (g, keyArea, custom, midiNoteNumber);
+
+    // 8) Edit-mode outline (drawn per-key so the black keys, painted after the
+    //    white keys, mask the white keys' boundary verticals — keeping the
+    //    white↔black borders clean).
+    drawEditOutline (g, area, midiNoteNumber);
 }
 
 void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
@@ -690,6 +762,10 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     
     // 8) Label (rotated 90° CCW, painted on the leftmost visible note per label)
     drawLabelForKey (g, area, custom, midiNoteNumber);
+
+    // 9) Edit-mode outline (black keys paint on top of the white keys, so this
+    //    sits in front and forms the front face of the boundary verticals).
+    drawEditOutline (g, area, midiNoteNumber);
 }
 
 String NewMidiKeyboardComponent::getWhiteNoteText (int midiNoteNumber)
@@ -814,8 +890,645 @@ void NewMidiKeyboardComponent::handleNoteOff (MidiKeyboardState*, int /*midiChan
 }
 
 //==============================================================================
-bool NewMidiKeyboardComponent::mouseDownOnKey    ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)  { return true; }
-bool NewMidiKeyboardComponent::mouseDraggedToKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)  { return true; }
-void NewMidiKeyboardComponent::mouseUpOnKey      ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)  {}
+bool NewMidiKeyboardComponent::mouseDownOnKey (int midiNoteNumber, const MouseEvent& e)
+{
+    if (editMode)
+    {
+        // In edit mode a click opens the trigger menu instead of playing.
+        triggerEditor.showMenuForKey (midiNoteNumber, e.getScreenPosition());
+        return false;
+    }
+
+    return true;
+}
+
+bool NewMidiKeyboardComponent::mouseDraggedToKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)
+{
+    // Suppress drag-play while editing.
+    return ! editMode;
+}
+
+void NewMidiKeyboardComponent::mouseUpOnKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e) {}
+
+//==============================================================================
+// Edit mode — keyboard side (flag, active-group highlight, outline drawing).
+//==============================================================================
+
+void NewMidiKeyboardComponent::setEditMode (bool shouldBeOn)
+{
+    if (editMode == shouldBeOn)
+        return;
+
+    editMode = shouldBeOn;
+
+    if (! editMode)
+        setActiveEditNote (-1);
+
+    repaint();
+}
+
+void NewMidiKeyboardComponent::setEditContext (foleys::MagicGUIBuilder* b, const String& id)
+{
+    triggerEditor.setContext (b, id);
+}
+
+void NewMidiKeyboardComponent::setTriggerPresetFolder (const File& folder)
+{
+    triggerEditor.setPresetFolder (folder);
+}
+
+void NewMidiKeyboardComponent::setActiveEditNote (int note)
+{
+    activeEditNote = note;
+    activeRunStart = -1;
+    activeRunEnd   = -1;
+
+    // Expand the active note's contiguous same-colour run so the whole group
+    // can be drawn with the heavier outline while its menu is open.
+    if (note >= 0 && noteColourProvider)
+    {
+        const auto here = noteColourProvider (note);
+        if (here.has_value())
+        {
+            int lo = note, hi = note;
+            while (lo - 1 >= getRangeStart() && noteColourProvider (lo - 1) == here) --lo;
+            while (hi + 1 <= getRangeEnd()   && noteColourProvider (hi + 1) == here) ++hi;
+            activeRunStart = lo;
+            activeRunEnd   = hi;
+        }
+    }
+
+    repaint();
+}
+
+void NewMidiKeyboardComponent::drawEditOutline (Graphics& g, Rectangle<float> area, int midiNoteNumber)
+{
+    if (! editMode || ! noteColourProvider)
+        return;
+
+    const auto here = noteColourProvider (midiNoteNumber);
+    if (! here.has_value())
+        return;
+
+    // Colour of a note, or no value if it's outside the drawn range (which we
+    // treat as a boundary so zones close at the keyboard edges).
+    auto colourAt = [&] (int n) -> std::optional<Colour>
+    {
+        if (n < getRangeStart() || n > getRangeEnd())
+            return {};
+        return noteColourProvider (n);
+    };
+    auto differs = [&] (int a, int b) { return colourAt (a) != colourAt (b); };
+
+    const bool active  = (activeRunStart >= 0
+                          && midiNoteNumber >= activeRunStart
+                          && midiNoteNumber <= activeRunEnd);
+    const bool isBlack = MidiMessage::isMidiNoteBlack (midiNoteNumber);
+
+    const float t = active ? 3.0f : 1.5f;
+    g.setColour (findColour (editOutlineColourId));
+
+    if (getOrientation() == horizontalKeyboard)
+    {
+        g.fillRect (area.getX(), area.getY(), area.getWidth(), t);                  // top rim
+
+        if (! isBlack)
+        {
+            // White key: reaches the keyboard bottom, so its bottom is always a
+            // rim. Its left/right edges are the *lower* seams — boundaries with
+            // the adjacent WHITE keys (skipping any black key between, e.g. C↔D
+            // across C#). Each seam is drawn once: we always draw our LEFT edge
+            // at a boundary, and the right neighbour — if it's a coloured key —
+            // draws the shared seam as its own left edge. So we draw our RIGHT
+            // edge only when that neighbour won't: when it has no colour (a
+            // non-trigger key) or is off the end of the range.
+            g.fillRect (area.getX(), area.getBottom() - t, area.getWidth(), t);     // bottom rim
+
+            const int prevWhite = MidiMessage::isMidiNoteBlack (midiNoteNumber - 1) ? midiNoteNumber - 2
+                                                                                    : midiNoteNumber - 1;
+            const int nextWhite = MidiMessage::isMidiNoteBlack (midiNoteNumber + 1) ? midiNoteNumber + 2
+                                                                                    : midiNoteNumber + 1;
+            const bool drawLeft  = differs (midiNoteNumber, prevWhite);
+            const bool drawRight = differs (midiNoteNumber, nextWhite) && ! colourAt (nextWhite).has_value();
+
+            const float vy = area.getY() + t;
+            const float vh = area.getHeight() - 2.0f * t;                           // inset both ends → clean corners
+            if (drawLeft)  g.fillRect (area.getX(),         vy, t, vh);
+            if (drawRight) g.fillRect (area.getRight() - t, vy, t, vh);
+        }
+        else
+        {
+            // Black key: shorter than the white keys, so it has no
+            // keyboard-bottom rim. Its left edge + bottom-left half are the
+            // boundary against the white key below-left (note-1); its right edge
+            // + bottom-right half are the boundary against the white below-right
+            // (note+1). The bottom is split at the white seam beneath the key.
+            // That seam, when it's a boundary, is owned by the right white key
+            // when that key is coloured (drawn just right of the seam line) and
+            // by the left white key otherwise (just left of it) — exactly as the
+            // white-key branch decides above. We leave the matching t-wide gap on
+            // that side so the white key's full-height seam passes through.
+            const bool leftBound  = differs (midiNoteNumber, midiNoteNumber - 1);
+            const bool rightBound = differs (midiNoteNumber, midiNoteNumber + 1);
+
+            const float vy = area.getY() + t;
+            const float vh = area.getHeight() - t;                                  // down to the black key's bottom
+            if (leftBound)  g.fillRect (area.getX(),         vy, t, vh);
+            if (rightBound) g.fillRect (area.getRight() - t, vy, t, vh);
+
+            const bool seamExists  = differs (midiNoteNumber - 1, midiNoteNumber + 1);
+            const bool seamOnRight = seamExists &&   colourAt (midiNoteNumber + 1).has_value();
+            const bool seamOnLeft  = seamExists && ! colourAt (midiNoteNumber + 1).has_value();
+
+            const float shelfY = area.getBottom() - t;
+            const float seam   = getRectangleForKey (midiNoteNumber - 1).getRight();   // == getRectangleForKey(note+1).getX()
+            if (leftBound)
+            {
+                const float x0 = area.getX() + t;                                   // abut the left edge
+                const float x1 = seamOnLeft ? (seam - t) : seam;                    // abut the seam (on whichever side it sits)
+                g.fillRect (x0, shelfY, jmax (0.0f, x1 - x0), t);
+            }
+            if (rightBound)
+            {
+                const float x0 = seamOnRight ? (seam + t) : seam;
+                const float x1 = area.getRight() - t;                               // abut the right edge
+                g.fillRect (x0, shelfY, jmax (0.0f, x1 - x0), t);
+            }
+        }
+    }
+    else
+    {
+        // Vertical orientation. (Note-adjacency model; the black-key step/shelf
+        // handling above is horizontal-only for now.)
+        const bool startOfRun = differs (midiNoteNumber, midiNoteNumber - 1);
+        const bool endOfRun    = differs (midiNoteNumber, midiNoteNumber + 1);
+        const bool nextInRange = (midiNoteNumber + 1) <= getRangeEnd();
+        const bool nextIsWhite = nextInRange && ! MidiMessage::isMidiNoteBlack (midiNoteNumber + 1);
+        // Only let the neighbour own the shared seam if it's actually a coloured
+        // trigger (otherwise it draws nothing and the seam would be lost).
+        const bool nextIsTrigger = colourAt (midiNoteNumber + 1).has_value();
+        const bool endCoincides = endOfRun && nextInRange && nextIsTrigger && ! isBlack && nextIsWhite;
+        const bool drawStartEdge = startOfRun;
+        const bool drawEndEdge   = endOfRun && ! endCoincides;
+
+        const bool facingLeft   = (getOrientation() == verticalKeyboardFacingLeft);
+        const bool drawLeftRim  = ! (isBlack && ! facingLeft);   // facingRight → left is interior
+        const bool drawRightRim = ! (isBlack &&   facingLeft);   // facingLeft  → right is interior
+
+        if (drawLeftRim)  g.fillRect (area.getX(),         area.getY(), t, area.getHeight());
+        if (drawRightRim) g.fillRect (area.getRight() - t, area.getY(), t, area.getHeight());
+
+        const float lInset = drawLeftRim  ? t : 0.0f;
+        const float rInset = drawRightRim ? t : 0.0f;
+        const float vx = area.getX() + lInset;
+        const float vw = area.getWidth() - lInset - rInset;
+        if (drawStartEdge) g.fillRect (vx, area.getY(),          vw, t);
+        if (drawEndEdge)   g.fillRect (vx, area.getBottom() - t, vw, t);
+    }
+}
+
+//==============================================================================
+// TriggerEditor — the data side of inline editing.
+//==============================================================================
+
+ValueTree NewMidiKeyboardComponent::TriggerEditor::findNodeByID (ValueTree tree, const String& targetID)
+{
+    if (tree.hasProperty ("id")
+        && tree.getProperty ("id").toString().equalsIgnoreCase (targetID))
+        return tree;
+
+    for (auto child : tree)
+        if (auto found = findNodeByID (child, targetID); found.isValid())
+            return found;
+
+    return {};
+}
+
+ValueTree NewMidiKeyboardComponent::TriggerEditor::getContainer() const
+{
+    if (builder == nullptr || containerID.isEmpty())
+        return {};
+
+    return findNodeByID (builder->getGuiRootNode(), containerID);
+}
+
+bool NewMidiKeyboardComponent::TriggerEditor::nodeCoversKey (const ValueTree& node, int note)
+{
+    for (const auto& pair : kTriggerRangePairs)
+    {
+        const Identifier lo (pair.lo), hi (pair.hi);
+        if (node.hasProperty (lo) && node.hasProperty (hi))
+            if (note >= (int) node.getProperty (lo) && note <= (int) node.getProperty (hi))
+                return true;
+    }
+    return false;
+}
+
+Array<ValueTree> NewMidiKeyboardComponent::TriggerEditor::findNodesForKey (int note) const
+{
+    Array<ValueTree> result;
+    auto container = getContainer();
+    if (container.isValid())
+        for (auto child : container)
+            if (nodeCoversKey (child, note))
+                result.add (child);
+    return result;
+}
+
+bool NewMidiKeyboardComponent::TriggerEditor::isEmptySlot (const ValueTree& node)
+{
+    static const Identifier midiTriggerType ("MidiTrigger");
+    static const Identifier indexProp ("trigger-index");
+
+    // Free == a MidiTrigger carrying nothing but its trigger-index, i.e.
+    // exactly what clearPropertiesOfNode leaves behind. (Order-independent.)
+    if (node.getType() != midiTriggerType)
+        return false;
+
+    for (int i = 0; i < node.getNumProperties(); ++i)
+        if (node.getPropertyName (i) != indexProp)
+            return false;
+
+    return true;
+}
+
+Array<ValueTree> NewMidiKeyboardComponent::TriggerEditor::findEmptySlots (const ValueTree& container, int count) const
+{
+    // Fill the lowest free trigger-index slots first, regardless of child order.
+    int maxIdx = -1;
+    for (auto child : container)
+        if (child.hasProperty ("trigger-index"))
+            maxIdx = jmax (maxIdx, (int) child.getProperty ("trigger-index"));
+
+    Array<ValueTree> result;
+    for (int idx = 0; idx <= maxIdx && result.size() < count; ++idx)
+        for (auto child : container)
+            if ((int) child.getProperty ("trigger-index", -1) == idx && isEmptySlot (child))
+            {
+                result.add (child);
+                break;
+            }
+
+    return result;
+}
+
+ValueTree NewMidiKeyboardComponent::TriggerEditor::propertiesOnlyCopy (const ValueTree& node)
+{
+    // Mirrors TriggerBankEditorComponent::copySelected: a fresh node of the
+    // same type carrying every property except trigger-index (the destination
+    // slot supplies its own). A single bare node is byte-compatible with the
+    // bank editor's clipboard, so the two interoperate.
+    static const Identifier indexProp ("trigger-index");
+
+    ValueTree out (node.getType());
+    for (int i = 0; i < node.getNumProperties(); ++i)
+    {
+        const auto name = node.getPropertyName (i);
+        if (name != indexProp)
+            out.setProperty (name, node.getProperty (name), nullptr);
+    }
+    return out;
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::clearPropertiesOfNode (ValueTree node, UndoManager* um)
+{
+    // Identical to TriggerBankEditorComponent::clearPropertiesOfNode: strip
+    // everything but trigger-index, building the list before removing (you
+    // can't remove-by-index while iterating). Children are left untouched.
+    if (! node.isValid())
+        return;
+
+    static const Identifier indexProp ("trigger-index");
+
+    Array<Identifier> toRemove;
+    for (int i = 0; i < node.getNumProperties(); ++i)
+    {
+        const auto name = node.getPropertyName (i);
+        if (name != indexProp)
+            toRemove.add (name);
+    }
+
+    for (auto& name : toRemove)
+        node.removeProperty (name, um);
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::fillSlot (ValueTree slot, const ValueTree& payload, UndoManager* um)
+{
+    // Replace semantics, mirroring pasteToSelected: clear the slot's
+    // properties (trigger-index survives) then copy the payload's in.
+    clearPropertiesOfNode (slot, um);
+
+    static const Identifier indexProp ("trigger-index");
+    for (int i = 0; i < payload.getNumProperties(); ++i)
+    {
+        const auto name = payload.getPropertyName (i);
+        if (name != indexProp)
+            slot.setProperty (name, payload.getProperty (name), um);
+    }
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::remapNoteRanges (ValueTree node, int delta)
+{
+    if (delta == 0)
+        return;
+
+    // Pre-insert config on a detached copy — the appendChild is the undoable
+    // unit, so no UndoManager here. Delta is already clamped as a unit by the
+    // caller, so individual properties are never clamped (that would distort
+    // the spacing we're preserving).
+    for (const auto& p : kTriggerNoteValuedProps)
+    {
+        const Identifier prop (p);
+        if (node.hasProperty (prop))
+            node.setProperty (prop, (int) node.getProperty (prop) + delta, nullptr);
+    }
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::copyKeys (const Array<ValueTree>& nodes)
+{
+    if (nodes.isEmpty())
+        return;
+
+    if (nodes.size() == 1)
+    {
+        // Bare properties-only node — byte-compatible with the bank editor's
+        // clipboard, so a single-key copy pastes into the node editor too.
+        SystemClipboard::copyTextToClipboard (propertiesOnlyCopy (nodes.getFirst()).toXmlString());
+    }
+    else
+    {
+        // _multiCopy wrapper for a stack — matches the ToolBox / snippet
+        // convention. Each child is properties-only, same as the single case.
+        ValueTree multi ("_multiCopy");
+        for (auto& n : nodes)
+            multi.appendChild (propertiesOnlyCopy (n), nullptr);
+        SystemClipboard::copyTextToClipboard (multi.toXmlString());
+    }
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payloadRoot, int note)
+{
+    auto container = getContainer();
+    if (! container.isValid() || ! payloadRoot.isValid())
+        return;
+
+    static const Identifier midiTriggerType ("MidiTrigger");
+
+    // The bank is a fixed pool of MidiTrigger slots, so only MidiTrigger
+    // payloads can fill them (mirrors pasteToSelected's type-match guard
+    // against the destination node).
+    Array<ValueTree> payload;
+    auto take = [&] (const ValueTree& src)
+    {
+        if (src.getType() == midiTriggerType)
+            payload.add (src.createCopy());
+    };
+
+    if (payloadRoot.getType().toString() == "_multiCopy")
+        for (auto child : payloadRoot)
+            take (child);
+    else
+        take (payloadRoot);
+
+    if (payload.isEmpty())
+        return;
+
+    // One shared delta for the whole payload preserves the arrangement within
+    // each node (e.g. transpose root stays centred) and between stacked nodes.
+    // Anchor on the payload's lowest note → that note lands on the click.
+    int lowest  = std::numeric_limits<int>::max();
+    int highest = std::numeric_limits<int>::min();
+    for (auto& n : payload)
+        for (const auto& p : kTriggerNoteValuedProps)
+        {
+            const Identifier prop (p);
+            if (n.hasProperty (prop))
+            {
+                const int v = (int) n.getProperty (prop);
+                lowest  = jmin (lowest, v);
+                highest = jmax (highest, v);
+            }
+        }
+
+    int delta = 0;
+    if (lowest != std::numeric_limits<int>::max())
+    {
+        if (highest - lowest > 127)
+            return;                              // wider than the keyboard, can't fit
+
+        delta = note - lowest;
+        if (lowest  + delta < 0)   delta = -lowest;       // clamp the delta as a unit
+        if (highest + delta > 127) delta = 127 - highest;
+    }
+
+    // Fill the next empty slots in place — never append, never reindex. A
+    // slot keeps its own trigger-index for life.
+    auto slots = findEmptySlots (container, payload.size());
+    if (slots.size() < payload.size())
+        return;                                  // bank is full, nothing free
+
+    auto* um = builder ? &builder->getUndoManager() : nullptr;
+    if (um) um->beginNewTransaction ("Add trigger");
+
+    for (int i = 0; i < payload.size(); ++i)
+    {
+        remapNoteRanges (payload.getReference (i), delta);     // on the detached copy
+        fillSlot (slots.getReference (i), payload.getReference (i), um);
+    }
+
+    owner.repaint();
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
+{
+    insertPayloadAtKey (ValueTree::fromXml (SystemClipboard::getTextFromClipboard()), note);
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const File& file)
+{
+    insertPayloadAtKey (ValueTree::fromXml (file.loadFileAsString()), note);
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::clearKey (int note)
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    auto nodes = findNodesForKey (note);
+    if (nodes.isEmpty())
+        return;
+
+    auto* um = builder ? &builder->getUndoManager() : nullptr;
+    if (um) um->beginNewTransaction ("Clear key");
+
+    // Clear, don't delete — mirrors clearSelected. The slot stays alive with
+    // its trigger-index; only its contents go.
+    for (auto& node : nodes)
+        clearPropertiesOfNode (node, um);
+
+    owner.repaint();
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::clearAll()
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    static const Identifier midiTriggerType ("MidiTrigger");
+
+    auto* um = builder ? &builder->getUndoManager() : nullptr;
+    if (um) um->beginNewTransaction ("Clear all triggers");
+
+    // Mirrors clearAllTriggers: MidiTrigger slots keep their slot (index
+    // preserved, contents cleared); other node types are removed entirely.
+    // Snapshot first — removing extras shifts child indices mid-iteration.
+    Array<ValueTree> children;
+    for (auto child : container)
+        children.add (child);
+
+    for (auto& node : children)
+    {
+        if (node.getType() == midiTriggerType)
+            clearPropertiesOfNode (node, um);
+        else if (node.isValid() && node.getParent() == container)
+            container.removeChild (node, um);
+    }
+
+    owner.repaint();
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour colour)
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    auto nodes = findNodesForKey (note);   // applies to all nodes covering the key
+    if (nodes.isEmpty())
+        return;
+
+    auto* um = builder ? &builder->getUndoManager() : nullptr;
+    if (um) um->beginNewTransaction ("Set trigger colour");
+
+    for (auto& n : nodes)
+        n.setProperty ("trigger-colour", colour.toString(), um);
+
+    owner.repaint();
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::buildPresetMenu (PopupMenu& menu, const File& folder,
+                                                               std::vector<File>& files, int baseId)
+{
+    if (! folder.isDirectory())
+        return;
+
+    Array<File> items;
+    for (const auto& entry : RangedDirectoryIterator (folder, false, "*", File::findFilesAndDirectories))
+    {
+        auto f = entry.getFile();
+        if (f.isDirectory() || f.hasFileExtension (".xml"))
+            items.add (f);
+    }
+
+    struct Cmp
+    {
+        int compareElements (const File& a, const File& b) const
+        {
+            if (a.isDirectory() && ! b.isDirectory()) return -1;
+            if (! a.isDirectory() && b.isDirectory()) return 1;
+            return a.getFileName().compareIgnoreCase (b.getFileName());
+        }
+    } cmp;
+    items.sort (cmp);
+
+    for (auto& f : items)
+    {
+        if (f.isDirectory())
+        {
+            PopupMenu sub;
+            buildPresetMenu (sub, f, files, baseId);
+            menu.addSubMenu (f.getFileName(), sub);
+        }
+        else
+        {
+            menu.addItem (baseId + (int) files.size(), f.getFileNameWithoutExtension());
+            files.push_back (f);
+        }
+    }
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<int> screenPos)
+{
+    owner.setActiveEditNote (note);
+
+    const auto nodesHere = findNodesForKey (note);
+    const bool hasNodes  = ! nodesHere.isEmpty();
+    const bool hasClip   = ValueTree::fromXml (SystemClipboard::getTextFromClipboard()).isValid();
+
+    PopupMenu menu;
+    menu.addItem (miCopy,  "Copy",  hasNodes);
+    menu.addItem (miCut,   "Cut",   hasNodes);
+    menu.addItem (miPaste, "Paste", hasClip);
+    menu.addItem (miClear, "Clear", hasNodes);
+
+    // Colour — recolour the node(s) on this key. Item text drawn in the colour.
+    PopupMenu colourMenu;
+    for (int i = 0; i < (int) kTriggerColours.size(); ++i)
+        colourMenu.addColouredItem (miColourBase + i,
+                                    kTriggerColours[(size_t) i].name,
+                                    kTriggerColours[(size_t) i].colour);
+    menu.addSubMenu ("Colour", colourMenu, hasNodes);
+
+    // Add Trigger — insert a preset node/stack from disk onto this key.
+    std::vector<File> presetFiles;
+    PopupMenu addTriggerMenu;
+    buildPresetMenu (addTriggerMenu, presetFolder, presetFiles, miPresetBase);
+    menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
+
+    menu.addSeparator();
+    menu.addItem (miClearAll, "Clear All");
+
+    // Theme the menu (submenus inherit it) with the look & feel assigned to
+    // the keyboard item in the PGM editor — that L&F lives on our parent
+    // component, so we read it from there. Set before showing.
+    if (auto* parent = owner.getParentComponent())
+        menu.setLookAndFeel (&parent->getLookAndFeel());
+
+    // Item height — mirror the L&Fs' getOptionsForComboBoxPopupMenu: when
+    // MENU_HEIGHT is defined the menus use it as the item height. That hook only
+    // fires for ComboBox popups, so a standalone menu sets the same height
+    // itself. Without the define, leave it to the L&F's font-based default
+    // (with an iOS tappability floor).
+    auto opts = PopupMenu::Options().withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 });
+   #if defined (MENU_HEIGHT)
+    opts = opts.withStandardItemHeight (MENU_HEIGHT);
+   #elif JUCE_IOS
+    opts = opts.withStandardItemHeight (36);
+   #endif
+
+    // Single guarded callback. The keyboard owns this editor, so a live owner
+    // implies a live `this`; the SafePointer check protects both.
+    Component::SafePointer<NewMidiKeyboardComponent> safe (&owner);
+    menu.showMenuAsync (opts, [this, safe, note, nodesHere, presetFiles] (int result)
+    {
+        auto* kb = safe.getComponent();
+        if (kb == nullptr)
+            return;
+
+        if      (result == miCopy)     copyKeys (nodesHere);
+        else if (result == miCut)    { copyKeys (nodesHere); clearKey (note); }
+        else if (result == miPaste)    pasteToKey (note);
+        else if (result == miClear)    clearKey (note);
+        else if (result == miClearAll) clearAll();
+        else if (result >= miColourBase && result < miColourBase + (int) kTriggerColours.size())
+            setColourForKey (note, kTriggerColours[(size_t) (result - miColourBase)].colour);
+        else if (result >= miPresetBase && (size_t) (result - miPresetBase) < presetFiles.size())
+            applyPresetFile (note, presetFiles[(size_t) (result - miPresetBase)]);
+
+        kb->setActiveEditNote (-1);
+    });
+}
 
 } // namespace juce

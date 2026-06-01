@@ -1157,6 +1157,8 @@ public:
     
     static const juce::String      pKeyWidth;
     static const juce::String      pInitialLowestKeyShowing;
+    static const juce::String      pEditContainer;
+    static const juce::Identifier  pEditModeValue;
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node),
@@ -1170,6 +1172,7 @@ public:
             { "mouse-over-color",      juce::NewMidiKeyboardComponent::mouseOverKeyOverlayColourId },
             { "key-down-color",        juce::NewMidiKeyboardComponent::keyDownOverlayColourId },
             { "text-label-color",      juce::NewMidiKeyboardComponent::textLabelColourId },
+            { "edit-outline-color",    juce::NewMidiKeyboardComponent::editOutlineColourId },
         });
 
         addAndMakeVisible (keyboard);
@@ -1204,6 +1207,26 @@ public:
         keyboard.setNoteColourProvider (getMagicState().getNoteColourProvider());
         keyboard.setNoteLabelProvider (getMagicState().getNoteLabelProvider());
         keyboard.setNoteTooltipProvider (getMagicState().getNoteTooltipProvider());
+        
+        keyboard.setEditContext (&magicBuilder, getProperty (pEditContainer).toString());
+        const auto editModeID = getProperty (pEditModeValue).toString();
+        editModeValue.removeListener (this);                       // avoid stacking on re-update
+
+        if (editModeID.isNotEmpty())
+        {
+            editModeValue.referTo (getMagicState().getPropertyAsValue (editModeID));
+            editModeValue.addListener (this);
+            keyboard.setEditMode ((bool) editModeValue.getValue());
+        }
+        else
+        {
+            keyboard.setEditMode (false);
+        }
+        
+        foleys::SharedApplicationSettings appSettings;
+        keyboard.setTriggerPresetFolder (appSettings->getFileName()
+                                            .getParentDirectory()
+                                            .getChildFile ("Triggers"));
     }
     
     std::vector<SettableProperty> getSettableProperties() const override
@@ -1211,6 +1234,9 @@ public:
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} , "Width of each white key in pixels" });
         props.push_back ({ configNode, pInitialLowestKeyShowing,      SettableProperty::Number, {}, {} , "Sets the initial lowest visible key" });
+        props.push_back ({ configNode, pEditContainer, SettableProperty::Text,   {}, {} , "Container node id whose triggers this keyboard can edit (match the Trigger Bank Editor)" });
+        props.push_back ({ configNode, pEditModeValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
+                           "Value that turns inline trigger editing on/off (bind to a button/parameter/property)" });
         
         return props;
     }
@@ -1222,11 +1248,19 @@ public:
 
 private:
     juce::NewMidiKeyboardComponent keyboard;
+    juce::Value editModeValue;
+    
+    void valueChanged (juce::Value&) override
+    {
+        keyboard.setEditMode ((bool) editModeValue.getValue());
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardItem)
 };
 const juce::String      KeyboardItem::pKeyWidth                     {"key-width"};
 const juce::String      KeyboardItem::pInitialLowestKeyShowing      {"initial-lowest-key"};
+const juce::String KeyboardItem::pEditContainer { "edit-container-id" };
+const juce::Identifier KeyboardItem::pEditModeValue { "edit-mode-value" };
 
 //==============================================================================
 
