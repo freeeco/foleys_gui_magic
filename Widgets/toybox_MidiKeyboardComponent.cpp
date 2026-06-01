@@ -1007,7 +1007,7 @@ void NewMidiKeyboardComponent::drawZoneOutline (Graphics& g, int startNote, int 
             bounds = bounds.getUnion (getRectangleForKey (nn));
 
         Path bp;
-        bp.addRectangle (bounds);
+        bp.addRectangle (bounds.reduced (t * 0.5f));
         g.strokePath (bp, PathStrokeType (t));
         return;
     }
@@ -1019,16 +1019,31 @@ void NewMidiKeyboardComponent::drawZoneOutline (Graphics& g, int startNote, int 
     if (leftWhite > rightWhite)
     {
         Path bp;
-        bp.addRectangle (getRectangleForKey (startNote));
+        bp.addRectangle (getRectangleForKey (startNote).reduced (t * 0.5f));
         g.strokePath (bp, PathStrokeType (t));
         return;
     }
 
-    const float top    = getRectangleForKey (startNote).getY();
-    const float bottom = getRectangleForKey (leftWhite).getBottom();
+    // The stroke is centred on the path, so a rim sitting exactly on the key
+    // top/bottom would have half its width clipped by the component bounds and
+    // render thinner than the (un-clipped) interior verticals. Pull the rims in
+    // by half the stroke width so the whole line stays inside and all edges read
+    // the same width.
+    const float halfT  = t * 0.5f;
+    const float top    = getRectangleForKey (startNote).getY()      + halfT;
+    const float bottom = getRectangleForKey (leftWhite).getBottom() - halfT;
 
     // ---- left side ----------------------------------------------------------
-    const float bottomLeftX = getRectangleForKey (leftWhite).getX();
+    // Derive the left seam from the PREVIOUS white key's right edge rather than
+    // this zone's leftmost white's left edge. That's the very same key the zone
+    // on our left uses for its right seam, so the shared vertical lands on the
+    // exact same pixel from both sides (JUCE's key layout rounds the two edges
+    // ~1px apart otherwise, which reads as a fatter vertical). At the keyboard's
+    // left end there's no previous key, so fall back to our own left edge.
+    const int   prevWhite   = (leftWhite - 1 >= getRangeStart() && isBlack (leftWhite - 1)) ? leftWhite - 2
+                                                                                            : leftWhite - 1;
+    const float bottomLeftX = (prevWhite >= getRangeStart()) ? getRectangleForKey (prevWhite).getRight()
+                                                             : getRectangleForKey (leftWhite).getX();
     float topLeftX = bottomLeftX;
     float blackBottomL = 0.0f;
     bool  leftStepped = false;
