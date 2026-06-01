@@ -337,13 +337,13 @@ private:
                           std::optional<Colour> baseFill, int midiNoteNumber);
 
     /** Draws the edit-mode outline for a key when editMode is on, using the
-        colour provider for trigger presence and an adjacency check for the
-        run edges. The active group (menu open) is drawn heavier. */
-    /** Draws the edit-mode outline for one key when editMode is on, using the
-        colour provider for trigger presence and an adjacency check for the run
-        edges. Drawn per-key (from drawWhiteNote/drawBlackNote) so black keys
-        mask the white-key boundary verticals. The active group is drawn heavier. */
-    void drawEditOutline (Graphics& g, Rectangle<float> area, int midiNoteNumber);
+    /** Edit-mode zone outlines. drawEditOutlines walks the visible range,
+        groups each maximal run of same-coloured notes into a zone, and calls
+        drawZoneOutline to stroke that zone's silhouette as a single path
+        (straight top/bottom, L-stepped sides around the black keys). Called from
+        paint() after the keys; the active group (menu open) is stroked heavier. */
+    void drawEditOutlines (Graphics& g);
+    void drawZoneOutline  (Graphics& g, int startNote, int endNote);
 
     int initialLowestKeyShowing = 24;
 

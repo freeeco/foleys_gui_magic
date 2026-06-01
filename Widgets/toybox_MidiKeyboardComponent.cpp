@@ -292,6 +292,8 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
     g.fillAll (juce::Colours::darkgrey);
 
     KeyboardComponentBase::paint (g);
+
+    drawEditOutlines (g);
 }
 
 void NewMidiKeyboardComponent::repaintNote (int noteNum)
@@ -619,11 +621,6 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     
     // 7) Label (rotated 90° CCW, painted on the leftmost visible note per label)
     drawLabelForKey (g, keyArea, custom, midiNoteNumber);
-
-    // 8) Edit-mode outline (drawn per-key so the black keys, painted after the
-    //    white keys, mask the white keys' boundary verticals — keeping the
-    //    white↔black borders clean).
-    drawEditOutline (g, area, midiNoteNumber);
 }
 
 void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
@@ -762,10 +759,6 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     
     // 8) Label (rotated 90° CCW, painted on the leftmost visible note per label)
     drawLabelForKey (g, area, custom, midiNoteNumber);
-
-    // 9) Edit-mode outline (black keys paint on top of the white keys, so this
-    //    sits in front and forms the front face of the boundary verticals).
-    drawEditOutline (g, area, midiNoteNumber);
 }
 
 String NewMidiKeyboardComponent::getWhiteNoteText (int midiNoteNumber)
@@ -961,130 +954,143 @@ void NewMidiKeyboardComponent::setActiveEditNote (int note)
     repaint();
 }
 
-void NewMidiKeyboardComponent::drawEditOutline (Graphics& g, Rectangle<float> area, int midiNoteNumber)
+void NewMidiKeyboardComponent::drawEditOutlines (Graphics& g)
 {
     if (! editMode || ! noteColourProvider)
         return;
 
-    const auto here = noteColourProvider (midiNoteNumber);
-    if (! here.has_value())
-        return;
-
-    // Colour of a note, or no value if it's outside the drawn range (which we
-    // treat as a boundary so zones close at the keyboard edges).
     auto colourAt = [&] (int n) -> std::optional<Colour>
     {
         if (n < getRangeStart() || n > getRangeEnd())
             return {};
         return noteColourProvider (n);
     };
-    auto differs = [&] (int a, int b) { return colourAt (a) != colourAt (b); };
 
-    const bool active  = (activeRunStart >= 0
-                          && midiNoteNumber >= activeRunStart
-                          && midiNoteNumber <= activeRunEnd);
-    const bool isBlack = MidiMessage::isMidiNoteBlack (midiNoteNumber);
+    // Walk the range, grouping maximal runs of consecutive notes that share a
+    // colour. Each run is one zone; stroke its silhouette as a single path.
+    for (int n = getRangeStart(); n <= getRangeEnd(); )
+    {
+        const auto c = colourAt (n);
+        if (! c.has_value()) { ++n; continue; }
 
+        const int start = n;
+        while (n + 1 <= getRangeEnd() && colourAt (n + 1) == c)
+            ++n;
+        drawZoneOutline (g, start, n);
+        ++n;
+    }
+}
+
+void NewMidiKeyboardComponent::drawZoneOutline (Graphics& g, int startNote, int endNote)
+{
+    // Turtle-trace the zone's outer silhouette as one path and stroke it. The
+    // top and bottom are straight lines; the left and right sides step in an L
+    // around the black keys (a black key at the start/end protrudes past the
+    // white keys; a foreign black key overlapping the boundary white key's top
+    // corner notches in). Because the path is the *visible* boundary, stroking
+    // it over the keys is correct — no masking needed and corners are clean.
+    const bool active = (activeRunStart >= 0
+                         && startNote <= activeRunEnd
+                         && endNote   >= activeRunStart);
     const float t = active ? 3.0f : 1.5f;
+
+    auto isBlack = [] (int note) { return MidiMessage::isMidiNoteBlack (note); };
+
     g.setColour (findColour (editOutlineColourId));
 
-    if (getOrientation() == horizontalKeyboard)
+    // The silhouette tracing below is horizontal-only. For vertical keyboards,
+    // fall back to stroking the zone's bounding box (no black-key stepping).
+    if (getOrientation() != horizontalKeyboard)
     {
-        g.fillRect (area.getX(), area.getY(), area.getWidth(), t);                  // top rim
+        auto bounds = getRectangleForKey (startNote);
+        for (int nn = startNote + 1; nn <= endNote; ++nn)
+            bounds = bounds.getUnion (getRectangleForKey (nn));
 
-        if (! isBlack)
-        {
-            // White key: reaches the keyboard bottom, so its bottom is always a
-            // rim. Its left/right edges are the *lower* seams — boundaries with
-            // the adjacent WHITE keys (skipping any black key between, e.g. C↔D
-            // across C#). Each seam is drawn once: we always draw our LEFT edge
-            // at a boundary, and the right neighbour — if it's a coloured key —
-            // draws the shared seam as its own left edge. So we draw our RIGHT
-            // edge only when that neighbour won't: when it has no colour (a
-            // non-trigger key) or is off the end of the range.
-            g.fillRect (area.getX(), area.getBottom() - t, area.getWidth(), t);     // bottom rim
+        Path bp;
+        bp.addRectangle (bounds);
+        g.strokePath (bp, PathStrokeType (t));
+        return;
+    }
 
-            const int prevWhite = MidiMessage::isMidiNoteBlack (midiNoteNumber - 1) ? midiNoteNumber - 2
-                                                                                    : midiNoteNumber - 1;
-            const int nextWhite = MidiMessage::isMidiNoteBlack (midiNoteNumber + 1) ? midiNoteNumber + 2
-                                                                                    : midiNoteNumber + 1;
-            const bool drawLeft  = differs (midiNoteNumber, prevWhite);
-            const bool drawRight = differs (midiNoteNumber, nextWhite) && ! colourAt (nextWhite).has_value();
+    // A lone black key never reaches the keyboard bottom, so it has no white
+    // keys and its silhouette is just its own rectangle.
+    const int leftWhite  = isBlack (startNote) ? startNote + 1 : startNote;
+    const int rightWhite = isBlack (endNote)   ? endNote   - 1 : endNote;
+    if (leftWhite > rightWhite)
+    {
+        Path bp;
+        bp.addRectangle (getRectangleForKey (startNote));
+        g.strokePath (bp, PathStrokeType (t));
+        return;
+    }
 
-            const float vy = area.getY() + t;
-            const float vh = area.getHeight() - 2.0f * t;                           // inset both ends → clean corners
-            if (drawLeft)  g.fillRect (area.getX(),         vy, t, vh);
-            if (drawRight) g.fillRect (area.getRight() - t, vy, t, vh);
-        }
-        else
-        {
-            // Black key: shorter than the white keys, so it has no
-            // keyboard-bottom rim. Its left edge + bottom-left half are the
-            // boundary against the white key below-left (note-1); its right edge
-            // + bottom-right half are the boundary against the white below-right
-            // (note+1). The bottom is split at the white seam beneath the key.
-            // That seam, when it's a boundary, is owned by the right white key
-            // when that key is coloured (drawn just right of the seam line) and
-            // by the left white key otherwise (just left of it) — exactly as the
-            // white-key branch decides above. We leave the matching t-wide gap on
-            // that side so the white key's full-height seam passes through.
-            const bool leftBound  = differs (midiNoteNumber, midiNoteNumber - 1);
-            const bool rightBound = differs (midiNoteNumber, midiNoteNumber + 1);
+    const float top    = getRectangleForKey (startNote).getY();
+    const float bottom = getRectangleForKey (leftWhite).getBottom();
 
-            const float vy = area.getY() + t;
-            const float vh = area.getHeight() - t;                                  // down to the black key's bottom
-            if (leftBound)  g.fillRect (area.getX(),         vy, t, vh);
-            if (rightBound) g.fillRect (area.getRight() - t, vy, t, vh);
+    // ---- left side ----------------------------------------------------------
+    const float bottomLeftX = getRectangleForKey (leftWhite).getX();
+    float topLeftX = bottomLeftX;
+    float blackBottomL = 0.0f;
+    bool  leftStepped = false;
+    if (isBlack (startNote))                       // black start → protrudes left
+    {
+        const auto k = getRectangleForKey (startNote);
+        topLeftX     = k.getX();
+        blackBottomL = k.getBottom();
+        leftStepped  = true;
+    }
+    else if (startNote - 1 >= getRangeStart() && isBlack (startNote - 1))  // foreign black over top-left → notch in
+    {
+        const auto k = getRectangleForKey (startNote - 1);
+        topLeftX     = k.getRight();
+        blackBottomL = k.getBottom();
+        leftStepped  = true;
+    }
 
-            const bool seamExists  = differs (midiNoteNumber - 1, midiNoteNumber + 1);
-            const bool seamOnRight = seamExists &&   colourAt (midiNoteNumber + 1).has_value();
-            const bool seamOnLeft  = seamExists && ! colourAt (midiNoteNumber + 1).has_value();
+    // ---- right side ---------------------------------------------------------
+    const float bottomRightX = getRectangleForKey (rightWhite).getRight();
+    float topRightX = bottomRightX;
+    float blackBottomR = 0.0f;
+    bool  rightStepped = false;
+    if (isBlack (endNote))                         // black end → protrudes right
+    {
+        const auto k = getRectangleForKey (endNote);
+        topRightX    = k.getRight();
+        blackBottomR = k.getBottom();
+        rightStepped = true;
+    }
+    else if (endNote + 1 <= getRangeEnd() && isBlack (endNote + 1))        // foreign black over top-right → notch in
+    {
+        const auto k = getRectangleForKey (endNote + 1);
+        topRightX    = k.getX();
+        blackBottomR = k.getBottom();
+        rightStepped = true;
+    }
 
-            const float shelfY = area.getBottom() - t;
-            const float seam   = getRectangleForKey (midiNoteNumber - 1).getRight();   // == getRectangleForKey(note+1).getX()
-            if (leftBound)
-            {
-                const float x0 = area.getX() + t;                                   // abut the left edge
-                const float x1 = seamOnLeft ? (seam - t) : seam;                    // abut the seam (on whichever side it sits)
-                g.fillRect (x0, shelfY, jmax (0.0f, x1 - x0), t);
-            }
-            if (rightBound)
-            {
-                const float x0 = seamOnRight ? (seam + t) : seam;
-                const float x1 = area.getRight() - t;                               // abut the right edge
-                g.fillRect (x0, shelfY, jmax (0.0f, x1 - x0), t);
-            }
-        }
+    // ---- trace --------------------------------------------------------------
+    Path p;
+    p.startNewSubPath (topLeftX, top);
+    p.lineTo (topRightX, top);                     // top
+    if (rightStepped)                              // down the right side, stepping at the black-key bottom
+    {
+        p.lineTo (topRightX,    blackBottomR);
+        p.lineTo (bottomRightX, blackBottomR);
+        p.lineTo (bottomRightX, bottom);
     }
     else
+        p.lineTo (bottomRightX, bottom);
+    p.lineTo (bottomLeftX, bottom);                // bottom
+    if (leftStepped)                               // up the left side, stepping at the black-key bottom
     {
-        // Vertical orientation. (Note-adjacency model; the black-key step/shelf
-        // handling above is horizontal-only for now.)
-        const bool startOfRun = differs (midiNoteNumber, midiNoteNumber - 1);
-        const bool endOfRun    = differs (midiNoteNumber, midiNoteNumber + 1);
-        const bool nextInRange = (midiNoteNumber + 1) <= getRangeEnd();
-        const bool nextIsWhite = nextInRange && ! MidiMessage::isMidiNoteBlack (midiNoteNumber + 1);
-        // Only let the neighbour own the shared seam if it's actually a coloured
-        // trigger (otherwise it draws nothing and the seam would be lost).
-        const bool nextIsTrigger = colourAt (midiNoteNumber + 1).has_value();
-        const bool endCoincides = endOfRun && nextInRange && nextIsTrigger && ! isBlack && nextIsWhite;
-        const bool drawStartEdge = startOfRun;
-        const bool drawEndEdge   = endOfRun && ! endCoincides;
-
-        const bool facingLeft   = (getOrientation() == verticalKeyboardFacingLeft);
-        const bool drawLeftRim  = ! (isBlack && ! facingLeft);   // facingRight → left is interior
-        const bool drawRightRim = ! (isBlack &&   facingLeft);   // facingLeft  → right is interior
-
-        if (drawLeftRim)  g.fillRect (area.getX(),         area.getY(), t, area.getHeight());
-        if (drawRightRim) g.fillRect (area.getRight() - t, area.getY(), t, area.getHeight());
-
-        const float lInset = drawLeftRim  ? t : 0.0f;
-        const float rInset = drawRightRim ? t : 0.0f;
-        const float vx = area.getX() + lInset;
-        const float vw = area.getWidth() - lInset - rInset;
-        if (drawStartEdge) g.fillRect (vx, area.getY(),          vw, t);
-        if (drawEndEdge)   g.fillRect (vx, area.getBottom() - t, vw, t);
+        p.lineTo (bottomLeftX, blackBottomL);
+        p.lineTo (topLeftX,    blackBottomL);
+        p.lineTo (topLeftX,    top);
     }
+    else
+        p.lineTo (topLeftX, top);
+    p.closeSubPath();
+
+    g.strokePath (p, PathStrokeType (t));
 }
 
 //==============================================================================
