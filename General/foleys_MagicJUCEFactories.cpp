@@ -1217,6 +1217,7 @@ public:
             editModeValue.referTo (getMagicState().getPropertyAsValue (editModeID));
             editModeValue.addListener (this);
             keyboard.setEditMode ((bool) editModeValue.getValue());
+            keyboard.onExitEditMode = [this] { editModeValue.setValue (0); };
         }
         else
         {

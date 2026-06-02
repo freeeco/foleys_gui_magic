@@ -69,21 +69,24 @@ namespace
         "trigger-low-note-value",   "trigger-high-note-value",
     };
 
-    // 20 distinguishable colours offered in the key menu's Colour submenu.
-    struct TriggerNamedColour { String name; Colour colour; };
+    // 20 distinguishable colours offered in the key menu's Colour submenu. The
+    // names describe how each reads once applied at its `brightness` factor (see
+    // the menu handler), not the bright base hue. Most are halved; a couple that
+    // still read too bright are taken down further.
+    struct TriggerNamedColour { String name; Colour colour; float brightness = 0.5f; };
 
     const std::vector<TriggerNamedColour> kTriggerColours
     {
-        { "Red",        Colour (0xffe53935) }, { "Orange",     Colour (0xfffb8c00) },
-        { "Amber",      Colour (0xffffb300) }, { "Yellow",     Colour (0xfffdd835) },
-        { "Lime",       Colour (0xffc0ca33) }, { "Green",      Colour (0xff43a047) },
-        { "Teal",       Colour (0xff00897b) }, { "Cyan",       Colour (0xff00acc1) },
-        { "Light Blue", Colour (0xff039be5) }, { "Blue",       Colour (0xff1e88e5) },
-        { "Indigo",     Colour (0xff3949ab) }, { "Violet",     Colour (0xff8e24aa) },
-        { "Magenta",    Colour (0xffd81b60) }, { "Pink",       Colour (0xffec407a) },
-        { "Rose",       Colour (0xfff06292) }, { "Brown",      Colour (0xff6d4c41) },
-        { "Slate",      Colour (0xff546e7a) }, { "Grey",       Colour (0xff9e9e9e) },
-        { "Mint",       Colour (0xff66bb6a) }, { "Lavender",   Colour (0xff9575cd) },
+        { "Red",     Colour (0xffe53935) }, { "Bronze",  Colour (0xfffb8c00) },
+        { "Amber",   Colour (0xffffb300) }, { "Mustard", Colour (0xfffdd835) },
+        { "Olive",   Colour (0xffc0ca33) }, { "Green",   Colour (0xff43a047) },
+        { "Teal",    Colour (0xff00897b) }, { "Cyan",    Colour (0xff00acc1) },
+        { "Blue",    Colour (0xff039be5) }, { "Navy",    Colour (0xff1e88e5), 0.25f },
+        { "Indigo",  Colour (0xff3949ab) }, { "Violet",  Colour (0xff8e24aa) },
+        { "Wine",    Colour (0xffd81b60), 0.25f }, { "Rose",    Colour (0xffec407a) },
+        { "Plum",    Colour (0xfff06292) }, { "Brown",   Colour (0xff6d4c41) },
+        { "Slate",   Colour (0xff546e7a) }, { "Grey",    Colour (0xff9e9e9e) },
+        { "Forest",  Colour (0xff66bb6a) }, { "Purple",  Colour (0xff9575cd) },
     };
 
     // Menu result-id ranges.
@@ -294,6 +297,23 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
     KeyboardComponentBase::paint (g);
 
     drawEditOutlines (g);
+
+    // Edit-mode close box — fixed at the top-left, drawn last so it sits on top
+    // and doesn't scroll with the keys. Light-grey disc with a dark-grey cross.
+    if (editMode)
+    {
+        const auto b = getCloseButtonBounds();
+        g.setColour (Colours::lightgrey);
+        g.fillEllipse (b);
+        g.setColour (Colours::grey);
+        g.drawEllipse (b, 1.0f);
+
+        const auto x   = b.reduced (b.getWidth() * 0.32f);
+        const float th = jmax (1.5f, b.getWidth() * 0.10f);
+        g.setColour (Colours::darkgrey);
+        g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
+        g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
+    }
 }
 
 void NewMidiKeyboardComponent::repaintNote (int noteNum)
@@ -306,10 +326,28 @@ void NewMidiKeyboardComponent::repaintNote (int noteNum)
 void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
 {
     updateNoteUnderMouse (e, false);
+
+    if (editMode && ! resizingRegion)
+        setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
+                                                             : MouseCursor::NormalCursor);
 }
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 {
+    if (resizingRegion)
+    {
+        // Sample the note from the x position at a fixed height inside the
+        // black-key band so the drag has full chromatic resolution wherever the
+        // pointer is vertically. Deltas are measured from the edge's original
+        // note, so the edit is absolute (no drift) and clamps cleanly.
+        const float x       = jlimit (0.0f, (float) getWidth() - 1.0f, e.position.x);
+        const float sampleY = (float) getHeight() * 0.25f;
+        const int   target  = getNoteAndVelocityAtPosition ({ x, sampleY }).note;
+        if (target >= 0)
+            triggerEditor.updateEdgeResize (target - resizeAnchorNote);
+        return;
+    }
+
     auto newNote = getNoteAndVelocityAtPosition (e.position).note;
 
     if (newNote >= 0 && mouseDraggedToKey (newNote, e))
@@ -318,14 +356,92 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 {
+    // Close box takes priority over the keys beneath it while editing.
+    if (editMode && getCloseButtonBounds().contains (e.position))
+    {
+        if (onExitEditMode != nullptr)
+            onExitEditMode();
+        return;
+    }
+
+    // Grabbing a region edge starts a width resize instead of opening the menu.
+    if (editMode)
+    {
+        const auto edge = hitTestRegionEdge (e.position);
+        if (edge.valid)
+        {
+            const int anchor = edge.lowEdge ? edge.regionStart : edge.regionEnd;
+            if (triggerEditor.beginEdgeResize (anchor, edge.lowEdge))
+            {
+                resizingRegion   = true;
+                resizeLowEdge    = edge.lowEdge;
+                resizeAnchorNote = anchor;
+                return;
+            }
+        }
+    }
+
     auto newNote = getNoteAndVelocityAtPosition (e.position).note;
 
     if (newNote >= 0 && mouseDownOnKey (newNote, e))
         updateNoteUnderMouse (e, true);
 }
 
+Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
+{
+    const float margin = 6.0f;
+    const float d      = jlimit (16.0f, 28.0f, (float) getHeight() * 0.16f);
+    return { margin + 14.0f, margin + 2.0f, d, d };
+}
+
+NewMidiKeyboardComponent::RegionEdge NewMidiKeyboardComponent::hitTestRegionEdge (Point<float> pos)
+{
+    RegionEdge hit;
+    if (! editMode || ! noteColourProvider)
+        return hit;
+
+    const int note = getNoteAndVelocityAtPosition (pos).note;
+    if (note < 0)
+        return hit;
+
+    const auto c = noteColourProvider (note);
+    if (! c.has_value())
+        return hit;
+
+    // Grow to the contiguous same-colour run (the region).
+    int start = note, end = note;
+    while (start - 1 >= getRangeStart() && noteColourProvider (start - 1) == c) --start;
+    while (end   + 1 <= getRangeEnd()   && noteColourProvider (end   + 1) == c) ++end;
+
+    const float leftX  = getRectangleForKey (start).getX();
+    const float rightX = getRectangleForKey (end).getRight();
+    const float thresh = 7.0f;
+    const float dl     = std::abs (pos.x - leftX);
+    const float dr     = std::abs (pos.x - rightX);
+
+    if (dl <= thresh || dr <= thresh)
+    {
+        hit.valid       = true;
+        hit.lowEdge     = (dl <= dr);   // closer edge wins for a narrow region
+        hit.regionStart = start;
+        hit.regionEnd   = end;
+    }
+    return hit;
+}
+
 void NewMidiKeyboardComponent::mouseUp (const MouseEvent& e)
 {
+    if (resizingRegion)
+    {
+        triggerEditor.endEdgeResize();
+        resizingRegion = false;
+
+        if (editMode)
+            setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
+                                                                 : MouseCursor::NormalCursor);
+        return;
+    }
+
     updateNoteUnderMouse (e, false);
 
     auto note = getNoteAndVelocityAtPosition (e.position).note;
@@ -342,6 +458,9 @@ void NewMidiKeyboardComponent::mouseEnter (const MouseEvent& e)
 void NewMidiKeyboardComponent::mouseExit (const MouseEvent& e)
 {
     updateNoteUnderMouse (e, false);
+
+    if (! resizingRegion)
+        setMouseCursor (MouseCursor::NormalCursor);
 }
 
 void NewMidiKeyboardComponent::timerCallback()
@@ -862,13 +981,13 @@ void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> ke
 void NewMidiKeyboardComponent::drawWhiteKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawWhiteNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   mouseOverNotes.contains (midiNoteNumber), findColour (keySeparatorLineColourId), findColour (textLabelColourId));
+                   ! editMode && mouseOverNotes.contains (midiNoteNumber), findColour (keySeparatorLineColourId), findColour (textLabelColourId));
 }
 
 void NewMidiKeyboardComponent::drawBlackKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawBlackNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   mouseOverNotes.contains (midiNoteNumber), findColour (blackNoteColourId));
+                   ! editMode && mouseOverNotes.contains (midiNoteNumber), findColour (blackNoteColourId));
 }
 
 //==============================================================================
@@ -915,7 +1034,12 @@ void NewMidiKeyboardComponent::setEditMode (bool shouldBeOn)
     editMode = shouldBeOn;
 
     if (! editMode)
+    {
         setActiveEditNote (-1);
+        resizingRegion = false;
+        triggerEditor.endEdgeResize();
+        setMouseCursor (MouseCursor::NormalCursor);
+    }
 
     repaint();
 }
@@ -1439,6 +1563,111 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
     owner.repaint();
 }
 
+bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, bool lowEdge)
+{
+    resizeActive = false;
+    resizeBounds.clear();
+
+    if (! getContainer().isValid())
+        return false;
+
+    auto nodes = findNodesForKey (edgeNote);   // entire stack on this edge
+    if (nodes.isEmpty())
+        return false;
+
+    int minLowVal  = 128;   // smallest low across all pairs   (low-edge clamp)
+    int maxHighVal = -1;    // largest high across all pairs    (high-edge clamp)
+    int minGap     = 128;   // narrowest range (hi - lo)        (both clamps)
+
+    for (auto& n : nodes)
+    {
+        for (const auto& pair : kTriggerRangePairs)
+        {
+            const Identifier lo (pair.lo), hi (pair.hi);
+            if (! (n.hasProperty (lo) && n.hasProperty (hi)))
+                continue;
+
+            const int loV = (int) n.getProperty (lo);
+            const int hiV = (int) n.getProperty (hi);
+            minGap = jmin (minGap, hiV - loV);
+
+            if (lowEdge)
+            {
+                resizeBounds.push_back ({ n, lo, loV });
+                minLowVal = jmin (minLowVal, loV);
+            }
+            else
+            {
+                resizeBounds.push_back ({ n, hi, hiV });
+                maxHighVal = jmax (maxHighVal, hiV);
+            }
+        }
+    }
+
+    if (resizeBounds.empty())
+        return false;
+
+    // Find the nearest note on the extending side that belongs to a *different*
+    // region (a node not in this stack) so a drag can't push this region into
+    // its neighbour. Nodes stacked on the same keys are all in `nodes` and move
+    // together, so they never block each other. Shrinking can't cause an overlap,
+    // so that direction is bounded only by the one-note minimum width (minGap).
+    auto blockedByOther = [this, &nodes] (int note)
+    {
+        auto container = getContainer();
+        for (auto child : container)
+            if (! nodes.contains (child) && nodeCoversKey (child, note))
+                return true;
+        return false;
+    };
+
+    if (lowEdge)
+    {
+        int floorNote = 0;                       // hard floor at note 0
+        for (int n = minLowVal - 1; n >= 0; --n)
+            if (blockedByOther (n)) { floorNote = n + 1; break; }
+
+        resizeMinDelta = floorNote - minLowVal;  // extend left only into free space
+        resizeMaxDelta = minGap;                 // shrink from left, keep >= 1 note wide
+    }
+    else
+    {
+        int ceilNote = 127;                      // hard ceiling at note 127
+        for (int n = maxHighVal + 1; n <= 127; ++n)
+            if (blockedByOther (n)) { ceilNote = n - 1; break; }
+
+        resizeMinDelta = -minGap;                // shrink from right, keep >= 1 note wide
+        resizeMaxDelta = ceilNote - maxHighVal;  // extend right only into free space
+    }
+
+    if (auto* um = builder ? &builder->getUndoManager() : nullptr)
+        um->beginNewTransaction (lowEdge ? "Resize trigger (lower note)"
+                                         : "Resize trigger (upper note)");
+
+    resizeActive = true;
+    return true;
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
+{
+    if (! resizeActive)
+        return;
+
+    const int d  = jlimit (resizeMinDelta, resizeMaxDelta, delta);
+    auto*     um = builder ? &builder->getUndoManager() : nullptr;
+
+    for (auto& b : resizeBounds)
+        b.node.setProperty (b.prop, b.orig + d, um);   // absolute from captured originals
+
+    owner.repaint();
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::endEdgeResize()
+{
+    resizeActive = false;
+    resizeBounds.clear();
+}
+
 void NewMidiKeyboardComponent::TriggerEditor::buildPresetMenu (PopupMenu& menu, const File& folder,
                                                                std::vector<File>& files, int baseId)
 {
@@ -1550,8 +1779,10 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result == miClear)    clearKey (note);
         else if (result == miClearAll) clearAll();
         else if (result >= miColourBase && result < miColourBase + (int) kTriggerColours.size())
-            setColourForKey (note, kTriggerColours[(size_t) (result - miColourBase)].colour
-                                       .withMultipliedBrightness (0.5f));
+        {
+            const auto& tc = kTriggerColours[(size_t) (result - miColourBase)];
+            setColourForKey (note, tc.colour.withMultipliedBrightness (tc.brightness));
+        }
         else if (result >= miPresetBase && (size_t) (result - miPresetBase) < presetFiles.size())
             applyPresetFile (note, presetFiles[(size_t) (result - miPresetBase)]);
 

@@ -319,6 +319,16 @@ public:
         -1 clears it. Driven internally by the editor's menu lifetime. */
     void setActiveEditNote (int note);
 
+    /** Called when the user clicks the in-keyboard close box (top-left, shown
+        only while edit mode is on). Wire this to clear the edit-mode value so
+        that any external control bound to it updates too, e.g.:
+        @code
+            keyboard.onExitEditMode = [this] { editModeValue.setValue (0); };
+        @endcode
+        The keyboard deliberately doesn't toggle editMode itself here — it lets
+        that value drive setEditMode, keeping a single source of truth. */
+    std::function<void()> onExitEditMode;
+
 private:
     //==============================================================================
     void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override final;
@@ -336,7 +346,6 @@ private:
     void drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
                           std::optional<Colour> baseFill, int midiNoteNumber);
 
-    /** Draws the edit-mode outline for a key when editMode is on, using the
     /** Edit-mode zone outlines. drawEditOutlines walks the visible range,
         groups each maximal run of same-coloured notes into a zone, and calls
         drawZoneOutline to stroke that zone's silhouette as a single path
@@ -344,6 +353,18 @@ private:
         paint() after the keys; the active group (menu open) is stroked heavier. */
     void drawEditOutlines (Graphics& g);
     void drawZoneOutline  (Graphics& g, int startNote, int endNote);
+
+    /** Fixed top-left bounds of the edit-mode close box, in component
+        coordinates (so it stays put while the keys scroll). Only drawn and
+        hit-tested while editMode is on. */
+    Rectangle<float> getCloseButtonBounds() const;
+
+    /** Edit-mode region edge resize. A trigger region is the contiguous run of
+        same-coloured notes; dragging within a few pixels of its left/right edge
+        changes the region's lower/upper note (applied to every node in the
+        stack). hitTestRegionEdge reports the edge under a point, if any. */
+    struct RegionEdge { bool valid = false; bool lowEdge = false; int regionStart = -1, regionEnd = -1; };
+    RegionEdge hitTestRegionEdge (Point<float> pos);
 
     int initialLowestKeyShowing = 24;
 
@@ -380,6 +401,11 @@ private:
     int  activeRunStart = -1;   // computed run extent of the active note, for the heavy outline
     int  activeRunEnd   = -1;
 
+    // Region edge-resize drag (set on mouseDown over an edge).
+    bool resizingRegion   = false;
+    bool resizeLowEdge    = false;
+    int  resizeAnchorNote = -1;   // the edge's original note, drag deltas are measured from here
+
     //==============================================================================
     /** Plain nested helper — not a Component, never shown, no bounds, no paint.
         Owns the data side of inline editing: resolves a clicked key to the
@@ -396,6 +422,16 @@ private:
         void setPresetFolder (const File& f) { presetFolder = f; }
 
         void showMenuForKey (int note, Point<int> screenPos);
+
+        // Region edge resize — driven directly from the keyboard's mouse
+        // handlers. beginEdgeResize captures the low (or high) note bounds of
+        // every range pair on every node covering edgeNote, plus the clamp range
+        // that keeps all ranges at least one note wide. Drag deltas (from the
+        // edge's original note) are applied absolutely so there's no drift,
+        // coalesced into a single undo transaction.
+        bool beginEdgeResize  (int edgeNote, bool lowEdge);
+        void updateEdgeResize (int delta);
+        void endEdgeResize();
 
     private:
         ValueTree        getContainer() const;
@@ -427,6 +463,12 @@ private:
         foleys::MagicGUIBuilder*  builder = nullptr;
         String                    containerID;
         File                      presetFolder;
+
+        // Edge-resize session (valid while a drag is in progress).
+        struct EdgeBound { ValueTree node; Identifier prop; int orig; };
+        std::vector<EdgeBound> resizeBounds;
+        int  resizeMinDelta = 0, resizeMaxDelta = 0;
+        bool resizeActive   = false;
     };
 
     TriggerEditor triggerEditor { *this };
