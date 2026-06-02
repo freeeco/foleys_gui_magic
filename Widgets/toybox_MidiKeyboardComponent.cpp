@@ -1492,21 +1492,27 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     menu.addItem (miCopy,  "Copy",  hasNodes);
     menu.addItem (miCut,   "Cut",   hasNodes);
     menu.addItem (miPaste, "Paste", hasClip);
-    menu.addItem (miClear, "Clear", hasNodes);
 
-    // Colour — recolour the node(s) on this key. Item text drawn in the colour.
-    PopupMenu colourMenu;
-    for (int i = 0; i < (int) kTriggerColours.size(); ++i)
-        colourMenu.addColouredItem (miColourBase + i,
-                                    kTriggerColours[(size_t) i].name,
-                                    kTriggerColours[(size_t) i].colour);
-    menu.addSubMenu ("Colour", colourMenu, hasNodes);
+    menu.addSeparator();
+    menu.addItem (miClear, "Clear", hasNodes);
+    menu.addSeparator();
 
     // Add Trigger — insert a preset node/stack from disk onto this key.
     std::vector<File> presetFiles;
     PopupMenu addTriggerMenu;
     buildPresetMenu (addTriggerMenu, presetFolder, presetFiles, miPresetBase);
     menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
+
+    // Colour — recolour the node(s) on this key. (The assigned L&F overrides the
+    // per-item text colour, so the names render in the normal menu colour; the
+    // colour actually applied to the keyboard is halved in brightness in the
+    // handler below.)
+    PopupMenu colourMenu;
+    for (int i = 0; i < (int) kTriggerColours.size(); ++i)
+        colourMenu.addColouredItem (miColourBase + i,
+                                    kTriggerColours[(size_t) i].name,
+                                    kTriggerColours[(size_t) i].colour);
+    menu.addSubMenu ("Colour", colourMenu, hasNodes);
 
     menu.addSeparator();
     menu.addItem (miClearAll, "Clear All");
@@ -1544,7 +1550,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result == miClear)    clearKey (note);
         else if (result == miClearAll) clearAll();
         else if (result >= miColourBase && result < miColourBase + (int) kTriggerColours.size())
-            setColourForKey (note, kTriggerColours[(size_t) (result - miColourBase)].colour);
+            setColourForKey (note, kTriggerColours[(size_t) (result - miColourBase)].colour
+                                       .withMultipliedBrightness (0.5f));
         else if (result >= miPresetBase && (size_t) (result - miPresetBase) < presetFiles.size())
             applyPresetFile (note, presetFiles[(size_t) (result - miPresetBase)]);
 
