@@ -453,6 +453,7 @@ private:
         void clearKey        (int note);
         void clearAll();
         void setColourForKey (int note, Colour colour);
+        void saveKeyAs       (int note);
         void applyPresetFile (int note, const File& file);
         void insertPayloadAtKey (ValueTree payloadRoot, int note);
         void buildPresetMenu (PopupMenu& menu, const File& folder,
@@ -463,6 +464,11 @@ private:
         foleys::MagicGUIBuilder*  builder = nullptr;
         String                    containerID;
         File                      presetFolder;
+
+        // Held as a member so the chooser outlives its async dialog —
+        // juce::FileChooser requires the instance to stay alive until the
+        // user closes the box. Owned by the saveKeyAs path only.
+        std::unique_ptr<FileChooser> fileChooser;
 
         // Edge-resize session (valid while a drag is in progress).
         struct EdgeBound { ValueTree node; Identifier prop; int orig; };

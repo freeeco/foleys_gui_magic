@@ -585,20 +585,24 @@ ToolBox::ToolBox (juce::Component* parentToUse, MagicGUIBuilder& builderToContro
                 if (!snippetFile.hasFileExtension (".xml"))
                     snippetFile = snippetFile.withFileExtension (".xml");
 
-                if (auto stream = snippetFile.createOutputStream())
+                // Serialise first, then write atomically: replaceWithText
+                // truncates the target (createOutputStream defaults to append,
+                // which silently concatenates onto an existing snippet) and
+                // uses a TemporaryFile + rename so a half-written file never
+                // overwrites a good one.
+                juce::String xmlText;
+                if (nodes.size() == 1)
                 {
-                    if (nodes.size() == 1)
-                    {
-                        stream->writeString (nodes.getFirst().toXmlString());
-                    }
-                    else
-                    {
-                        juce::ValueTree container ("_multiCopy");
-                        for (auto& node : nodes)
-                            container.appendChild (juce::ValueTree::fromXml (node.toXmlString()), nullptr);
-                        stream->writeString (container.toXmlString());
-                    }
+                    xmlText = nodes.getFirst().toXmlString();
                 }
+                else
+                {
+                    juce::ValueTree container ("_multiCopy");
+                    for (auto& node : nodes)
+                        container.appendChild (juce::ValueTree::fromXml (node.toXmlString()), nullptr);
+                    xmlText = container.toXmlString();
+                }
+                snippetFile.replaceWithText (xmlText);
 
                 builder.closeOverlayDialog();
             });

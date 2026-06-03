@@ -92,7 +92,7 @@ namespace
     // Menu result-id ranges.
     enum
     {
-        miCopy = 1, miCut, miPaste, miClear, miClearAll,
+        miCopy = 1, miCut, miPaste, miClear, miClearAll, miSaveAs,
         miColourBase  = 100,    // + index into kTriggerColours
         miPresetBase  = 1000    // + index into the captured preset-files vector
     };
@@ -334,6 +334,12 @@ void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 {
+    // Belt-and-braces with mouseDown's popup-button short-circuit: a
+    // right-button drag shouldn't slip a note-on through before
+    // showMenuAsync's overlay grabs focus.
+    if (e.mods.isPopupMenu())
+        return;
+
     if (resizingRegion)
     {
         // Sample the note from the x position at a fixed height inside the
@@ -356,6 +362,14 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 {
+    if (e.mods.isPopupMenu())
+    {
+        const int note = getNoteAndVelocityAtPosition (e.position).note;
+        if (note >= 0)
+            triggerEditor.showMenuForKey (note, e.getScreenPosition());
+        return;
+    }
+    
     // Close box takes priority over the keys beneath it while editing.
     if (editMode && getCloseButtonBounds().contains (e.position))
     {
@@ -1419,14 +1433,17 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
     static const Identifier midiTriggerType ("MidiTrigger");
 
-    // The bank is a fixed pool of MidiTrigger slots, so only MidiTrigger
-    // payloads can fill them (mirrors pasteToSelected's type-match guard
-    // against the destination node).
-    Array<ValueTree> payload;
+    // MidiTrigger payloads go into the fixed-slot pool; any non-MidiTrigger
+    // siblings in a _multiCopy bundle (e.g. an LFO that drives a CC-to-select
+    // trigger) are appended to the end of the bank container so the snippet
+    // stays self-contained.
+    Array<ValueTree> payload, extras;
     auto take = [&] (const ValueTree& src)
     {
         if (src.getType() == midiTriggerType)
             payload.add (src.createCopy());
+        else
+            extras.add (src.createCopy());
     };
 
     if (payloadRoot.getType().toString() == "_multiCopy")
@@ -1438,9 +1455,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (payload.isEmpty())
         return;
 
-    // One shared delta for the whole payload preserves the arrangement within
-    // each node (e.g. transpose root stays centred) and between stacked nodes.
-    // Anchor on the payload's lowest note → that note lands on the click.
+    // ── delta calculation unchanged ─────────────────────────────────────
     int lowest  = std::numeric_limits<int>::max();
     int highest = std::numeric_limits<int>::min();
     for (auto& n : payload)
@@ -1459,26 +1474,38 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (lowest != std::numeric_limits<int>::max())
     {
         if (highest - lowest > 127)
-            return;                              // wider than the keyboard, can't fit
+            return;
 
         delta = note - lowest;
-        if (lowest  + delta < 0)   delta = -lowest;       // clamp the delta as a unit
+        if (lowest  + delta < 0)   delta = -lowest;
         if (highest + delta > 127) delta = 127 - highest;
     }
 
-    // Fill the next empty slots in place — never append, never reindex. A
-    // slot keeps its own trigger-index for life.
     auto slots = findEmptySlots (container, payload.size());
     if (slots.size() < payload.size())
-        return;                                  // bank is full, nothing free
+        return;
 
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Add trigger");
 
     for (int i = 0; i < payload.size(); ++i)
     {
-        remapNoteRanges (payload.getReference (i), delta);     // on the detached copy
+        remapNoteRanges (payload.getReference (i), delta);
         fillSlot (slots.getReference (i), payload.getReference (i), um);
+    }
+
+    // Append support nodes (LFOs, etc.) into the same transaction. Skip any
+    // whose id is already live somewhere in the GUI tree — re-loading the
+    // snippet shouldn't duplicate a node the trigger is already wired to.
+    const auto guiRoot = builder ? builder->getGuiRootNode() : ValueTree();
+    for (auto& extra : extras)
+    {
+        const auto extraID = extra.getProperty ("id").toString();
+        if (extraID.isNotEmpty() && guiRoot.isValid()
+            && findNodeByID (guiRoot, extraID).isValid())
+            continue;
+
+        container.appendChild (extra, um);
     }
 
     owner.repaint();
@@ -1492,6 +1519,89 @@ void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
 void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const File& file)
 {
     insertPayloadAtKey (ValueTree::fromXml (file.loadFileAsString()), note);
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
+{
+    // Snapshot the triggers covering this key — properties-only, slot index
+    // dropped (the destination slot supplies its own on load).
+    Array<ValueTree> triggers;
+    for (const auto& n : findNodesForKey (note))
+        triggers.add (propertiesOnlyCopy (n));
+
+    if (triggers.isEmpty())
+        return;
+
+    // Sweep every non-MidiTrigger sibling in the bank container — LFOs and
+    // any other support nodes the triggers may reference. Full deep copy
+    // since these can carry children (propertiesOnlyCopy would drop them).
+    // Sound designers curate the bank ahead of time to drop anything they
+    // don't want bundled in the snippet.
+    static const Identifier midiTriggerType ("MidiTrigger");
+    Array<ValueTree> extras;
+    if (auto container = getContainer(); container.isValid())
+        for (auto child : container)
+            if (child.getType() != midiTriggerType)
+                extras.add (child.createCopy());
+
+    auto folder = presetFolder;
+    if (! folder.isDirectory())
+        folder.createDirectory();
+
+    String defaultName = "trigger";
+    if (triggers.getReference (0).hasProperty ("id"))
+        defaultName = triggers.getReference (0).getProperty ("id").toString();
+    else if (triggers.getReference (0).hasProperty ("trigger-label"))
+        defaultName = triggers.getReference (0).getProperty ("trigger-label").toString();
+
+    auto suggestedFile = folder.getChildFile (defaultName).withFileExtension (".xml");
+
+    // System file chooser — pattern lifted from
+    // SubPresetManager::savePresetAsMenuButton. The chooser must outlive
+    // its async dialog, so it's held as a TriggerEditor member. The lambda
+    // captures only the snapshot + the chooser result, so the keyboard
+    // going away mid-dialog is safe: destroying the chooser tears down the
+    // lambda without firing, and no live keyboard state is touched.
+    fileChooser = std::make_unique<FileChooser> (
+        "Save Trigger As", suggestedFile, "*.xml",
+        true,     // useOSNativeDialogBox
+        false,    // treatFilePackagesAsDirectories
+        &owner);
+
+    fileChooser->launchAsync (FileBrowserComponent::saveMode
+                              | FileBrowserComponent::canSelectFiles
+                              | FileBrowserComponent::warnAboutOverwriting,
+                              [triggers, extras] (const FileChooser& chooser)
+    {
+        auto outFile = chooser.getResult();
+        if (outFile == File())
+            return;                            // user cancelled
+
+        if (! outFile.hasFileExtension (".xml"))
+            outFile = outFile.withFileExtension (".xml");
+
+        // Bare node only for a single trigger with nothing tagging along;
+        // otherwise _multiCopy. Triggers come first so the file reads
+        // naturally (slot pool up top, support nodes after) and matches the
+        // authored order in shipped snippets.
+        ValueTree out;
+        const int total = triggers.size() + extras.size();
+        if (total == 1)
+        {
+            out = triggers.getFirst();
+        }
+        else
+        {
+            out = ValueTree ("_multiCopy");
+            for (auto& n : triggers) out.appendChild (n, nullptr);
+            for (auto& n : extras)   out.appendChild (n, nullptr);
+        }
+
+        // replaceWithText writes via a TemporaryFile + atomic rename — both
+        // truncates an existing file (createOutputStream defaults to append)
+        // and protects against partial writes corrupting the original.
+        outFile.replaceWithText (out.toXmlString());
+    });
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::clearKey (int note)
@@ -1726,6 +1836,17 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     menu.addItem (miClear, "Clear", hasNodes);
     menu.addSeparator();
 
+    // Easter egg: holding Alt/Option as the menu opens reveals Save As...,
+    // which writes the key's stack to the Triggers folder using the same
+    // serialisation as Copy (properties-only triggers, _multiCopy when there's
+    // more than one node). Round-trips through insertPayloadAtKey unchanged.
+    const bool altHeld = ModifierKeys::getCurrentModifiers().isAltDown();
+    if (altHeld && hasNodes)
+    {
+        menu.addItem (miSaveAs, "Save As...");
+        menu.addSeparator();
+    }
+
     // Add Trigger — insert a preset node/stack from disk onto this key.
     std::vector<File> presetFiles;
     PopupMenu addTriggerMenu;
@@ -1778,6 +1899,7 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result == miPaste)    pasteToKey (note);
         else if (result == miClear)    clearKey (note);
         else if (result == miClearAll) clearAll();
+        else if (result == miSaveAs)   saveKeyAs (note);
         else if (result >= miColourBase && result < miColourBase + (int) kTriggerColours.size())
         {
             const auto& tc = kTriggerColours[(size_t) (result - miColourBase)];
