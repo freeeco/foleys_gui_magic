@@ -313,6 +313,9 @@ public:
     /** Folder scanned for the "Add Trigger" preset menu (e.g. the plugin's
         Triggers folder). When empty / missing, the submenu is disabled. */
     void setTriggerPresetFolder (const File& folder);
+    
+    /** Bulds the factory 'Triggers' folder. */
+    static void createFactoryTriggerPresets();
 
     /** Sets the note whose trigger group is currently "active" (its menu is
         open) so the keyboard can draw a heavier outline on that run.

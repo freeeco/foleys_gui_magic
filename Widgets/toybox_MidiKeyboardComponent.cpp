@@ -403,8 +403,13 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 
 Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
 {
+#if JUCE_IOS
+    const float margin = 12.0f;
+    const float d      = jlimit (16.0f, 34.0f, (float) getHeight() * 0.32f);
+#else
     const float margin = 6.0f;
     const float d      = jlimit (16.0f, 28.0f, (float) getHeight() * 0.16f);
+#endif
     return { margin + 14.0f, margin + 2.0f, d, d };
 }
 
@@ -1066,6 +1071,127 @@ void NewMidiKeyboardComponent::setEditContext (foleys::MagicGUIBuilder* b, const
 void NewMidiKeyboardComponent::setTriggerPresetFolder (const File& folder)
 {
     triggerEditor.setPresetFolder (folder);
+}
+
+void NewMidiKeyboardComponent::createFactoryTriggerPresets()
+{
+    File triggersFolder;
+
+#if JUCE_WINDOWS
+    triggersFolder = File::getSpecialLocation (File::SpecialLocationType::windowsLocalAppData)
+                        .getChildFile (ProjectInfo::companyName)
+                        .getChildFile (ProjectInfo::projectName)
+                        .getChildFile ("Triggers");
+#elif JUCE_MAC
+    triggersFolder = File::getRealUserHomeDirectory()
+                        .getChildFile ("Library")
+                        .getChildFile ("Application Support")
+                        .getChildFile (ProjectInfo::companyName)
+                        .getChildFile (ProjectInfo::projectName)
+                        .getChildFile ("Triggers");
+#elif JUCE_IOS
+    triggersFolder = File::getContainerForSecurityApplicationGroupIdentifier (APP_GROUP_ID)
+                        .getChildFile (ProjectInfo::companyName)
+                        .getChildFile (ProjectInfo::projectName)
+                        .getChildFile ("Triggers");
+#else
+    triggersFolder = File::getSpecialLocation (File::userApplicationDataDirectory)
+                        .getChildFile (ProjectInfo::companyName)
+                        .getChildFile (ProjectInfo::projectName)
+                        .getChildFile ("Triggers");
+#endif
+
+    if (triggersFolder == File())   // invalid (e.g. missing App Group entitlement)
+        return;
+
+    const bool firstRun = ! triggersFolder.isDirectory();
+
+    if (const auto r = triggersFolder.createDirectory(); r.failed())
+    {
+        DBG ("Could not create Triggers folder: " + r.getErrorMessage());
+        jassertfalse;
+        return;
+    }
+
+    //==========================================================================
+    // Base library: the zip is the bulk container, unpacked once on first run.
+    //==========================================================================
+    if (firstRun)
+    {
+        int size = 0;
+        if (const char* data = BinaryData::getNamedResource ("Triggers_zip", size))  // "Triggers.zip" → "Triggers_zip"
+        {
+            MemoryInputStream mis (data, (size_t) size, false);
+            ZipFile zip (mis);
+
+            if (const auto r = zip.uncompressTo (triggersFolder, /*shouldOverwriteFiles*/ false); r.failed())
+            {
+                DBG ("Could not unpack factory triggers: " + r.getErrorMessage());
+                jassertfalse;
+            }
+            else
+            {
+                // macOS Archive Utility sidecar — never wanted.
+                triggersFolder.getChildFile ("__MACOSX").deleteRecursively();
+
+                // A Finder-zipped folder leaves a redundant Triggers/Triggers/… nest.
+                // Hoist: rename outer aside, lift inner up, drop the husk.
+                if (auto nested = triggersFolder.getChildFile (triggersFolder.getFileName());
+                    nested.isDirectory())
+                {
+                    auto temp = triggersFolder.getSiblingFile ("TriggersTemp");
+                    temp.deleteRecursively();
+                    triggersFolder.moveFileTo (temp);                       // Triggers -> TriggersTemp
+                    temp.getChildFile (triggersFolder.getFileName())
+                        .moveFileTo (triggersFolder);                       // TriggersTemp/Triggers -> Triggers
+                    temp.deleteRecursively();                               // drop empty TriggersTemp
+                }
+            }
+        }
+    }
+
+    //==========================================================================
+    // Supplementary individual triggers: checked every run, so an update can
+    // drop new "folder--folder--My Trigger.trigger" resources into the binary
+    // without rebuilding the zip. Cheap (suffix + exists checks); existing
+    // files are never clobbered. Up to 10 nested folder levels.
+    //==========================================================================
+    const String dotExt = ".trigger";
+
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const char*  resourceName = BinaryData::namedResourceList[i];
+        const String original     = BinaryData::getNamedResourceOriginalFilename (resourceName);
+
+        if (! original.endsWithIgnoreCase (dotExt))   // skips the zip (.zip), fonts, images, etc.
+            continue;
+
+        // Unroll the "--" path: every segment before the last is a folder.
+        File   dest      = triggersFolder;
+        String remaining = original;
+
+        for (int depth = 0; depth < 10 && remaining.contains ("--"); ++depth)
+        {
+            dest      = dest.getChildFile (remaining.upToFirstOccurrenceOf ("--", false, false).trim());
+            remaining = remaining.fromFirstOccurrenceOf ("--", false, false);
+        }
+        // remaining is now the filename, e.g. "My Trigger.trigger"
+
+        if (const auto r = dest.createDirectory(); r.failed())   // creates intermediate parents
+        {
+            DBG ("Could not create trigger folder '" + dest.getFullPathName() + "': " + r.getErrorMessage());
+            jassertfalse;
+            continue;
+        }
+
+        int dataSize = 0;
+        if (const char* fileData = BinaryData::getNamedResource (resourceName, dataSize))
+        {
+            const File outFile = dest.getChildFile (remaining);
+            if (! outFile.exists())
+                outFile.replaceWithData (fileData, (size_t) dataSize);
+        }
+    }
 }
 
 void NewMidiKeyboardComponent::setActiveEditNote (int note)
