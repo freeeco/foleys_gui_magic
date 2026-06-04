@@ -440,7 +440,8 @@ void StyleChoicePropertyComponent::valueChanged (juce::Value&)
     if (auto* combo = dynamic_cast<juce::ComboBox*>(editor.get()))
     {
         if (combo->getText() != v)
-            combo->setText (v, juce::sendNotificationSync);
+//            combo->setText (v, juce::sendNotificationSync);
+            combo->setText (v, juce::dontSendNotification); // dontSendNotification to avoid writebacks
     }
 
     if (property == IDs::lookAndFeel)

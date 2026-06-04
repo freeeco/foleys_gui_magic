@@ -96,6 +96,28 @@ namespace
         miColourBase  = 100,    // + index into kTriggerColours
         miPresetBase  = 1000    // + index into the captured preset-files vector
     };
+
+    //==============================================================================
+    // Stain tuning — how strongly a configured-but-disabled trigger shows
+    // through on its keys. Bump these to make the stain more visible.
+
+    // White keys: amount of trigger hue blended into the white base.
+    //   0.0 = pure white (invisible stain), 1.0 = pure trigger colour.
+    constexpr float kWhiteStainTint = 0.28f;
+
+    // Black keys: how much lighter than a normal black key the stained base
+    // sits, before the hue is mixed in. Higher = paler key body.
+    constexpr float kBlackStainLighten = 0.18f;
+
+    // Black keys: amount of trigger hue blended into the lightened base.
+    //   0.0 = no colour (just lightened), 1.0 = pure trigger colour.
+    constexpr float kBlackStainTint = 0.32f;
+
+    // Mouse-over is a hint ("the mouse is here"), not a functional state — keep
+    // it as a faint tint, well below the keyDown overlay so it doesn't read as
+    // a press. Bump these if the hover becomes invisible on busy backgrounds.
+    constexpr float kHoverCustomDarken = 0.14f;   // darken amount on coloured keys (vs 0.15)
+    constexpr float kHoverOverlayAlpha = 0.35f;   // multiplier on mouseOverKeyOverlayColourId
 }
 
 //==============================================================================
@@ -664,9 +686,18 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
                                   currentOrientation == horizontalKeyboard,   // bottom-left
                                   currentOrientation == horizontalKeyboard);  // bottom-right
 
-    // 1) Fill with the white note base colour (overridden by trigger colour if set)
-    auto custom = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
-    g.setColour (custom.value_or (findColour (whiteNoteColourId)));
+    // 1) Fill with the white note base colour. Trigger colour overrides it when
+    //    active (opaque); a non-opaque trigger colour means the trigger is
+    //    configured here but not currently enabled — paint a faint tint instead.
+    auto raw           = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
+    const bool stained = raw && ! raw->isOpaque();
+    auto custom        = (raw && ! stained) ? raw : std::nullopt;
+
+    Colour baseFill = findColour (whiteNoteColourId);
+    if (custom)       baseFill = *custom;
+    else if (stained) baseFill = baseFill.interpolatedWith (raw->withAlpha (1.0f), kWhiteStainTint);
+
+    g.setColour (baseFill);
     g.fillPath (keyShape);
 
     // 2) Subtle top-to-bottom gradient — slightly darker at the bottom,
@@ -700,15 +731,16 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     {
         if (custom)
         {
-            // Darken the custom colour directly — keeps the hue, just deeper
-            auto c = isDown ? custom->darker (0.65f) : custom->darker (0.15f);
+            // Darken the custom colour directly — keeps the hue, just deeper.
+            // Hover is a faint tint (kHoverCustomDarken); keyDown stays strong.
+            auto c = isDown ? custom->darker (0.65f) : custom->darker (kHoverCustomDarken);
             g.setColour (c);
         }
         else
         {
             auto c = Colours::transparentWhite;
             if (isDown)       c = findColour (keyDownOverlayColourId);
-            else if (isOver)  c = findColour (mouseOverKeyOverlayColourId);
+            else if (isOver)  c = findColour (mouseOverKeyOverlayColourId).withMultipliedAlpha (kHoverOverlayAlpha);
             g.setColour (c);
         }
 
@@ -769,18 +801,27 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
 void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
                                            bool isDown, bool isOver, Colour noteFillColour)
 {
-    auto custom = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
-    auto c = custom.value_or (noteFillColour);
+    // Trigger colour overrides the default fill when active (opaque); a
+    // non-opaque trigger colour means the trigger is configured here but not
+    // currently enabled — lighten the key and tint it with the trigger hue.
+    auto raw           = noteColourProvider ? noteColourProvider (midiNoteNumber) : std::nullopt;
+    const bool stained = raw && ! raw->isOpaque();
+    auto custom        = (raw && ! stained) ? raw : std::nullopt;
+
+    Colour c;
+    if (custom)       c = *custom;
+    else if (stained) c = noteFillColour.brighter (kBlackStainLighten).interpolatedWith (raw->withAlpha (1.0f), kBlackStainTint);
+    else              c = noteFillColour;
 
     if (custom)
     {
         if (isDown)      c = c.darker (0.9f);
-        else if (isOver) c = c.darker (0.15f);
+        else if (isOver) c = c.darker (kHoverCustomDarken);
     }
     else
     {
         if (isDown)      c = c.brighter (0.30f);
-        if (isOver)      c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
+        if (isOver)      c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId).withMultipliedAlpha (kHoverOverlayAlpha));
     }
 
     const auto currentOrientation = getOrientation();
@@ -925,6 +966,11 @@ void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> ke
     if (! noteLabelProvider)
         return;
 
+    // Labels are only drawn on keys whose trigger is fully active; for
+    // stained / unset keys baseFill is nullopt and we skip.
+    if (! baseFill.has_value())
+        return;
+
     const auto myLabel = noteLabelProvider (midiNoteNumber);
     if (! myLabel.has_value() || myLabel->isEmpty())
         return;
@@ -1005,13 +1051,13 @@ void NewMidiKeyboardComponent::drawLabelForKey (Graphics& g, Rectangle<float> ke
 void NewMidiKeyboardComponent::drawWhiteKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawWhiteNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   ! editMode && mouseOverNotes.contains (midiNoteNumber), findColour (keySeparatorLineColourId), findColour (textLabelColourId));
+                   mouseOverNotes.contains (midiNoteNumber), findColour (keySeparatorLineColourId), findColour (textLabelColourId));
 }
 
 void NewMidiKeyboardComponent::drawBlackKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawBlackNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   ! editMode && mouseOverNotes.contains (midiNoteNumber), findColour (blackNoteColourId));
+                   mouseOverNotes.contains (midiNoteNumber), findColour (blackNoteColourId));
 }
 
 //==============================================================================
