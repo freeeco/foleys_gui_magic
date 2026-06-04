@@ -334,11 +334,14 @@ void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 {
+    
+#if MAX_MIDI_TRIGGERS > 0
     // Belt-and-braces with mouseDown's popup-button short-circuit: a
     // right-button drag shouldn't slip a note-on through before
     // showMenuAsync's overlay grabs focus.
     if (e.mods.isPopupMenu())
         return;
+#endif
 
     if (resizingRegion)
     {
@@ -362,6 +365,7 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 {
+#if MAX_MIDI_TRIGGERS > 0
     if (e.mods.isPopupMenu())
     {
         const int note = getNoteAndVelocityAtPosition (e.position).note;
@@ -394,6 +398,7 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
             }
         }
     }
+#endif
 
     auto newNote = getNoteAndVelocityAtPosition (e.position).note;
 
@@ -1023,12 +1028,14 @@ void NewMidiKeyboardComponent::handleNoteOff (MidiKeyboardState*, int /*midiChan
 //==============================================================================
 bool NewMidiKeyboardComponent::mouseDownOnKey (int midiNoteNumber, const MouseEvent& e)
 {
+#if MAX_MIDI_TRIGGERS > 0
     if (editMode)
     {
         // In edit mode a click opens the trigger menu instead of playing.
         triggerEditor.showMenuForKey (midiNoteNumber, e.getScreenPosition());
         return false;
     }
+#endif
 
     return true;
 }
@@ -1075,6 +1082,7 @@ void NewMidiKeyboardComponent::setTriggerPresetFolder (const File& folder)
 
 void NewMidiKeyboardComponent::createFactoryTriggerPresets()
 {
+#if MAX_MIDI_TRIGGERS > 0
     File triggersFolder;
 
 #if JUCE_WINDOWS
@@ -1192,6 +1200,7 @@ void NewMidiKeyboardComponent::createFactoryTriggerPresets()
                 outFile.replaceWithData (fileData, (size_t) dataSize);
         }
     }
+#endif
 }
 
 void NewMidiKeyboardComponent::setActiveEditNote (int note)
