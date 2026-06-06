@@ -656,6 +656,12 @@ juce::StringArray MagicGUIBuilder::getFactoryNames() const
     return names;
 }
 
+juce::String MagicGUIBuilder::getFactoryCategory (juce::Identifier type) const
+{
+    auto it = factoryCategories.find (type);
+    return it != factoryCategories.end() ? it->second : juce::String();
+}
+
 void MagicGUIBuilder::registerLookAndFeel (juce::String name, std::unique_ptr<juce::LookAndFeel> lookAndFeel)
 {
     stylesheet.registerLookAndFeel (name, std::move (lookAndFeel));
@@ -759,6 +765,66 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createLFOUIDMenuLambda() c
     return [this](juce::ComboBox& combo)
     {
         auto uids = magicState.getLFOUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createGeneratorUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getGeneratorUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createCalculatorUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getCalculatorUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMapperUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getMapperUIDs();
 
         int index = 1;
         for (auto& uid : uids)

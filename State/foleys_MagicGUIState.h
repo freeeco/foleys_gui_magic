@@ -274,6 +274,18 @@ public:
     void unregisterLFOUID (const juce::String& uid) { lfoUIDs.removeString (uid); }
     juce::StringArray getLFOUIDs() const { return lfoUIDs; }
     
+    void registerGeneratorUID   (const juce::String& uid) { generatorUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterGeneratorUID (const juce::String& uid) { generatorUIDs.removeString (uid); }
+    juce::StringArray getGeneratorUIDs() const { return generatorUIDs; }
+    
+    void registerCalculatorUID   (const juce::String& uid) { calculatorUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterCalculatorUID (const juce::String& uid) { calculatorUIDs.removeString (uid); }
+    juce::StringArray getCalculatorUIDs() const { return calculatorUIDs; }
+    
+    void registerMapperUID   (const juce::String& uid) { mapperUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterMapperUID (const juce::String& uid) { mapperUIDs.removeString (uid); }
+    juce::StringArray getMapperUIDs() const { return mapperUIDs; }
+    
     using NoteColourProvider = std::function<std::optional<juce::Colour>(int)>;
     void                        setNoteColourProvider (NoteColourProvider fn) { noteColourProvider = std::move (fn); }
     const NoteColourProvider&   getNoteColourProvider() const noexcept        { return noteColourProvider; }
@@ -325,6 +337,9 @@ private:
     juce::StringArray clipUIDs;
     juce::StringArray modifierUIDs;
     juce::StringArray lfoUIDs;
+    juce::StringArray generatorUIDs;
+    juce::StringArray calculatorUIDs;
+    juce::StringArray mapperUIDs;
     
     NoteColourProvider noteColourProvider;
     NoteLabelProvider noteLabelProvider;

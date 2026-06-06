@@ -188,7 +188,7 @@ public:
      returns the names of all registered factories
      */
     juce::StringArray getFactoryNames() const;
-
+    juce::String      getFactoryCategory (juce::Identifier type) const;
 
     std::function<void(juce::ComboBox&)> createChoicesMenuLambda (juce::StringArray choices) const;
     std::function<void(juce::ComboBox&)> createParameterMenuLambda() const;
@@ -196,6 +196,9 @@ public:
     std::function<void(juce::ComboBox&)> createTriggerMenuLambda() const;
     std::function<void(juce::ComboBox&)> createPlayheadUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createLFOUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createGeneratorUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createCalculatorUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createMapperUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createPlaylistUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createClipUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createModifierUIDMenuLambda() const;
