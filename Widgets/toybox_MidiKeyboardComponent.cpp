@@ -320,9 +320,11 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
 
     drawEditOutlines (g);
 
-    // Edit-mode close box — fixed at the top-left, drawn last so it sits on top
-    // and doesn't scroll with the keys. Light-grey disc with a dark-grey cross.
-    if (editMode)
+    // Edit-mode toggle button — fixed at the top-left, drawn last so it sits
+    // on top and doesn't scroll with the keys. Light-grey disc with a
+    // dark-grey cross (in edit mode, to exit) or plus (out of edit mode, to
+    // enter). Only shown when the editor has a container to operate on.
+    if (triggerEditor.hasContext())
     {
         const auto b = getCloseButtonBounds();
         g.setColour (Colours::lightgrey);
@@ -333,8 +335,18 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
         const auto x   = b.reduced (b.getWidth() * 0.32f);
         const float th = jmax (1.5f, b.getWidth() * 0.10f);
         g.setColour (Colours::darkgrey);
-        g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
-        g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
+
+        if (editMode)
+        {
+            g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
+            g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
+        }
+        else
+        {
+            const float cx = x.getCentreX(), cy = x.getCentreY();
+            g.drawLine (x.getX(),  cy,       x.getRight(), cy,           th);
+            g.drawLine (cx,        x.getY(), cx,           x.getBottom(), th);
+        }
     }
 }
 
@@ -396,11 +408,13 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
         return;
     }
     
-    // Close box takes priority over the keys beneath it while editing.
-    if (editMode && getCloseButtonBounds().contains (e.position))
+    // Toggle button takes priority over the keys beneath it whenever it's
+    // visible (i.e. the editor has a container). Click swaps editMode by way
+    // of the host-owned value — the keyboard doesn't flip it directly.
+    if (triggerEditor.hasContext() && getCloseButtonBounds().contains (e.position))
     {
-        if (onExitEditMode != nullptr)
-            onExitEditMode();
+        if (editMode) { if (onExitEditMode  != nullptr) onExitEditMode();  }
+        else          { if (onEnterEditMode != nullptr) onEnterEditMode(); }
         return;
     }
 

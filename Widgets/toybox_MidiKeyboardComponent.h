@@ -322,15 +322,25 @@ public:
         -1 clears it. Driven internally by the editor's menu lifetime. */
     void setActiveEditNote (int note);
 
-    /** Called when the user clicks the in-keyboard close box (top-left, shown
-        only while edit mode is on). Wire this to clear the edit-mode value so
-        that any external control bound to it updates too, e.g.:
+    /** Called when the user clicks the in-keyboard toggle button (top-left)
+        while edit mode is on (the button shows an x). Wire this to clear the
+        edit-mode value so any external control bound to it updates too, e.g.:
         @code
             keyboard.onExitEditMode = [this] { editModeValue.setValue (0); };
         @endcode
         The keyboard deliberately doesn't toggle editMode itself here — it lets
         that value drive setEditMode, keeping a single source of truth. */
     std::function<void()> onExitEditMode;
+
+    /** Mirror of onExitEditMode — called when the user clicks the toggle
+        button while edit mode is off (the button shows a +). Wire to set the
+        edit-mode value to 1, e.g.:
+        @code
+            keyboard.onEnterEditMode = [this] { editModeValue.setValue (1); };
+        @endcode
+        Same single-source-of-truth rule as onExitEditMode: the keyboard
+        doesn't flip editMode itself. */
+    std::function<void()> onEnterEditMode;
 
 private:
     //==============================================================================
@@ -357,9 +367,10 @@ private:
     void drawEditOutlines (Graphics& g);
     void drawZoneOutline  (Graphics& g, int startNote, int endNote);
 
-    /** Fixed top-left bounds of the edit-mode close box, in component
-        coordinates (so it stays put while the keys scroll). Only drawn and
-        hit-tested while editMode is on. */
+    /** Fixed top-left bounds of the edit-mode toggle button, in component
+        coordinates (so it stays put while the keys scroll). Drawn and
+        hit-tested whenever triggerEditor.hasContext() is true — the icon
+        inside (x or +) flips with editMode. */
     Rectangle<float> getCloseButtonBounds() const;
 
     /** Edit-mode region edge resize. A trigger region is the contiguous run of
@@ -423,6 +434,12 @@ private:
 
         void setContext (foleys::MagicGUIBuilder* b, const String& id) { builder = b; containerID = id; }
         void setPresetFolder (const File& f) { presetFolder = f; }
+
+        /** True iff the editor has a builder and a non-empty container ID, i.e.
+            it could actually resolve a node to operate on. Mirrors the guard at
+            the top of getContainer(). Drives the visibility of the in-keyboard
+            edit-mode toggle button. */
+        bool hasContext() const noexcept { return builder != nullptr && ! containerID.isEmpty(); }
 
         void showMenuForKey (int note, Point<int> screenPos);
 
