@@ -1639,68 +1639,157 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiLearnItem)
 };
 
+
+//==============================================================================
+
+class ParameterListModel : public juce::ListBoxModel
+{
+public:
+    ParameterListModel (juce::RangedAudioParameter& p, juce::ListBox& host, float fontHeight)
+        : param (p), hostListBox (host)
+    {
+       #ifdef DEFAULT_FONT_NAME
+        int dataSize = 0;
+        if (auto* data = BinaryData::getNamedResource (DEFAULT_FONT_NAME, dataSize))
+            font = juce::Font (juce::FontOptions (juce::Typeface::createSystemTypefaceFor (data, dataSize))
+                                   .withHeight (fontHeight));
+        else
+            font = juce::Font (juce::FontOptions (fontHeight));
+       #else
+        font = juce::Font (juce::FontOptions (fontHeight));
+       #endif
+
+        choices = param.getAllValueStrings();
+    }
+
+    int getNumRows() override { return choices.size(); }
+
+    void paintListBoxItem (int row, juce::Graphics& g,
+                           int width, int height, bool rowIsSelected) override
+    {
+        if (! juce::isPositiveAndBelow (row, choices.size())) return;
+
+        const int n          = choices.size();
+        const int currentIdx = n > 1
+            ? juce::jlimit (0, n - 1, (int) std::round (param.getValue() * (float) (n - 1)))
+            : 0;
+
+        if (rowIsSelected || row == currentIdx)
+            g.fillAll (hostListBox.findColour (juce::ListBox::backgroundColourId).contrasting (0.15f));
+
+        g.setColour (hostListBox.findColour (juce::ListBox::textColourId));
+        g.setFont (font);
+        g.drawText (choices[row], 8, 0, width - 16, height,
+                    juce::Justification::centredLeft);
+    }
+
+    void selectedRowsChanged (int lastRowSelected) override
+    {
+        if (lastRowSelected < 0) return;
+        const int n = choices.size();
+        if (n <= 1) return;
+        param.beginChangeGesture();
+        param.setValueNotifyingHost ((float) lastRowSelected / (float) (n - 1));
+        param.endChangeGesture();
+    }
+
+private:
+    juce::RangedAudioParameter& param;
+    juce::ListBox& hostListBox;
+    juce::StringArray choices;
+    juce::Font font;
+};
+
 //==============================================================================
 
 class ListBoxItem : public GuiItem,
-                    public juce::ChangeListener
+                    private juce::Timer
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (ListBoxItem)
 
     ListBoxItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
-        addAndMakeVisible (listBox);
-    }
+        setColourTranslation (
+        {
+            { "background-color", juce::ListBox::backgroundColourId },
+            { "outline-color",    juce::ListBox::outlineColourId },
+            { "text-color",       juce::ListBox::textColourId },
+        });
 
-    ~ListBoxItem() override
-    {
-        if (auto* m = dynamic_cast<juce::ChangeBroadcaster*>(listBox.getModel()))
-            m->removeChangeListener (this);
+        addAndMakeVisible (listBox);
+        startTimerHz (30);
     }
 
     void update() override
     {
-        if (auto* m = dynamic_cast<juce::ChangeBroadcaster*>(listBox.getModel()))
-            m->removeChangeListener (this);
+        listBox.setModel (nullptr);
+        paramModel.reset();
+
+        const int explicitRowHeight = (int) configNode.getProperty ("row-height", 0);
+
+        auto paramID = configNode.getProperty ("parameter", juce::String()).toString();
+        if (paramID.isNotEmpty())
+        {
+            if (auto* param = getMagicState().getParameter (paramID))
+            {
+                float fontHeight = (float) (double) configNode.getProperty ("font-size", 13.0);
+                if (fontHeight <= 0.0f)
+                    fontHeight = 13.0f;
+                paramModel = std::make_unique<ParameterListModel> (*param, listBox, fontHeight);
+                listBox.setModel (paramModel.get());
+
+                // Auto-size rows to font; explicit row-height wins if specified
+                listBox.setRowHeight (explicitRowHeight > 0
+                                      ? explicitRowHeight
+                                      : (int) std::ceil (fontHeight * 1.5f));
+                return;
+            }
+        }
 
         auto modelID = configNode.getProperty ("list-box-model", juce::String()).toString();
         if (modelID.isNotEmpty())
         {
-            if (auto* model = getMagicState().getObjectWithType<juce::ListBoxModel>(modelID))
+            if (auto* model = getMagicState().getObjectWithType<juce::ListBoxModel> (modelID))
             {
                 listBox.setModel (model);
-                if (auto* m = dynamic_cast<juce::ChangeBroadcaster*>(model))
-                    m->addChangeListener (this);
+                if (explicitRowHeight > 0)
+                    listBox.setRowHeight (explicitRowHeight);   // otherwise leave at JUCE default
             }
-        }
-        else
-        {
-            listBox.setModel (nullptr);
         }
     }
 
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
-        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {}, magicBuilder.createObjectsMenuLambda<juce::ListBoxModel>() , "Data model that provides the list box content" });
+        props.push_back ({ configNode, "parameter", SettableProperty::Choice, {},
+                           magicBuilder.createParameterMenuLambda(),
+                           "Bind to an AudioProcessorParameter (overrides list-box-model)" });
+        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {},
+                           magicBuilder.createObjectsMenuLambda<juce::ListBoxModel>(),
+                           "Data model that provides the list box content (ignored if parameter is set)" });
+        props.push_back ({ configNode, "font-size", SettableProperty::Number, 13.0, {},
+                           "Font size in pixels (parameter mode)" });
+        props.push_back ({ configNode, "row-height", SettableProperty::Number, 0.0, {},
+                           "Row height in pixels (0 = auto-size from font in parameter mode)" });
         return props;
     }
 
-    juce::Component* getWrappedComponent() override
-    {
-        return &listBox;
-    }
-
-    void changeListenerCallback (juce::ChangeBroadcaster*) override
-    {
-        listBox.updateContent();
-    }
+    juce::Component* getWrappedComponent() override { return &listBox; }
 
 private:
+    void timerCallback() override
+    {
+        listBox.updateContent();
+        listBox.repaint();
+    }
+
     juce::ListBox listBox;
+    std::unique_ptr<ParameterListModel> paramModel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ListBoxItem)
 };
+
 
 //==============================================================================
 

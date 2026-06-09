@@ -1690,14 +1690,35 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     }
 
     // Append support nodes (LFOs, etc.) into the same transaction. Skip any
-    // whose id is already live somewhere in the GUI tree — re-loading the
-    // snippet shouldn't duplicate a node the trigger is already wired to.
-    const auto guiRoot = builder ? builder->getGuiRootNode() : ValueTree();
+    // that would duplicate an existing descendant of the container — by id
+    // for most extras, or by midi-state-index for MidiEditor (which has no id).
+    static const Identifier midiEditorType     ("MidiEditor");
+    static const Identifier midiStateIndexProp ("midi-state-index");
+
+    std::function<bool (const ValueTree&, int)> hasMidiEditorWithIndex =
+        [&] (const ValueTree& tree, int index) -> bool
+        {
+            if (tree.getType() == midiEditorType
+                && tree.hasProperty (midiStateIndexProp)
+                && (int) tree.getProperty (midiStateIndexProp) == index)
+                return true;
+
+            for (auto child : tree)
+                if (hasMidiEditorWithIndex (child, index))
+                    return true;
+
+            return false;
+        };
+
     for (auto& extra : extras)
     {
         const auto extraID = extra.getProperty ("id").toString();
-        if (extraID.isNotEmpty() && guiRoot.isValid()
-            && findNodeByID (guiRoot, extraID).isValid())
+        if (extraID.isNotEmpty() && findNodeByID (container, extraID).isValid())
+            continue;
+
+        if (extra.getType() == midiEditorType
+            && extra.hasProperty (midiStateIndexProp)
+            && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIndexProp)))
             continue;
 
         container.appendChild (extra, um);
@@ -1845,6 +1866,8 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
         else if (node.isValid() && node.getParent() == container)
             container.removeChild (node, um);
     }
+    
+    toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
 
     owner.repaint();
 }
