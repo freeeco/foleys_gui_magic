@@ -1445,14 +1445,21 @@ void NewMidiKeyboardComponent::drawZoneOutline (Graphics& g, int startNote, int 
 // TriggerEditor — the data side of inline editing.
 //==============================================================================
 
-ValueTree NewMidiKeyboardComponent::TriggerEditor::findNodeByID (ValueTree tree, const String& targetID)
+ValueTree NewMidiKeyboardComponent::TriggerEditor::findNodeByID (ValueTree tree, const String& targetID,
+                                                                 Identifier excludeType)
 {
-    if (tree.hasProperty ("id")
+    // excludeType, when valid, suppresses matches on nodes of that type — the
+    // walk still recurses through them, but they don't satisfy the search.
+    // Used by the extras-dedup pass in insertPayloadAtKey to ignore MidiTrigger
+    // matches (which represent the freshly-placed slot, not a pre-existing
+    // linkable sibling).
+    if ((! excludeType.isValid() || tree.getType() != excludeType)
+        && tree.hasProperty ("id")
         && tree.getProperty ("id").toString().equalsIgnoreCase (targetID))
         return tree;
 
     for (auto child : tree)
-        if (auto found = findNodeByID (child, targetID); found.isValid())
+        if (auto found = findNodeByID (child, targetID, excludeType); found.isValid())
             return found;
 
     return {};
@@ -1683,10 +1690,52 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Add trigger");
 
+    static const Identifier idProp ("id");
+
     for (int i = 0; i < payload.size(); ++i)
     {
         remapNoteRanges (payload.getReference (i), delta);
-        fillSlot (slots.getReference (i), payload.getReference (i), um);
+
+        // Collision-aware id uniquification, Finder-style. id is the group key
+        // (paired ListBoxes/macro-panel elements, clearKey's sibling-by-id
+        // sweep, etc.) — two slots sharing one id would tie them together,
+        // which is rarely what the user wants when they Copy → Paste or re-Add
+        // a preset that's already present. We rename the new copy "Foo (2)",
+        // "Foo (3)", … until the candidate is free among the bank's
+        // MidiTrigger siblings. That keeps it a *group* in its own right (so
+        // the user can later attach a ListBox or other linked sibling using
+        // the same suffix, and clearKey will sweep the pair together) rather
+        // than an anonymous orphan. Cut → Paste is unaffected: cut calls
+        // clearPropertiesOfNode on the source, which strips id along with
+        // everything else, so by the time paste lands there's nothing to
+        // collide with and the original id moves verbatim.
+        auto& slotPayload = payload.getReference (i);
+        if (slotPayload.hasProperty (idProp))
+        {
+            const auto baseID = slotPayload.getProperty (idProp).toString();
+
+            auto idInUse = [&] (const String& candidate)
+            {
+                for (auto child : container)
+                    if (child.getType() == midiTriggerType
+                        && child.getProperty (idProp).toString().equalsIgnoreCase (candidate))
+                        return true;
+                return false;
+            };
+
+            if (idInUse (baseID))
+                for (int n = 2; ; ++n)
+                {
+                    const auto candidate = baseID + " (" + String (n) + ")";
+                    if (! idInUse (candidate))
+                    {
+                        slotPayload.setProperty (idProp, candidate, nullptr);
+                        break;
+                    }
+                }
+        }
+
+        fillSlot (slots.getReference (i), slotPayload, um);
     }
 
     // Append support nodes (LFOs, etc.) into the same transaction. Skip any
@@ -1713,7 +1762,17 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     for (auto& extra : extras)
     {
         const auto extraID = extra.getProperty ("id").toString();
-        if (extraID.isNotEmpty() && findNodeByID (container, extraID).isValid())
+
+        // Skip if a NON-MidiTrigger node with this id already lives in the
+        // container subtree — i.e. the LFO / ListBox / etc. is already there
+        // from a previous paste and shouldn't be duplicated. MidiTrigger
+        // matches are excluded because by this point we've already filled the
+        // slot, so a MidiTrigger with this id is either the trigger we just
+        // placed (whose paired extras should land beside it, not be skipped)
+        // or a sibling-trigger sharing the id — also not a reason to drop the
+        // extra. The trigger-id-strip pass above handles the trigger-side of
+        // the collision; this loop now stays out of its way.
+        if (extraID.isNotEmpty() && findNodeByID (container, extraID, midiTriggerType).isValid())
             continue;
 
         if (extra.getType() == midiEditorType
@@ -1822,6 +1881,37 @@ void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
 
 void NewMidiKeyboardComponent::TriggerEditor::clearKey (int note)
 {
+    if (builder == nullptr) return;
+
+        DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(true) BEFORE");
+        builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
+        DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(true) AFTER");
+
+        auto safe = juce::Component::SafePointer<NewMidiKeyboardComponent> (&owner);
+
+        juce::Timer::callAfterDelay (10, [this, safe, note]
+        {
+            if (safe.getComponent() != nullptr)
+            {
+                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: doClear BEFORE");
+                doClear (note);
+                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: doClear AFTER");
+            }
+        });
+
+        juce::Timer::callAfterDelay (1000, [this, safe]
+        {
+            if (safe.getComponent() != nullptr && builder != nullptr)
+            {
+                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(false) BEFORE");
+                builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
+                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(false) AFTER");
+            }
+        });
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
+{
     auto container = getContainer();
     if (! container.isValid())
         return;
@@ -1833,10 +1923,56 @@ void NewMidiKeyboardComponent::TriggerEditor::clearKey (int note)
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Clear key");
 
+    // Group-by-id: nodes sharing an id form a logical bundle (e.g. a MidiTrigger
+    // paired with a ListBox shown in the macro panel). Capture ids first —
+    // clearPropertiesOfNode strips the id property too, so we need them now if
+    // we're to find the linked siblings afterwards.
+    StringArray groupIDs;
+    for (const auto& node : nodes)
+    {
+        const auto id = node.getProperty ("id").toString();
+        if (id.isNotEmpty())
+            groupIDs.addIfNotAlreadyThere (id);
+    }
+
     // Clear, don't delete — mirrors clearSelected. The slot stays alive with
     // its trigger-index; only its contents go.
     for (auto& node : nodes)
         clearPropertiesOfNode (node, um);
+
+    // Sweep the rest of the bank for siblings sharing one of those ids and
+    // dispose of them too. MidiTriggers stay in the slot pool (cleared in
+    // place — the same handling we'd want for a multi-row group); everything
+    // else is removed outright, mirroring clearAll's two-tier disposal. Build
+    // the lists first — removeChild shifts sibling indices mid-iteration.
+    if (! groupIDs.isEmpty())
+    {
+        static const Identifier midiTriggerType ("MidiTrigger");
+
+        Array<ValueTree> linkedTriggers, linkedExtras;
+        for (auto child : container)
+        {
+            if (nodes.contains (child))
+                continue;   // already handled above (its id is gone now anyway)
+
+            const auto childID = child.getProperty ("id").toString();
+            if (childID.isEmpty() || ! groupIDs.contains (childID, true))
+                continue;
+
+            if (child.getType() == midiTriggerType) linkedTriggers.add (child);
+            else                                    linkedExtras.add (child);
+        }
+
+        for (auto& n : linkedTriggers)
+            clearPropertiesOfNode (n, um);
+
+        for (auto& n : linkedExtras)
+            if (n.isValid() && n.getParent() == container)
+                container.removeChild (n, um);
+
+        if (! linkedExtras.isEmpty() && builder != nullptr)
+            toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
+    }
 
     owner.repaint();
 }
@@ -2046,8 +2182,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     const bool hasClip   = ValueTree::fromXml (SystemClipboard::getTextFromClipboard()).isValid();
 
     PopupMenu menu;
-    menu.addItem (miCopy,  "Copy",  hasNodes);
     menu.addItem (miCut,   "Cut",   hasNodes);
+    menu.addItem (miCopy,  "Copy",  hasNodes);
     menu.addItem (miPaste, "Paste", hasClip);
 
     menu.addSeparator();

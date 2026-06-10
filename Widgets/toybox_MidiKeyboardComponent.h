@@ -456,7 +456,8 @@ private:
     private:
         ValueTree        getContainer() const;
         Array<ValueTree> findNodesForKey (int note) const;
-        static ValueTree findNodeByID (ValueTree tree, const String& id);
+        static ValueTree findNodeByID (ValueTree tree, const String& id,
+                                       Identifier excludeType = {});
         static bool      nodeCoversKey (const ValueTree& node, int note);
 
         // Fixed-slot model — mirrors TriggerBankEditorComponent. The bank is a
@@ -471,6 +472,7 @@ private:
         void copyKeys        (const Array<ValueTree>& nodes);
         void pasteToKey      (int note);
         void clearKey        (int note);
+        void doClear         (int note);
         void clearAll();
         void setColourForKey (int note, Colour colour);
         void saveKeyAs       (int note);
