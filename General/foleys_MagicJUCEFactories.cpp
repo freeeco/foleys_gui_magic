@@ -1702,19 +1702,110 @@ private:
 
 //==============================================================================
 
+class DropTargetListBox : public juce::ListBox,
+                          public juce::DragAndDropTarget
+{
+public:
+    using juce::ListBox::ListBox;
+
+    bool isInterestedInDragSource (const SourceDetails& details) override
+    {
+        if (auto* target = dynamic_cast<foleys::ListBoxDropTarget*> (getListBoxModel()))
+            return details.sourceComponent != nullptr
+                && (details.sourceComponent.get() == this              // ListBox passes itself as source
+                    || isParentOf (details.sourceComponent.get()))
+                && target->isInterestedInListBoxDrag (details.description);
+
+        return false;
+    }
+
+    void itemDragEnter (const SourceDetails& details) override   { itemDragMove (details); }
+
+    void itemDragMove (const SourceDetails& details) override
+    {
+        const int row = rowForPosition (details.localPosition);
+
+        if (row != dropRow)
+        {
+            dropRow = row;
+            repaint();
+        }
+    }
+
+    void itemDragExit (const SourceDetails&) override
+    {
+        dropRow = -1;
+        repaint();
+    }
+
+    void itemDropped (const SourceDetails& details) override
+    {
+        const int target = rowForPosition (details.localPosition);
+
+        dropRow = -1;
+        repaint();
+
+        if (target < 0)
+            return;
+
+        if (auto* model = dynamic_cast<foleys::ListBoxDropTarget*> (getListBoxModel()))
+            model->listBoxRowDropped (details.description, target);
+
+        updateContent();
+        selectRow (target);     // selection follows the drop
+    }
+
+    void paintOverChildren (juce::Graphics& g) override
+    {
+        juce::ListBox::paintOverChildren (g);
+
+        if (dropRow >= 0)
+        {
+            const auto r   = getRowPosition (dropRow, true).toFloat();
+            const auto col = findColour (juce::ListBox::textColourId);
+
+            g.setColour (col.withAlpha (0.12f));
+            g.fillRect (r);
+            g.setColour (col.withAlpha (0.8f));
+            g.drawRect (r, 2.0f);
+        }
+    }
+
+private:
+    int rowForPosition (juce::Point<int> pos) const
+    {
+        if (getListBoxModel() == nullptr || getListBoxModel()->getNumRows() == 0)
+            return -1;
+
+        const int last = getListBoxModel()->getNumRows() - 1;
+        const int row  = getRowContainingPosition (pos.x, pos.y);
+
+        return row < 0 ? last : juce::jmin (row, last);   // below list = last row
+    }
+
+    int dropRow = -1;
+};
+
+
+
 class ListBoxItem : public GuiItem,
+                    public juce::DragAndDropContainer,    // hosts row drags for drop-aware models
                     private juce::Timer
 {
 public:
     FOLEYS_DECLARE_GUI_FACTORY (ListBoxItem)
 
+    /** Sentinel entry in the list-box-model menu: selects parameter mode,
+        with the 'parameter' property choosing which parameter to display. */
+    static constexpr const char* parameterListID = "parameter-list";
+
     ListBoxItem (MagicGUIBuilder& builder, const juce::ValueTree& node) : GuiItem (builder, node)
     {
         setColourTranslation (
         {
-            { "background-color", juce::ListBox::backgroundColourId },
-            { "outline-color",    juce::ListBox::outlineColourId },
-            { "text-color",       juce::ListBox::textColourId },
+            { "background-color",   juce::ListBox::backgroundColourId },
+            { "outline-color",      juce::ListBox::outlineColourId },
+            { "text-color",         juce::ListBox::textColourId }// enum on DropTargetListBox
         });
 
         addAndMakeVisible (listBox);
@@ -1728,14 +1819,22 @@ public:
 
         const int explicitRowHeight = (int) configNode.getProperty ("row-height", 0);
 
-        auto paramID = configNode.getProperty ("parameter", juce::String()).toString();
-        if (paramID.isNotEmpty())
+        auto modelID = configNode.getProperty ("list-box-model", juce::String()).toString();
+        auto paramID = configNode.getProperty ("parameter",      juce::String()).toString();
+
+        // Parameter mode: 'parameter-list' selected in the model menu, or a
+        // parameter bound directly (legacy layouts).
+        if (modelID == parameterListID || paramID.isNotEmpty())
         {
+            if (paramID.isEmpty())
+                return;                                   // sentinel chosen, no parameter picked yet → empty list
+
             if (auto* param = getMagicState().getParameter (paramID))
             {
                 float fontHeight = (float) (double) configNode.getProperty ("font-size", 13.0);
                 if (fontHeight <= 0.0f)
                     fontHeight = 13.0f;
+
                 paramModel = std::make_unique<ParameterListModel> (*param, listBox, fontHeight);
                 listBox.setModel (paramModel.get());
 
@@ -1743,11 +1842,11 @@ public:
                 listBox.setRowHeight (explicitRowHeight > 0
                                       ? explicitRowHeight
                                       : (int) std::ceil (fontHeight * 1.5f));
-                return;
             }
+            return;                                       // never fall through to the registry in parameter mode
         }
 
-        auto modelID = configNode.getProperty ("list-box-model", juce::String()).toString();
+        // Object mode: look up a registered model by name
         if (modelID.isNotEmpty())
         {
             if (auto* model = getMagicState().getObjectWithType<juce::ListBoxModel> (modelID))
@@ -1762,16 +1861,28 @@ public:
     std::vector<SettableProperty> getSettableProperties() const override
     {
         std::vector<SettableProperty> props;
+
+        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {},
+                           [&builder = magicBuilder] (juce::ComboBox& combo)
+                           {
+                               int index = 0;
+                               combo.addItem (parameterListID, ++index);   // built-in parameter mode
+
+                               for (const auto& name : builder.getMagicState().getObjectIDsByType<juce::ListBoxModel>())
+                                   combo.addItem (name, ++index);
+                           },
+                           "Data model for the list. Choose parameter-list to display the parameter set in the parameter property" });
+
         props.push_back ({ configNode, "parameter", SettableProperty::Choice, {},
                            magicBuilder.createParameterMenuLambda(),
-                           "Bind to an AudioProcessorParameter (overrides list-box-model)" });
-        props.push_back ({ configNode, "list-box-model", SettableProperty::Choice, {},
-                           magicBuilder.createObjectsMenuLambda<juce::ListBoxModel>(),
-                           "Data model that provides the list box content (ignored if parameter is set)" });
+                           "Parameter to display when parameter-list is the model (also binds directly if set)" });
+
         props.push_back ({ configNode, "font-size", SettableProperty::Number, 13.0, {},
                            "Font size in pixels (parameter mode)" });
+
         props.push_back ({ configNode, "row-height", SettableProperty::Number, 0.0, {},
                            "Row height in pixels (0 = auto-size from font in parameter mode)" });
+
         return props;
     }
 
@@ -1784,7 +1895,7 @@ private:
         listBox.repaint();
     }
 
-    juce::ListBox listBox;
+    DropTargetListBox listBox;
     std::unique_ptr<ParameterListModel> paramModel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ListBoxItem)

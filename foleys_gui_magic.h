@@ -95,6 +95,17 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #endif
 
+namespace foleys
+{
+struct ListBoxDropTarget
+{
+    virtual ~ListBoxDropTarget() = default;
+
+    virtual bool isInterestedInListBoxDrag (const juce::var& description) = 0;
+    virtual void listBoxRowDropped (const juce::var& description, int targetRow) = 0;
+};
+}
+
 #include "General/foleys_StringDefinitions.h"
 #include "General/foleys_ApplicationSettings.h"
 #include "General/foleys_SettableProperties.h"
