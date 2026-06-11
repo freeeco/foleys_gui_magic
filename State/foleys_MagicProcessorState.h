@@ -144,6 +144,14 @@ public:
      Returns the last moved controller for MIDI learn
      */
     int  getLastController() const;
+    
+    void editorClosed()
+    {
+        if (onEditorClosed)
+            onEditorClosed();
+    }
+    
+    std::function<void()> onEditorClosed;
 
 private:
 

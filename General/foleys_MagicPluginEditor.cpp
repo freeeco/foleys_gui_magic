@@ -139,6 +139,7 @@ MagicPluginEditor::~MagicPluginEditor()
 #if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT && JUCE_WINDOWS
     oglContext.detach();
 #endif
+    processorState.editorClosed();
 }
 
 void MagicPluginEditor::updateSize()
