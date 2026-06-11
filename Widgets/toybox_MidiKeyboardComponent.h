@@ -446,7 +446,11 @@ private:
         // Region edge resize — driven directly from the keyboard's mouse
         // handlers. beginEdgeResize captures the low (or high) note bounds of
         // every range pair on every node covering edgeNote, plus the clamp range
-        // that keeps all ranges at least one note wide. Drag deltas (from the
+        // that keeps all ranges at least one note wide. Follower nodes grouped
+        // with the stack (matching node id; types in kRangeFollowerTypes —
+        // Mapper, Arpeggiator) have their input-low/high-note
+        // captured too, following the drag but saturating individually rather
+        // than constraining it. Drag deltas (from the
         // edge's original note) are applied absolutely so there's no drift,
         // coalesced into a single undo transaction.
         bool beginEdgeResize  (int edgeNote, bool lowEdge);
@@ -493,7 +497,12 @@ private:
         std::unique_ptr<FileChooser> fileChooser;
 
         // Edge-resize session (valid while a drag is in progress).
-        struct EdgeBound { ValueTree node; Identifier prop; int orig; };
+        // minV/maxV are per-bound final-value clamps: trigger bounds use the
+        // full 0..127 (the session-wide delta clamps govern them); grouped
+        // follower bounds (Mapper input range) saturate against these instead
+        // of constraining the drag.
+        struct EdgeBound { ValueTree node; Identifier prop; int orig;
+                           int minV = 0; int maxV = 127; };
         std::vector<EdgeBound> resizeBounds;
         int  resizeMinDelta = 0, resizeMaxDelta = 0;
         bool resizeActive   = false;

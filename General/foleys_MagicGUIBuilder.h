@@ -199,6 +199,7 @@ public:
     std::function<void(juce::ComboBox&)> createGeneratorUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createCalculatorUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createMapperUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createArpeggiatorUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createPlaylistUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createClipUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createModifierUIDMenuLambda() const;

@@ -54,6 +54,12 @@ namespace
         { "trigger-low-note-value",   "trigger-high-note-value"   },
     };
 
+    // Node types whose input-low-note / input-high-note filter follows grouped
+    // (matching node id) trigger range edits — edge resize and paste/duplicate
+    // transposition. Followers track the trigger-derived delta but saturate
+    // individually rather than constraining it.
+    const StringArray kRangeFollowerTypes { "Mapper", "Arpeggiator" };
+
     // Every note-valued property — the range pairs above plus the transpose
     // root, which is a position inside the range and so shifts with it on
     // paste. remapNoteRanges adds the (single, pre-clamped) delta to each of
@@ -1780,6 +1786,34 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
             && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIndexProp)))
             continue;
 
+        // Grouped followers (kRangeFollowerTypes: Mapper, Arpeggiator) follow
+        // the paste transposition — their input filter
+        // shifts by the same trigger-derived delta so the group lands intact
+        // (mirrors the edge-resize follower behaviour). Saturate each end at
+        // 0/127 rather than feeding the follower into the delta clamp: the
+        // triggers govern, the filter follows as far as it can. Same delta on
+        // both ends means clamping can compress the range at the extremes but
+        // never invert it. A full 0..127 range is the "no filter" sentinel
+        // and is left untouched — shifting it would window a follower that was
+        // authored to pass everything. Detached copy, pre-append, so no
+        // UndoManager — same contract as remapNoteRanges.
+        if (delta != 0 && kRangeFollowerTypes.contains (extra.getType().toString()))
+        {
+            static const Identifier followerLow  ("input-low-note");
+            static const Identifier followerHigh ("input-high-note");
+
+            const bool hasLo = extra.hasProperty (followerLow);
+            const bool hasHi = extra.hasProperty (followerHigh);
+            const int  loV   = hasLo ? (int) extra.getProperty (followerLow)  : 0;
+            const int  hiV   = hasHi ? (int) extra.getProperty (followerHigh) : 127;
+
+            if (! (loV == 0 && hiV == 127))   // full range = no filter, don't window it
+            {
+                if (hasLo) extra.setProperty (followerLow,  jlimit (0, 127, loV + delta), nullptr);
+                if (hasHi) extra.setProperty (followerHigh, jlimit (0, 127, hiV + delta), nullptr);
+            }
+        }
+
         container.appendChild (extra, um);
     }
 
@@ -2071,6 +2105,50 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
     if (resizeBounds.empty())
         return false;
 
+    // Grouped followers — kRangeFollowerTypes nodes (Mapper, Arpeggiator)
+    // sharing an id with any node in the stack (the same id-grouping
+    // convention doClear uses) track the dragged
+    // edge via their input-low/high-note filter. They follow the trigger's
+    // delta but never constrain it: a default 0..127 follower would otherwise
+    // pin the drag entirely. Instead each follower bound saturates against
+    // its own opposite edge and the 0/127 hard limits (per-bound minV/maxV,
+    // applied in updateEdgeResize). Missing props are captured at their
+    // documented defaults (0 / 127) so an unauthored follower still follows —
+    // the drag writes the explicit value.
+    {
+        static const Identifier followerLow  ("input-low-note");
+        static const Identifier followerHigh ("input-high-note");
+
+        StringArray groupIDs;
+        for (const auto& n : nodes)
+        {
+            const auto id = n.getProperty ("id").toString();
+            if (id.isNotEmpty())
+                groupIDs.addIfNotAlreadyThere (id);
+        }
+
+        if (! groupIDs.isEmpty())
+        {
+            for (auto child : getContainer())
+            {
+                if (! kRangeFollowerTypes.contains (child.getType().toString()) || nodes.contains (child))
+                    continue;
+
+                const auto childID = child.getProperty ("id").toString();
+                if (childID.isEmpty() || ! groupIDs.contains (childID, true))
+                    continue;
+
+                const int loV = child.hasProperty (followerLow)  ? (int) child.getProperty (followerLow)  : 0;
+                const int hiV = child.hasProperty (followerHigh) ? (int) child.getProperty (followerHigh) : 127;
+
+                if (lowEdge)
+                    resizeBounds.push_back ({ child, followerLow,  loV, 0,   hiV });  // can't rise past its high
+                else
+                    resizeBounds.push_back ({ child, followerHigh, hiV, loV, 127 }); // can't fall past its low
+            }
+        }
+    }
+
     // Find the nearest note on the extending side that belongs to a *different*
     // region (a node not in this stack) so a drag can't push this region into
     // its neighbour. Nodes stacked on the same keys are all in `nodes` and move
@@ -2121,7 +2199,7 @@ void NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
     auto*     um = builder ? &builder->getUndoManager() : nullptr;
 
     for (auto& b : resizeBounds)
-        b.node.setProperty (b.prop, b.orig + d, um);   // absolute from captured originals
+        b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), um);   // absolute from captured originals; followers saturate
 
     owner.repaint();
 }

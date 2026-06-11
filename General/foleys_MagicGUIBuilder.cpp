@@ -840,6 +840,26 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMapperUIDMenuLambda(
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createArpeggiatorUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getArpeggiatorUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPlaylistUIDMenuLambda() const
 {
     return [this](juce::ComboBox& combo)
