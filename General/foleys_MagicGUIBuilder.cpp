@@ -780,6 +780,26 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createLFOUIDMenuLambda() c
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createEnvelopeUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getEnvelopeUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createGeneratorUIDMenuLambda() const
 {
     return [this](juce::ComboBox& combo)
@@ -903,6 +923,111 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createModifierUIDMenuLambd
         for (auto& uid : uids)
             combo.addItem (uid, index++);
         combo.addSeparator();
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createUidMenuLambda() const
+{
+    return [this] (juce::ComboBox& combo)
+    {
+        int index = 1;
+
+        auto addGroup = [&] (const juce::StringArray& uids)
+        {
+            for (auto& uid : uids)
+                combo.addItem (uid, index++);
+            if (! uids.isEmpty())
+                combo.addSeparator();
+        };
+
+        addGroup (magicState.getLFOUIDs());
+        addGroup (magicState.getGeneratorUIDs());
+        addGroup (magicState.getCalculatorUIDs());
+        addGroup (magicState.getMapperUIDs());
+        addGroup (magicState.getArpeggiatorUIDs());
+        addGroup (magicState.getPlayheadUIDs());
+        addGroup (magicState.getPlaylistUIDs());
+        addGroup (magicState.getClipUIDs());
+        addGroup (magicState.getModifierUIDs());
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLambda() const
+{
+    auto* self = const_cast<MagicGUIBuilder*> (this);
+
+    return [self] (juce::ComboBox& combo)
+    {
+        // The combo is owned by the StyleChoicePropertyComponent that edits this
+        // property. Read the edited node straight off it — works in the main ToolBox
+        // and the Trigger Bank Editor alike, with no plugin-class dependency.
+        juce::ValueTree editedNode;
+        if (auto* spc = combo.findParentComponentOfClass<StyleChoicePropertyComponent>())
+            editedNode = spc->getNode();   // <-- adjust to the real accessor (see note)
+
+        auto targetUid = editedNode.getProperty ("destination-uid").toString();
+        if (targetUid.isEmpty())
+            return;
+
+        // Find the destination node: any *-uid property matching targetUid,
+        // ignoring our own destination-uid pointer property and our own node.
+        juce::ValueTree found;
+        std::function<void (juce::ValueTree)> walk = [&] (juce::ValueTree tree)
+        {
+            if (found.isValid())
+                return;
+
+            if (tree != editedNode)
+            {
+                for (int i = 0; i < tree.getNumProperties(); ++i)
+                {
+                    auto propName = tree.getPropertyName (i);
+                    if (propName.toString() == "destination-uid")
+                        continue;
+
+                    if (propName.toString().endsWith ("-uid")
+                        && tree.getProperty (propName).toString() == targetUid)
+                    {
+                        found = tree;
+                        return;
+                    }
+                }
+            }
+
+            for (auto child : tree)
+                walk (child);
+        };
+
+        walk (self->getGuiRootNode());
+        if (! found.isValid())
+            return;
+
+        // Bare-type temp — no uid, no engine wiring (dontUpdate = true).
+        juce::ValueTree bare (found.getType());
+        auto item = self->createGuiItem (bare, true);
+        if (item == nullptr)
+            return;
+
+        int index = 1;
+        for (auto& p : item->getSettableProperties())
+        {
+            auto name = p.name.toString();
+            if (name.endsWith ("-uid"))
+                continue;
+            combo.addItem (name, index++);
+        }
+
         combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
         {
             combo.setEditableText (true);

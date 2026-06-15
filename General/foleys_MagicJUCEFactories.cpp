@@ -1539,7 +1539,7 @@ public:
     {
         setColourTranslation (
         {
-            { "background-color", MagicLevelMeter::backgroundColourId },
+            { "level-meter-background-color", MagicLevelMeter::backgroundColourId },
             { "bar-background-color", MagicLevelMeter::barBackgroundColourId },
             { "outline-color", MagicLevelMeter::outlineColourId },
             { "bar-fill-color", MagicLevelMeter::barFillColourId },
@@ -1803,9 +1803,9 @@ public:
     {
         setColourTranslation (
         {
-            { "background-color",   juce::ListBox::backgroundColourId },
-            { "outline-color",      juce::ListBox::outlineColourId },
-            { "text-color",         juce::ListBox::textColourId }// enum on DropTargetListBox
+            { "listbox-background-color",   juce::ListBox::backgroundColourId },
+            { "listbox-outline-color",      juce::ListBox::outlineColourId },
+            { "listbox-text-color",         juce::ListBox::textColourId }// enum on DropTargetListBox
         });
 
         addAndMakeVisible (listBox);

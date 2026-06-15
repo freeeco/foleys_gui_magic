@@ -58,7 +58,7 @@ namespace
     // (matching node id) trigger range edits — edge resize and paste/duplicate
     // transposition. Followers track the trigger-derived delta but saturate
     // individually rather than constraining it.
-    const StringArray kRangeFollowerTypes { "Mapper", "Arpeggiator" };
+    const StringArray kRangeFollowerTypes { "Mapper", "Arpeggiator", "LFO", "Envelope" };
 
     // Every note-valued property — the range pairs above plus the transpose
     // root, which is a position inside the range and so shifts with it on
@@ -74,6 +74,158 @@ namespace
         "transpose-root-note-value",
         "trigger-low-note-value",   "trigger-high-note-value",
     };
+
+    //==============================================================================
+    // Group-id helpers — see insertPayloadAtKey / doClear.
+
+    /** Strips a trailing " (n)" suffix, returning the stem. Leaves the id
+        untouched if no suffix is present, or if the parens don't enclose digits.
+        "Note Repeat (2)" -> "Note Repeat"; "Note Repeat" -> "Note Repeat". */
+    inline String stripGroupSuffix (const String& id)
+    {
+        if (! id.endsWithChar (')'))
+            return id;
+
+        const int openParen = id.lastIndexOfChar ('(');
+        if (openParen < 1 || id[openParen - 1] != ' ')
+            return id;
+
+        const auto inside = id.substring (openParen + 1, id.length() - 1);
+        if (inside.isEmpty() || ! inside.containsOnly ("0123456789"))
+            return id;
+
+        return id.substring (0, openParen - 1);
+    }
+
+    /** True for ids ending in "[global]". Marks a node as a shared singleton:
+        on paste, it's skipped if its id is already present; on clear, the
+        companion is removed only when no other instance of its stem remains. */
+    inline bool isGlobalID (const String& id)
+    {
+        return id.trim().endsWithIgnoreCase ("[global]");
+    }
+
+    //==============================================================================
+    // Uniquify pass for insertPayloadAtKey.
+    //
+    // PGM's uniquification scheme stamps both UID-style identifiers and ":"-style
+    // value references with a millisecond-since-2000 suffix so pastes don't share
+    // bindings with their source. The detection rules:
+    //
+    //   * Value refs    — property *value* contains ":", no whitespace, doesn't
+    //                     start with "http", and ends with -<8+ digits>. Standalone
+    //                     only — composite strings (anything with ",;/") are
+    //                     treated as opaque external references and left alone.
+    //   * UID refs      — property *name* contains "-uid" and value matches
+    //                     <text>_<8+ digits> as a whole identifier (no ",;:/" or
+    //                     whitespace). Same standalone-only rule: a Playlist score
+    //                     string carrying clip UIDs with timing reaches outside the
+    //                     bundle and stays verbatim.
+    //
+    // Two-pass: pass 1 discovers and mints new stamps, pass 2 substitutes by
+    // exact-value lookup so cross-refs within the bundle land on the same new
+    // stamp. A single shared counter across both maps keeps stamps distinct.
+    //
+    // Non-uniquified refs ("gui:select_expression", "Playhead_main") have no
+    // matching suffix and so naturally fall through — they're stable identifiers
+    // by convention.
+
+    inline bool isStandaloneUniquifiedValue (const String& value)
+    {
+        if (! value.contains (":"))                          return false;
+        if (value != value.removeCharacters (" \t\n\r"))      return false;
+        if (value.startsWithIgnoreCase ("http"))             return false;
+        if (value.containsAnyOf (",;/"))                     return false;
+
+        const int lastDash = value.lastIndexOfChar ('-');
+        if (lastDash < 0)                                    return false;
+
+        const auto suffix = value.substring (lastDash + 1);
+        return suffix.length() >= 8 && suffix.containsOnly ("0123456789");
+    }
+
+    inline bool isStandaloneUniquifiedUID (const String& value)
+    {
+        if (value.isEmpty())                                 return false;
+        if (value.containsAnyOf (",;:/ \t\n\r"))             return false;
+
+        const int lastUnderscore = value.lastIndexOfChar ('_');
+        if (lastUnderscore <= 0)                             return false;
+
+        const auto suffix = value.substring (lastUnderscore + 1);
+        return suffix.length() >= 8 && suffix.containsOnly ("0123456789");
+    }
+
+    inline void uniquifyPayloadRefs (Array<ValueTree>& payload, Array<ValueTree>& extras)
+    {
+        const auto baseStamp = (int64) (Time::getCurrentTime()
+                                        - Time (2000, 0, 1, 0, 0, 0)).inMilliseconds();
+        int counter = 0;
+        std::map<String, String> valueMap, uidMap;
+
+        // Pass 1 — discover & mint.
+        std::function<void (ValueTree&)> discover = [&] (ValueTree& node)
+        {
+            for (int i = 0; i < node.getNumProperties(); ++i)
+            {
+                const auto name  = node.getPropertyName (i);
+                const auto value = node.getProperty (name).toString();
+
+                const bool isUidProp = name.toString().containsIgnoreCase ("-uid");
+
+                if (isUidProp)
+                {
+                    if (isStandaloneUniquifiedUID (value) && uidMap.find (value) == uidMap.end())
+                    {
+                        const auto stem = value.upToLastOccurrenceOf ("_", false, false);
+                        uidMap[value] = stem + "_" + String (baseStamp + counter++);
+                    }
+                }
+                else if (isStandaloneUniquifiedValue (value) && valueMap.find (value) == valueMap.end())
+                {
+                    const auto stem = value.upToLastOccurrenceOf ("-", false, false);
+                    valueMap[value] = stem + "-" + String (baseStamp + counter++);
+                }
+            }
+
+            for (auto child : node)
+                discover (child);
+        };
+
+        // Pass 2 — substitute. Exact-value lookup, so cross-refs (multiple
+        // properties carrying the same original string) all land on the same new
+        // string. Composites that contain a uniquified UID as a substring don't
+        // match here either — that's the deliberate "leave score strings alone"
+        // behaviour.
+        std::function<void (ValueTree&)> substitute = [&] (ValueTree& node)
+        {
+            for (int i = 0; i < node.getNumProperties(); ++i)
+            {
+                const auto name  = node.getPropertyName (i);
+                const auto value = node.getProperty (name).toString();
+
+                if (auto it = valueMap.find (value); it != valueMap.end())
+                {
+                    node.setProperty (name, it->second, nullptr);
+                    continue;
+                }
+                if (auto it = uidMap.find (value); it != uidMap.end())
+                    node.setProperty (name, it->second, nullptr);
+            }
+
+            for (auto child : node)
+                substitute (child);
+        };
+
+        for (auto& n : payload) discover (n);
+        for (auto& n : extras)  discover (n);
+
+        if (valueMap.empty() && uidMap.empty())
+            return;
+
+        for (auto& n : payload) substitute (n);
+        for (auto& n : extras)  substitute (n);
+    }
 
     // 20 distinguishable colours offered in the key menu's Colour submenu. The
     // names describe how each reads once applied at its `brightness` factor (see
@@ -1639,19 +1791,19 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (! container.isValid() || ! payloadRoot.isValid())
         return;
 
-    static const Identifier midiTriggerType ("MidiTrigger");
+    static const Identifier midiTriggerType  ("MidiTrigger");
+    static const Identifier midiEditorType   ("MidiEditor");
+    static const Identifier midiStateIdxProp ("midi-state-index");
+    static const Identifier idProp           ("id");
 
-    // MidiTrigger payloads go into the fixed-slot pool; any non-MidiTrigger
-    // siblings in a _multiCopy bundle (e.g. an LFO that drives a CC-to-select
-    // trigger) are appended to the end of the bank container so the snippet
-    // stays self-contained.
+    // ── Step 1 — split the payload into triggers (slot-pooled) and extras
+    // (appended). MidiTriggers always go through findEmptySlots; everything
+    // else (LFOs, Mappers, ListBoxes, ...) lands at the end of the container.
     Array<ValueTree> payload, extras;
     auto take = [&] (const ValueTree& src)
     {
-        if (src.getType() == midiTriggerType)
-            payload.add (src.createCopy());
-        else
-            extras.add (src.createCopy());
+        if (src.getType() == midiTriggerType) payload.add (src.createCopy());
+        else                                   extras.add  (src.createCopy());
     };
 
     if (payloadRoot.getType().toString() == "_multiCopy")
@@ -1663,7 +1815,10 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (payload.isEmpty())
         return;
 
-    // ── delta calculation unchanged ─────────────────────────────────────
+    // ── Step 2 — transpose delta from the trigger note-range props.
+    // Computed on the payload triggers only (extras don't carry these); the
+    // delta is then applied to triggers via remapNoteRanges and to range-
+    // follower extras (Mapper / Arpeggiator / LFO / Envelope) in Step 6.
     int lowest  = std::numeric_limits<int>::max();
     int highest = std::numeric_limits<int>::min();
     for (auto& n : payload)
@@ -1689,6 +1844,87 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
         if (highest + delta > 127) delta = 127 - highest;
     }
 
+    // ── Step 3 — uniquify uniquified UIDs and ":" values across the whole
+    // bundle. Standalone refs only; composites (e.g. a Playlist score string
+    // carrying clip UIDs) reach outside the bundle and stay verbatim. See
+    // uniquifyPayloadRefs for the detection rules.
+    uniquifyPayloadRefs (payload, extras);
+
+    // ── Step 4 — group-id collision policy.
+    //
+    // Nodes sharing an id form one logical group (clearKey / copyKeys treat
+    // them as a unit). When an incoming group's id is already present in the
+    // container:
+    //   * Regular ids get a Finder-style " (n)" suffix, applied uniformly to
+    //     every node in the bundle that shared the old id. Cross-refs inside
+    //     the bundle remain consistent because the rename map is computed
+    //     once before any writes.
+    //   * "[global]" ids are dropped from the bundle entirely — the existing
+    //     companion is shared. If a [global]'s UIDs were stamped by Step 3,
+    //     references from the bundle now point to a node that won't land;
+    //     authors of [global] singletons should use absolute UIDs
+    //     (e.g. "LFO_main") to avoid this. See doClear for the matching
+    //     companion-removal rule.
+    StringArray bundleIDs, takenIDs;
+    for (const auto& n : payload) { auto id = n.getProperty (idProp).toString(); if (id.isNotEmpty()) bundleIDs.addIfNotAlreadyThere (id); }
+    for (const auto& n : extras)  { auto id = n.getProperty (idProp).toString(); if (id.isNotEmpty()) bundleIDs.addIfNotAlreadyThere (id); }
+
+    for (auto child : container)
+    {
+        const auto id = child.getProperty (idProp).toString();
+        if (id.isNotEmpty()) takenIDs.addIfNotAlreadyThere (id);
+    }
+
+    std::map<String, String> idMap;   // old id -> new id for Finder renames
+    StringArray               skipIDs; // [global] ids already present
+    for (const auto& id : bundleIDs)
+    {
+        if (! takenIDs.contains (id, true))
+            continue;
+
+        if (isGlobalID (id))
+        {
+            skipIDs.add (id);
+            continue;
+        }
+
+        for (int n = 2; n < 10000; ++n)
+        {
+            const auto candidate = id + " (" + String (n) + ")";
+            if (! takenIDs.contains (candidate, true))
+            {
+                idMap[id] = candidate;
+                takenIDs.add (candidate);   // steer subsequent renames around it
+                break;
+            }
+        }
+    }
+
+    auto applyIDMap = [&] (Array<ValueTree>& arr)
+    {
+        for (auto& n : arr)
+        {
+            const auto id = n.getProperty (idProp).toString();
+            if (auto it = idMap.find (id); it != idMap.end())
+                n.setProperty (idProp, it->second, nullptr);
+        }
+    };
+    applyIDMap (payload);
+    applyIDMap (extras);
+
+    auto dropSkipped = [&] (Array<ValueTree>& arr)
+    {
+        for (int i = arr.size(); --i >= 0;)
+            if (skipIDs.contains (arr[i].getProperty (idProp).toString(), true))
+                arr.remove (i);
+    };
+    dropSkipped (payload);
+    dropSkipped (extras);
+
+    if (payload.isEmpty())
+        return;   // every trigger in the bundle was a [global] that's already loaded
+
+    // ── Step 5 — place the MidiTriggers into empty slots.
     auto slots = findEmptySlots (container, payload.size());
     if (slots.size() < payload.size())
         return;
@@ -1696,66 +1932,22 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Add trigger");
 
-    static const Identifier idProp ("id");
-
     for (int i = 0; i < payload.size(); ++i)
     {
         remapNoteRanges (payload.getReference (i), delta);
-
-        // Collision-aware id uniquification, Finder-style. id is the group key
-        // (paired ListBoxes/macro-panel elements, clearKey's sibling-by-id
-        // sweep, etc.) — two slots sharing one id would tie them together,
-        // which is rarely what the user wants when they Copy → Paste or re-Add
-        // a preset that's already present. We rename the new copy "Foo (2)",
-        // "Foo (3)", … until the candidate is free among the bank's
-        // MidiTrigger siblings. That keeps it a *group* in its own right (so
-        // the user can later attach a ListBox or other linked sibling using
-        // the same suffix, and clearKey will sweep the pair together) rather
-        // than an anonymous orphan. Cut → Paste is unaffected: cut calls
-        // clearPropertiesOfNode on the source, which strips id along with
-        // everything else, so by the time paste lands there's nothing to
-        // collide with and the original id moves verbatim.
-        auto& slotPayload = payload.getReference (i);
-        if (slotPayload.hasProperty (idProp))
-        {
-            const auto baseID = slotPayload.getProperty (idProp).toString();
-
-            auto idInUse = [&] (const String& candidate)
-            {
-                for (auto child : container)
-                    if (child.getType() == midiTriggerType
-                        && child.getProperty (idProp).toString().equalsIgnoreCase (candidate))
-                        return true;
-                return false;
-            };
-
-            if (idInUse (baseID))
-                for (int n = 2; ; ++n)
-                {
-                    const auto candidate = baseID + " (" + String (n) + ")";
-                    if (! idInUse (candidate))
-                    {
-                        slotPayload.setProperty (idProp, candidate, nullptr);
-                        break;
-                    }
-                }
-        }
-
-        fillSlot (slots.getReference (i), slotPayload, um);
+        fillSlot (slots.getReference (i), payload.getReference (i), um);
     }
 
-    // Append support nodes (LFOs, etc.) into the same transaction. Skip any
-    // that would duplicate an existing descendant of the container — by id
-    // for most extras, or by midi-state-index for MidiEditor (which has no id).
-    static const Identifier midiEditorType     ("MidiEditor");
-    static const Identifier midiStateIndexProp ("midi-state-index");
-
+    // ── Step 6 — append extras. MidiEditor still de-dupes by midi-state-index
+    // (no id). Range-follower types get their input range shifted by delta,
+    // saturating at 0/127; a full 0..127 input range is the "no filter"
+    // sentinel and stays untouched.
     std::function<bool (const ValueTree&, int)> hasMidiEditorWithIndex =
         [&] (const ValueTree& tree, int index) -> bool
         {
             if (tree.getType() == midiEditorType
-                && tree.hasProperty (midiStateIndexProp)
-                && (int) tree.getProperty (midiStateIndexProp) == index)
+                && tree.hasProperty (midiStateIdxProp)
+                && (int) tree.getProperty (midiStateIdxProp) == index)
                 return true;
 
             for (auto child : tree)
@@ -1767,36 +1959,11 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
     for (auto& extra : extras)
     {
-        const auto extraID = extra.getProperty ("id").toString();
-
-        // Skip if a NON-MidiTrigger node with this id already lives in the
-        // container subtree — i.e. the LFO / ListBox / etc. is already there
-        // from a previous paste and shouldn't be duplicated. MidiTrigger
-        // matches are excluded because by this point we've already filled the
-        // slot, so a MidiTrigger with this id is either the trigger we just
-        // placed (whose paired extras should land beside it, not be skipped)
-        // or a sibling-trigger sharing the id — also not a reason to drop the
-        // extra. The trigger-id-strip pass above handles the trigger-side of
-        // the collision; this loop now stays out of its way.
-        if (extraID.isNotEmpty() && findNodeByID (container, extraID, midiTriggerType).isValid())
-            continue;
-
         if (extra.getType() == midiEditorType
-            && extra.hasProperty (midiStateIndexProp)
-            && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIndexProp)))
+            && extra.hasProperty (midiStateIdxProp)
+            && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIdxProp)))
             continue;
 
-        // Grouped followers (kRangeFollowerTypes: Mapper, Arpeggiator) follow
-        // the paste transposition — their input filter
-        // shifts by the same trigger-derived delta so the group lands intact
-        // (mirrors the edge-resize follower behaviour). Saturate each end at
-        // 0/127 rather than feeding the follower into the delta clamp: the
-        // triggers govern, the filter follows as far as it can. Same delta on
-        // both ends means clamping can compress the range at the extremes but
-        // never invert it. A full 0..127 range is the "no filter" sentinel
-        // and is left untouched — shifting it would window a follower that was
-        // authored to pass everything. Detached copy, pre-append, so no
-        // UndoManager — same contract as remapNoteRanges.
         if (delta != 0 && kRangeFollowerTypes.contains (extra.getType().toString()))
         {
             static const Identifier followerLow  ("input-low-note");
@@ -1807,7 +1974,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
             const int  loV   = hasLo ? (int) extra.getProperty (followerLow)  : 0;
             const int  hiV   = hasHi ? (int) extra.getProperty (followerHigh) : 127;
 
-            if (! (loV == 0 && hiV == 127))   // full range = no filter, don't window it
+            if (! (loV == 0 && hiV == 127))
             {
                 if (hasLo) extra.setProperty (followerLow,  jlimit (0, 127, loV + delta), nullptr);
                 if (hasHi) extra.setProperty (followerHigh, jlimit (0, 127, hiV + delta), nullptr);
@@ -2006,6 +2173,60 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
 
         if (! linkedExtras.isEmpty() && builder != nullptr)
             toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
+    }
+
+    // [global] companions — remove "<stem> [global]" nodes whose stem has no
+    // surviving instance left in the container. The cleared groupIDs each
+    // yield a stem (strip a trailing " (n)" suffix). For each, scan the
+    // container for any node whose id matches the stem or "stem (n)"; if
+    // none remain, the companion goes with it. Mirrors the paste rule:
+    // [global] outlives its consumers, but only as long as any exists.
+    if (! groupIDs.isEmpty())
+    {
+        static const Identifier midiTriggerType ("MidiTrigger");
+
+        StringArray stems;
+        for (const auto& id : groupIDs)
+        {
+            if (isGlobalID (id))
+                continue;   // a [global] itself never anchors a stem
+            stems.addIfNotAlreadyThere (stripGroupSuffix (id));
+        }
+
+        for (const auto& stem : stems)
+        {
+            bool anyInstanceLeft = false;
+            for (auto child : container)
+            {
+                const auto cid = child.getProperty ("id").toString();
+                if (cid.isEmpty() || isGlobalID (cid)) continue;
+                if (stripGroupSuffix (cid) == stem)
+                {
+                    anyInstanceLeft = true;
+                    break;
+                }
+            }
+
+            if (anyInstanceLeft)
+                continue;
+
+            const auto globalID = stem + " [global]";
+            Array<ValueTree> globalsToRemove;
+            for (auto child : container)
+                if (child.getProperty ("id").toString().equalsIgnoreCase (globalID))
+                    globalsToRemove.add (child);
+
+            for (auto& g : globalsToRemove)
+            {
+                if (g.getType() == midiTriggerType)
+                    clearPropertiesOfNode (g, um);
+                else if (g.isValid() && g.getParent() == container)
+                    container.removeChild (g, um);
+            }
+
+            if (! globalsToRemove.isEmpty() && builder != nullptr)
+                toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
+        }
     }
 
     owner.repaint();

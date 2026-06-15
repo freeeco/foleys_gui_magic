@@ -281,6 +281,10 @@ public:
     void registerLFOUID   (const juce::String& uid) { lfoUIDs.addIfNotAlreadyThere (uid); }
     void unregisterLFOUID (const juce::String& uid) { lfoUIDs.removeString (uid); }
     juce::StringArray getLFOUIDs() const { return lfoUIDs; }
+        
+    void registerEnvelopeUID   (const juce::String& uid) { envelopeUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterEnvelopeUID (const juce::String& uid) { envelopeUIDs.removeString (uid); }
+    juce::StringArray getEnvelopeUIDs() const { return envelopeUIDs; }
     
     void registerGeneratorUID   (const juce::String& uid) { generatorUIDs.addIfNotAlreadyThere (uid); }
     void unregisterGeneratorUID (const juce::String& uid) { generatorUIDs.removeString (uid); }
@@ -349,6 +353,7 @@ private:
     juce::StringArray clipUIDs;
     juce::StringArray modifierUIDs;
     juce::StringArray lfoUIDs;
+    juce::StringArray envelopeUIDs;
     juce::StringArray generatorUIDs;
     juce::StringArray calculatorUIDs;
     juce::StringArray mapperUIDs;

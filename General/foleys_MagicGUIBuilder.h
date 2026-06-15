@@ -196,6 +196,7 @@ public:
     std::function<void(juce::ComboBox&)> createTriggerMenuLambda() const;
     std::function<void(juce::ComboBox&)> createPlayheadUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createLFOUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createEnvelopeUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createGeneratorUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createCalculatorUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createMapperUIDMenuLambda() const;
@@ -203,6 +204,8 @@ public:
     std::function<void(juce::ComboBox&)> createPlaylistUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createClipUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createModifierUIDMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createUidMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createNodePropertiesMenuLambda() const;
 
     template<typename ObjectType>
     std::function<void(juce::ComboBox&)> createObjectsMenuLambda() const

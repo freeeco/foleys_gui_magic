@@ -51,7 +51,8 @@ public:
     
     void refresh() override;
     void resized() override;
-
+    
+    juce::ValueTree getNode() const { return node; }
     bool isPropertiesMenu (juce::ComboBox& combo);
 
 private:
