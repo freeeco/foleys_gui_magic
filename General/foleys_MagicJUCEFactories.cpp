@@ -1674,7 +1674,7 @@ public:
             ? juce::jlimit (0, n - 1, (int) std::round (param.getValue() * (float) (n - 1)))
             : 0;
 
-        if (rowIsSelected || row == currentIdx)
+        if (row == currentIdx)
             g.fillAll (hostListBox.findColour (juce::ListBox::backgroundColourId).contrasting (0.15f));
 
         g.setColour (hostListBox.findColour (juce::ListBox::textColourId));
@@ -1803,9 +1803,11 @@ public:
     {
         setColourTranslation (
         {
-            { "listbox-background-color",   juce::ListBox::backgroundColourId },
-            { "listbox-outline-color",      juce::ListBox::outlineColourId },
-            { "listbox-text-color",         juce::ListBox::textColourId }// enum on DropTargetListBox
+            { "listbox-background-color",    juce::ListBox::backgroundColourId },
+            { "listbox-outline-color",       juce::ListBox::outlineColourId },
+            { "listbox-text-color",          juce::ListBox::textColourId },
+            { "scrollbar-thumb-color",       juce::ScrollBar::thumbColourId },
+            { "scrollbar-track-color",       juce::ScrollBar::trackColourId }
         });
 
         addAndMakeVisible (listBox);
@@ -1837,6 +1839,7 @@ public:
 
                 paramModel = std::make_unique<ParameterListModel> (*param, listBox, fontHeight);
                 listBox.setModel (paramModel.get());
+                updateScrollbarColours();
 
                 // Auto-size rows to font; explicit row-height wins if specified
                 listBox.setRowHeight (explicitRowHeight > 0
@@ -1852,6 +1855,7 @@ public:
             if (auto* model = getMagicState().getObjectWithType<juce::ListBoxModel> (modelID))
             {
                 listBox.setModel (model);
+                updateScrollbarColours();
                 if (explicitRowHeight > 0)
                     listBox.setRowHeight (explicitRowHeight);   // otherwise leave at JUCE default
             }
@@ -1892,7 +1896,21 @@ private:
     void timerCallback() override
     {
         listBox.updateContent();
+        updateScrollbarColours();
         listBox.repaint();
+    }
+    
+    void updateScrollbarColours()
+    {
+        auto& scrollbar = listBox.getVerticalScrollBar();
+
+        scrollbar.setColour (
+            juce::ScrollBar::thumbColourId,
+            listBox.findColour (juce::ScrollBar::thumbColourId));
+
+        scrollbar.setColour (
+            juce::ScrollBar::trackColourId,
+            listBox.findColour (juce::ScrollBar::trackColourId));
     }
 
     DropTargetListBox listBox;
