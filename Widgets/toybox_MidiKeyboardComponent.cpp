@@ -1941,7 +1941,10 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     // ── Step 6 — append extras. MidiEditor still de-dupes by midi-state-index
     // (no id). Range-follower types get their input range shifted by delta,
     // saturating at 0/127; a full 0..127 input range is the "no filter"
-    // sentinel and stays untouched.
+    // sentinel and stays untouched. The shift walks each extra's subtree so
+    // followers nested inside a group-root View (e.g. Note_Repeat's LFO
+    // tucked inside the user-facing panel) follow the transpose along with
+    // their containing group.
     std::function<bool (const ValueTree&, int)> hasMidiEditorWithIndex =
         [&] (const ValueTree& tree, int index) -> bool
         {
@@ -1957,6 +1960,29 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
             return false;
         };
 
+    static const Identifier followerLow  ("input-low-note");
+    static const Identifier followerHigh ("input-high-note");
+
+    std::function<void (ValueTree&)> shiftFollowers = [&] (ValueTree& node)
+    {
+        if (kRangeFollowerTypes.contains (node.getType().toString()))
+        {
+            const bool hasLo = node.hasProperty (followerLow);
+            const bool hasHi = node.hasProperty (followerHigh);
+            const int  loV   = hasLo ? (int) node.getProperty (followerLow)  : 0;
+            const int  hiV   = hasHi ? (int) node.getProperty (followerHigh) : 127;
+
+            if (! (loV == 0 && hiV == 127))
+            {
+                if (hasLo) node.setProperty (followerLow,  jlimit (0, 127, loV + delta), nullptr);
+                if (hasHi) node.setProperty (followerHigh, jlimit (0, 127, hiV + delta), nullptr);
+            }
+        }
+
+        for (auto child : node)
+            shiftFollowers (child);
+    };
+
     for (auto& extra : extras)
     {
         if (extra.getType() == midiEditorType
@@ -1964,22 +1990,8 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
             && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIdxProp)))
             continue;
 
-        if (delta != 0 && kRangeFollowerTypes.contains (extra.getType().toString()))
-        {
-            static const Identifier followerLow  ("input-low-note");
-            static const Identifier followerHigh ("input-high-note");
-
-            const bool hasLo = extra.hasProperty (followerLow);
-            const bool hasHi = extra.hasProperty (followerHigh);
-            const int  loV   = hasLo ? (int) extra.getProperty (followerLow)  : 0;
-            const int  hiV   = hasHi ? (int) extra.getProperty (followerHigh) : 127;
-
-            if (! (loV == 0 && hiV == 127))
-            {
-                if (hasLo) extra.setProperty (followerLow,  jlimit (0, 127, loV + delta), nullptr);
-                if (hasHi) extra.setProperty (followerHigh, jlimit (0, 127, hiV + delta), nullptr);
-            }
-        }
+        if (delta != 0)
+            shiftFollowers (extra);
 
         container.appendChild (extra, um);
     }
@@ -2350,22 +2362,35 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
 
         if (! groupIDs.isEmpty())
         {
+            // Walk every group-root subtree (top-level container children whose
+            // id is in groupIDs) and capture any range-follower descendant.
+            // Views are PGM's only nestable type, so non-View nodes terminate
+            // the walk on their own. A nested follower's own id is irrelevant
+            // — group membership is inherited from the View root — which is
+            // what lets a Note_Repeat-style snippet hide its LFO inside the
+            // user-facing View while still tracking the trigger edge.
+            std::function<void (const ValueTree&)> visit = [&] (const ValueTree& node)
+            {
+                if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
+                {
+                    const int loV = node.hasProperty (followerLow)  ? (int) node.getProperty (followerLow)  : 0;
+                    const int hiV = node.hasProperty (followerHigh) ? (int) node.getProperty (followerHigh) : 127;
+
+                    if (lowEdge)
+                        resizeBounds.push_back ({ node, followerLow,  loV, 0,   hiV });  // can't rise past its high
+                    else
+                        resizeBounds.push_back ({ node, followerHigh, hiV, loV, 127 }); // can't fall past its low
+                }
+
+                for (auto child : node)
+                    visit (child);
+            };
+
             for (auto child : getContainer())
             {
-                if (! kRangeFollowerTypes.contains (child.getType().toString()) || nodes.contains (child))
-                    continue;
-
                 const auto childID = child.getProperty ("id").toString();
-                if (childID.isEmpty() || ! groupIDs.contains (childID, true))
-                    continue;
-
-                const int loV = child.hasProperty (followerLow)  ? (int) child.getProperty (followerLow)  : 0;
-                const int hiV = child.hasProperty (followerHigh) ? (int) child.getProperty (followerHigh) : 127;
-
-                if (lowEdge)
-                    resizeBounds.push_back ({ child, followerLow,  loV, 0,   hiV });  // can't rise past its high
-                else
-                    resizeBounds.push_back ({ child, followerHigh, hiV, loV, 127 }); // can't fall past its low
+                if (childID.isNotEmpty() && groupIDs.contains (childID, true))
+                    visit (child);
             }
         }
     }
