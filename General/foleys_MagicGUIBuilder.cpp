@@ -963,6 +963,32 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createUidMenuLambda() cons
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPositionMenuLambda() const
+{
+    return [](juce::ComboBox& combo)
+    {
+        auto addBand = [&combo] (const juce::String& name, int first, int last)
+        {
+            juce::PopupMenu sub;
+            for (int i = first; i <= last; ++i)
+                sub.addItem (i + 1, juce::String (i));
+            combo.getRootMenu()->addSubMenu (name, sub);
+        };
+
+        addBand (NEEDS_TRANS ("Before Triggers (0-15)"),   0,  15);
+        addBand (NEEDS_TRANS ("Normal (16-31)"),          16,  31);
+        addBand (NEEDS_TRANS ("After Sequencers (32-47)"), 32, 47);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLambda() const
 {
     auto* self = const_cast<MagicGUIBuilder*> (this);
