@@ -1768,19 +1768,62 @@ void NewMidiKeyboardComponent::TriggerEditor::copyKeys (const Array<ValueTree>& 
     if (nodes.isEmpty())
         return;
 
-    if (nodes.size() == 1)
+    static const Identifier midiTriggerType ("MidiTrigger");
+
+    // findNodesForKey only returns triggers whose select/trigger/etc. range
+    // covers the clicked key. For a multi-trigger group (e.g. Note_Repeat's
+    // SPEED + REPEAT triggers under one id, with a View carrying the LFO and
+    // controls), clicking the SPEED key would otherwise hand us just the one
+    // trigger. Expand the selection by group id — same sweep doClear runs on
+    // the way out — so Copy / Cut grab the whole group. MidiTrigger siblings
+    // use propertiesOnlyCopy (slot index dropped, no children to worry about);
+    // non-trigger siblings use a full createCopy so View / nested LFO content
+    // survives.
+    StringArray groupIDs;
+    for (const auto& n : nodes)
+    {
+        const auto id = n.getProperty ("id").toString();
+        if (id.isNotEmpty())
+            groupIDs.addIfNotAlreadyThere (id);
+    }
+
+    Array<ValueTree> triggers, extras;
+    for (auto& n : nodes)
+        triggers.add (propertiesOnlyCopy (n));
+
+    if (! groupIDs.isEmpty())
+        if (auto container = getContainer(); container.isValid())
+            for (auto child : container)
+            {
+                if (nodes.contains (child))
+                    continue;   // already captured above
+
+                const auto childID = child.getProperty ("id").toString();
+                if (childID.isEmpty() || ! groupIDs.contains (childID, true))
+                    continue;
+
+                if (child.getType() == midiTriggerType)
+                    triggers.add (propertiesOnlyCopy (child));
+                else
+                    extras.add (child.createCopy());
+            }
+
+    const int total = triggers.size() + extras.size();
+    if (total == 1)
     {
         // Bare properties-only node — byte-compatible with the bank editor's
         // clipboard, so a single-key copy pastes into the node editor too.
-        SystemClipboard::copyTextToClipboard (propertiesOnlyCopy (nodes.getFirst()).toXmlString());
+        SystemClipboard::copyTextToClipboard (triggers.getFirst().toXmlString());
     }
     else
     {
-        // _multiCopy wrapper for a stack — matches the ToolBox / snippet
-        // convention. Each child is properties-only, same as the single case.
+        // _multiCopy wrapper for a group — matches the ToolBox / snippet
+        // convention. Triggers come first so the file reads naturally (slot
+        // pool up top, support nodes after) and matches the authored order
+        // in shipped snippets.
         ValueTree multi ("_multiCopy");
-        for (auto& n : nodes)
-            multi.appendChild (propertiesOnlyCopy (n), nullptr);
+        for (auto& n : triggers) multi.appendChild (n, nullptr);
+        for (auto& n : extras)   multi.appendChild (n, nullptr);
         SystemClipboard::copyTextToClipboard (multi.toXmlString());
     }
 }
@@ -2011,26 +2054,48 @@ void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const F
 
 void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
 {
-    // Snapshot the triggers covering this key — properties-only, slot index
-    // dropped (the destination slot supplies its own on load).
-    Array<ValueTree> triggers;
-    for (const auto& n : findNodesForKey (note))
-        triggers.add (propertiesOnlyCopy (n));
-
-    if (triggers.isEmpty())
+    // Snapshot the triggers covering this key, then expand by group id — same
+    // sweep copyKeys / doClear use — so multi-trigger groups (e.g. Note_Repeat's
+    // SPEED + REPEAT under one id, paired with a View carrying the LFO and
+    // controls) get saved whole. MidiTrigger siblings use propertiesOnlyCopy
+    // (slot index dropped, destination supplies its own on load); non-trigger
+    // siblings use createCopy so View / nested LFO content survives. Anything
+    // in the bank that isn't part of this group is left out — the curated-bank
+    // assumption is gone; the group id is the bundling boundary now.
+    auto nodes = findNodesForKey (note);
+    if (nodes.isEmpty())
         return;
 
-    // Sweep every non-MidiTrigger sibling in the bank container — LFOs and
-    // any other support nodes the triggers may reference. Full deep copy
-    // since these can carry children (propertiesOnlyCopy would drop them).
-    // Sound designers curate the bank ahead of time to drop anything they
-    // don't want bundled in the snippet.
     static const Identifier midiTriggerType ("MidiTrigger");
-    Array<ValueTree> extras;
-    if (auto container = getContainer(); container.isValid())
-        for (auto child : container)
-            if (child.getType() != midiTriggerType)
-                extras.add (child.createCopy());
+
+    StringArray groupIDs;
+    for (const auto& n : nodes)
+    {
+        const auto id = n.getProperty ("id").toString();
+        if (id.isNotEmpty())
+            groupIDs.addIfNotAlreadyThere (id);
+    }
+
+    Array<ValueTree> triggers, extras;
+    for (auto& n : nodes)
+        triggers.add (propertiesOnlyCopy (n));
+
+    if (! groupIDs.isEmpty())
+        if (auto container = getContainer(); container.isValid())
+            for (auto child : container)
+            {
+                if (nodes.contains (child))
+                    continue;   // already captured above
+
+                const auto childID = child.getProperty ("id").toString();
+                if (childID.isEmpty() || ! groupIDs.contains (childID, true))
+                    continue;
+
+                if (child.getType() == midiTriggerType)
+                    triggers.add (propertiesOnlyCopy (child));
+                else
+                    extras.add (child.createCopy());
+            }
 
     auto folder = presetFolder;
     if (! folder.isDirectory())

@@ -106,7 +106,7 @@ juce::var StylePropertyComponent::lookupValue()
     if (node == inheritedFrom)
         setTooltip ({});
     else if (inheritedFrom.isValid() == false)
-        setTooltip ("default");
+        setTooltip ("");
     else if (s.isClassNode (inheritedFrom))
         setTooltip ("Class: " + inheritedFrom.getType().toString() + " (double-click)");
     else if (s.isTypeNode (inheritedFrom))
