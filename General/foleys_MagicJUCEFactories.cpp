@@ -1159,6 +1159,7 @@ public:
     static const juce::String      pInitialLowestKeyShowing;
     static const juce::String      pEditContainer;
     static const juce::Identifier  pEditModeValue;
+    static const juce::Identifier  pMacroPanelValue;
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
       : GuiItem (builder, node),
@@ -1225,6 +1226,24 @@ public:
             keyboard.setEditMode (false);
         }
         
+        const auto macroID = getProperty (pMacroPanelValue).toString();
+        macroPanelValue.removeListener (this);                     // avoid stacking on re-update
+
+        if (macroID.isNotEmpty())
+        {
+            macroPanelValue.referTo (getMagicState().getPropertyAsValue (macroID));
+            macroPanelValue.addListener (this);
+            keyboard.setMacroButtonVisible (true);
+            keyboard.setMacroPanelOpen ((bool) macroPanelValue.getValue());   // reflect APVTS state on init
+            keyboard.onToggleMacroPanel = [this]
+                { macroPanelValue.setValue ((bool) macroPanelValue.getValue() ? 0 : 1); };
+        }
+        else
+        {
+            keyboard.setMacroButtonVisible (false);
+            keyboard.onToggleMacroPanel = nullptr;
+        }
+        
         foleys::SharedApplicationSettings appSettings;
         keyboard.setTriggerPresetFolder (appSettings->getFileName()
                                             .getParentDirectory()
@@ -1239,6 +1258,8 @@ public:
         props.push_back ({ configNode, pEditContainer, SettableProperty::Text,   {}, {} , "Container node id whose triggers this keyboard can edit (match the Trigger Bank Editor)" });
         props.push_back ({ configNode, pEditModeValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
                            "Value that turns inline trigger editing on/off (bind to a button/parameter/property)" });
+        props.push_back ({ configNode, pMacroPanelValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
+                           "Value toggled by the macro-panel button (bind to a button/parameter/property)" });
         
         return props;
     }
@@ -1251,18 +1272,23 @@ public:
 private:
     juce::NewMidiKeyboardComponent keyboard;
     juce::Value editModeValue;
+    juce::Value macroPanelValue;
     
-    void valueChanged (juce::Value&) override
+    void valueChanged (juce::Value& v) override
     {
-        keyboard.setEditMode ((bool) editModeValue.getValue());
+        if (v.refersToSameSourceAs (editModeValue))
+            keyboard.setEditMode ((bool) editModeValue.getValue());
+        else if (v.refersToSameSourceAs (macroPanelValue))
+            keyboard.setMacroPanelOpen ((bool) macroPanelValue.getValue());
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (KeyboardItem)
 };
 const juce::String      KeyboardItem::pKeyWidth                     {"key-width"};
 const juce::String      KeyboardItem::pInitialLowestKeyShowing      {"initial-lowest-key"};
-const juce::String KeyboardItem::pEditContainer { "edit-container-id" };
-const juce::Identifier KeyboardItem::pEditModeValue { "edit-mode-value" };
+const juce::String      KeyboardItem::pEditContainer { "edit-container-id" };
+const juce::Identifier  KeyboardItem::pEditModeValue { "edit-mode-value" };
+const juce::Identifier  KeyboardItem::pMacroPanelValue { "macro-panel-value" };
 
 //==============================================================================
 

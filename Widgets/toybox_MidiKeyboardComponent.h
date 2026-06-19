@@ -282,6 +282,8 @@ public:
     void colourChanged() override;
     /** @internal */
     void paint (Graphics& g) override;
+    /** @internal */
+    bool hitTest (int x, int y) override;
     
     void setInitialLowestKeyShowing(int keyNumber) {
         initialLowestKeyShowing = keyNumber;
@@ -342,6 +344,40 @@ public:
         doesn't flip editMode itself. */
     std::function<void()> onEnterEditMode;
 
+    //==============================================================================
+    // Macro-panel toggle button.
+    //
+    // A second fixed top-left button, drawn 8px below the edit-mode toggle,
+    // showing three dots ("..."). It's a simple open/closed toggle that drives
+    // an external value (typically backed by an APVTS parameter), independent of
+    // edit mode and the trigger context. Same single-source-of-truth rule as
+    // edit mode: clicking calls onToggleMacroPanel (which flips the bound value)
+    // and the value drives setMacroPanelOpen back; the keyboard never flips its
+    // own flag.
+
+    /** Shows / hides the macro-panel button. Hidden by default; turn it on only
+        when a macro value is actually bound. */
+    void setMacroButtonVisible (bool shouldBeVisible);
+    bool isMacroButtonVisible() const noexcept { return macroButtonVisible; }
+
+    /** Reflects the macro panel's open state, driven by the bound value (the
+        keyboard never flips it itself). While open, the keyboard hides itself
+        entirely: it stops painting the keys, becomes a transparent click-through
+        overlay (every click except the close button falls through to the
+        component behind), hides its scroll buttons, and draws a single close
+        button (an x-disc, same look as the edit-mode toggle) that toggles the
+        value back to 0. */
+    void setMacroPanelOpen (bool isOpen);
+    bool isMacroPanelOpen() const noexcept { return macroPanelOpen; }
+
+    /** Called when the user clicks the macro button. Wire this to flip the
+        bound macro value (0/1), e.g.:
+        @code
+            keyboard.onToggleMacroPanel = [this]
+                { macroPanelValue.setValue (macroPanelValue.getValue() ? 0 : 1); };
+        @endcode */
+    std::function<void()> onToggleMacroPanel;
+
 private:
     //==============================================================================
     void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override final;
@@ -367,11 +403,21 @@ private:
     void drawEditOutlines (Graphics& g);
     void drawZoneOutline  (Graphics& g, int startNote, int endNote);
 
-    /** Fixed top-left bounds of the edit-mode toggle button, in component
-        coordinates (so it stays put while the keys scroll). Drawn and
-        hit-tested whenever triggerEditor.hasContext() is true — the icon
-        inside (x or +) flips with editMode. */
+    /** Bounds of the edit-mode toggle button — top-left, "+" and "x" in place.
+        iOS buttons are fatter for touch. Drawn / hit-tested whenever
+        triggerEditor.hasContext() is true and the macro panel isn't open. */
     Rectangle<float> getCloseButtonBounds() const;
+
+    /** Bounds of the macro-panel toggle button — top-right, the edit button
+        mirrored across the keyboard (same distance from the right edge as the
+        edit button is from the left). Holds both the idle "..." (hidden while
+        edit mode is active) and the panel-open close (x) overlay. */
+    Rectangle<float> getMacroButtonBounds() const;
+
+    /** Bounds of just the panel-open close (x) box — derived from the macro
+        button on the right with an x offset, so it can be nudged independently
+        of the "..." button. */
+    Rectangle<float> getMacroCloseButtonBounds() const;
 
     /** Edit-mode region edge resize. A trigger region is the contiguous run of
         same-coloured notes; dragging within a few pixels of its left/right edge
@@ -419,6 +465,16 @@ private:
     bool resizingRegion   = false;
     bool resizeLowEdge    = false;
     int  resizeAnchorNote = -1;   // the edge's original note, drag deltas are measured from here
+
+    //==============================================================================
+    // Macro-panel button state. Visibility and open-state are both externally
+    // driven (the bound value); the keyboard only stores them for drawing.
+    bool macroButtonVisible = false;
+    bool macroPanelOpen     = false;
+
+    // Scroll position stashed while the panel is open (hiding the scroll buttons
+    // resets the keyboard to its leftmost key); restored on reshow. -1 = unset.
+    int  savedLowestVisibleKey = -1;
 
     //==============================================================================
     /** Plain nested helper — not a Component, never shown, no bounds, no paint.

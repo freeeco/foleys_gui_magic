@@ -472,6 +472,27 @@ void NewMidiKeyboardComponent::updateNoteUnderMouse (Point<float> pos, bool isDo
 
 void NewMidiKeyboardComponent::paint (Graphics& g)
 {
+    // Macro panel open: the keyboard is hidden so the component behind shows
+    // through. Paint nothing but a close button — an x-disc identical to the
+    // edit-mode toggle — at the macro button's position. Clicking it toggles
+    // the bound value back to 0 (handled in mouseDown, same hit target as
+    // getMacroCloseButtonBounds()).
+    if (macroPanelOpen)
+    {
+        const auto b = getMacroCloseButtonBounds();
+        g.setColour (Colours::lightgrey);
+        g.fillEllipse (b);
+        g.setColour (Colours::grey);
+        g.drawEllipse (b, 1.0f);
+
+        const auto x   = b.reduced (b.getWidth() * 0.32f);
+        const float th = jmax (1.5f, b.getWidth() * 0.10f);
+        g.setColour (Colours::darkgrey);
+        g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
+        g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
+        return;
+    }
+
     g.fillAll (juce::Colours::darkgrey);
 
     KeyboardComponentBase::paint (g);
@@ -506,6 +527,42 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
             g.drawLine (cx,        x.getY(), cx,           x.getBottom(), th);
         }
     }
+
+    // Macro-panel toggle button — the three dots ("..."), in the bottom slot
+    // below the edit toggle. Shown whenever a macro value is bound, but hidden
+    // while edit mode is active to keep the corner uncluttered. (Only drawn
+    // while closed; the open state is the full-keyboard overlay above.)
+    if (macroButtonVisible && ! editMode)
+    {
+        const auto b = getMacroButtonBounds();
+        g.setColour (Colours::lightgrey);
+        g.fillEllipse (b);
+        g.setColour (Colours::grey);
+        g.drawEllipse (b, 1.0f);
+
+        const float dotR = jmax (1.0f, b.getWidth() * 0.07f);
+        const float gap  = b.getWidth() * 0.24f;
+        const float cy   = b.getCentreY();
+        const float cx   = b.getCentreX();
+        g.setColour (Colours::darkgrey);
+
+        for (int i = -1; i <= 1; ++i)
+        {
+            const float dcx = cx + (float) i * gap;
+            g.fillEllipse (dcx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f);
+        }
+    }
+}
+
+bool NewMidiKeyboardComponent::hitTest (int x, int y)
+{
+    // While the macro panel is open the keyboard is a transparent overlay: only
+    // the close button is "solid", so every other click passes through to the
+    // component behind. Closed, the whole component is interactive as usual.
+    if (macroPanelOpen)
+        return getMacroCloseButtonBounds().expanded (4.0f).contains ((float) x, (float) y);
+
+    return true;
 }
 
 void NewMidiKeyboardComponent::repaintNote (int noteNum)
@@ -557,6 +614,21 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 {
+    // Macro-panel toggle button — independent of edit mode / triggers, fixed at
+    // the top-left below the edit toggle. Left-click flips the bound macro value
+    // via the callback; takes priority over the keys (and any edit-region edge)
+    // beneath it. The keyboard never flips its own macroPanelOpen flag. Matches
+    // the button's visibility: clickable when the panel is open (the close x) or
+    // when the dots are showing (macro bound and not in edit mode).
+    if (! e.mods.isPopupMenu()
+        && (macroPanelOpen || (macroButtonVisible && ! editMode))
+        && (macroPanelOpen ? getMacroCloseButtonBounds() : getMacroButtonBounds()).expanded (4.0f).contains (e.position))
+    {
+        if (onToggleMacroPanel != nullptr)
+            onToggleMacroPanel();
+        return;
+    }
+
 #if MAX_MIDI_TRIGGERS > 0
     if (e.mods.isPopupMenu())
     {
@@ -569,7 +641,7 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
     // Toggle button takes priority over the keys beneath it whenever it's
     // visible (i.e. the editor has a container). Click swaps editMode by way
     // of the host-owned value — the keyboard doesn't flip it directly.
-    if (triggerEditor.hasContext() && getCloseButtonBounds().contains (e.position))
+    if (triggerEditor.hasContext() && ! macroPanelOpen && getCloseButtonBounds().expanded (4.0f).contains (e.position))
     {
         if (editMode) { if (onExitEditMode  != nullptr) onExitEditMode();  }
         else          { if (onEnterEditMode != nullptr) onEnterEditMode(); }
@@ -602,6 +674,12 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 
 Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
 {
+    // Edit toggle: top-left, sitting just inboard of the left octave-scroll
+    // button. That scroll button is wider on iOS (its end keys double as touch
+    // octave shifters), so derive the x inset from the actual scroll-button
+    // width + a fixed gap rather than a magic constant — that way it clears the
+    // octave button by the same gap on every platform. iOS also uses a fatter
+    // disc. The macro button on the right mirrors this, so both sides clear.
 #if JUCE_IOS
     const float margin = 12.0f;
     const float d      = jlimit (16.0f, 34.0f, (float) getHeight() * 0.32f);
@@ -609,7 +687,26 @@ Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
     const float margin = 6.0f;
     const float d      = jlimit (16.0f, 28.0f, (float) getHeight() * 0.16f);
 #endif
-    return { margin + 14.0f, margin + 2.0f, d, d };
+    const float gap = 8.0f;                                  // clearance from the octave-scroll button
+    const float x   = (float) getScrollButtonWidth() + gap;
+    return { x, margin + 2.0f, d, d };
+}
+
+Rectangle<float> NewMidiKeyboardComponent::getMacroButtonBounds() const
+{
+    // Macro toggle: top-right — the edit button mirrored across the keyboard, so
+    // it sits the same distance from the right edge as the edit button is from
+    // the left. Same y and size.
+    const auto edit = getCloseButtonBounds();
+    return edit.withX ((float) getWidth() - edit.getRight());
+}
+
+Rectangle<float> NewMidiKeyboardComponent::getMacroCloseButtonBounds() const
+{
+    // The panel-open close (x), only. Starts from the macro button on the right;
+    // change macroCloseXOffset to nudge it independently of the "..." button.
+    constexpr float macroCloseXOffset = 0.0f;
+    return getMacroButtonBounds().translated (macroCloseXOffset, 0.0f);
 }
 
 NewMidiKeyboardComponent::RegionEdge NewMidiKeyboardComponent::hitTestRegionEdge (Point<float> pos)
@@ -683,6 +780,11 @@ void NewMidiKeyboardComponent::mouseExit (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::timerCallback()
 {
+    // Hidden while the macro panel is open — skip provider polling and per-key
+    // repaints. Pending MIDI updates wait; setMacroPanelOpen repaints on close.
+    if (macroPanelOpen)
+        return;
+
     const bool noMidiUpdates = noPendingUpdates.exchange (true);
 
     if (noMidiUpdates && ! noteColourProvider && ! noteLabelProvider)
@@ -1283,6 +1385,41 @@ void NewMidiKeyboardComponent::setEditMode (bool shouldBeOn)
         resizingRegion = false;
         triggerEditor.endEdgeResize();
         setMouseCursor (MouseCursor::NormalCursor);
+    }
+
+    repaint();
+}
+
+void NewMidiKeyboardComponent::setMacroButtonVisible (bool shouldBeVisible)
+{
+    if (macroButtonVisible == shouldBeVisible)
+        return;
+
+    macroButtonVisible = shouldBeVisible;
+    repaint();
+}
+
+void NewMidiKeyboardComponent::setMacroPanelOpen (bool isOpen)
+{
+    if (macroPanelOpen == isOpen)
+        return;
+
+    macroPanelOpen = isOpen;
+
+    if (isOpen)
+    {
+        // Hiding the scroll buttons snaps the keyboard back to its leftmost key,
+        // so stash the current scroll position to restore when we reshow.
+        savedLowestVisibleKey = getLowestVisibleKey();
+        setOpaque (false);
+        setScrollButtonsVisible (false);
+    }
+    else
+    {
+        setScrollButtonsVisible (true);
+        if (savedLowestVisibleKey >= 0)
+            setLowestVisibleKey (savedLowestVisibleKey);   // restore after re-enabling so it sticks
+        setOpaque (findColour (whiteNoteColourId).isOpaque());
     }
 
     repaint();
