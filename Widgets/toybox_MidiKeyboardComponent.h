@@ -426,6 +426,13 @@ private:
     struct RegionEdge { bool valid = false; bool lowEdge = false; int regionStart = -1, regionEnd = -1; };
     RegionEdge hitTestRegionEdge (Point<float> pos);
 
+    /** Edit-mode region drag handle. A 30-px band at the top of each region's
+        keys; dragging within it translates the whole region (low + high notes
+        shift together by one delta). hitTestRegionHandle reports the region
+        under a point if it's inside the band, else invalid. */
+    struct RegionHandle { bool valid = false; int regionStart = -1, regionEnd = -1; };
+    RegionHandle hitTestRegionHandle (Point<float> pos);
+
     int initialLowestKeyShowing = 24;
 
     //==============================================================================
@@ -465,6 +472,11 @@ private:
     bool resizingRegion   = false;
     bool resizeLowEdge    = false;
     int  resizeAnchorNote = -1;   // the edge's original note, drag deltas are measured from here
+
+    // Hovered drag-handle region (top-band hover indicator). Cleared while a
+    // drag is in progress, repainted on hover changes. -1 = nothing hovered.
+    int hoveredHandleStart = -1;
+    int hoveredHandleEnd   = -1;
 
     //==============================================================================
     // Macro-panel button state. Visibility and open-state are both externally
@@ -512,6 +524,12 @@ private:
         bool beginEdgeResize  (int edgeNote, bool lowEdge);
         void updateEdgeResize (int delta);
         void endEdgeResize();
+
+        // Region drag handle — captures BOTH edges of every range pair on every
+        // node covering anyNoteInRegion (plus both edges of any grouped
+        // followers), so a single delta translates the whole region. Reuses
+        // updateEdgeResize / endEdgeResize unchanged.
+        bool beginRegionDrag  (int anyNoteInRegion);
 
     private:
         ValueTree        getContainer() const;

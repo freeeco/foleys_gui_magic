@@ -371,6 +371,11 @@ namespace
     // a press. Bump these if the hover becomes invisible on busy backgrounds.
     constexpr float kHoverCustomDarken = 0.14f;   // darken amount on coloured keys (vs 0.15)
     constexpr float kHoverOverlayAlpha = 0.35f;   // multiplier on mouseOverKeyOverlayColourId
+
+    // Edit-mode region drag handle — a band along the top of each region's keys
+    // that translates the whole range (low + high notes shift together by one
+    // delta).
+    constexpr float kRegionHandleHeight     = 30.0f;
 }
 
 //==============================================================================
@@ -672,8 +677,13 @@ void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
     updateNoteUnderMouse (e, false);
 
     if (editMode && ! resizingRegion)
-        setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
-                                                             : MouseCursor::NormalCursor);
+    {
+        if (hitTestRegionHandle (e.position).valid)
+            setMouseCursor (MouseCursor::DraggingHandCursor);
+        else
+            setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
+                                                                 : MouseCursor::NormalCursor);
+    }
 }
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
@@ -741,6 +751,25 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
         if (editMode) { if (onExitEditMode  != nullptr) onExitEditMode();  }
         else          { if (onEnterEditMode != nullptr) onEnterEditMode(); }
         return;
+    }
+
+    // Grabbing the top-band handle translates the whole region (low + high
+    // edges shift together). Checked before the edge hit so the upper corners
+    // are reliably grabbable as "translate" rather than "resize".
+    if (editMode)
+    {
+        const auto handle = hitTestRegionHandle (e.position);
+        if (handle.valid)
+        {
+            const int anchor = getNoteAndVelocityAtPosition (e.position).note;
+            if (anchor >= 0 && triggerEditor.beginRegionDrag (anchor))
+            {
+                resizingRegion     = true;
+                resizeAnchorNote   = anchor;
+                setMouseCursor (MouseCursor::DraggingHandCursor);
+                return;
+            }
+        }
     }
 
     // Grabbing a region edge starts a width resize instead of opening the menu.
@@ -839,6 +868,41 @@ NewMidiKeyboardComponent::RegionEdge NewMidiKeyboardComponent::hitTestRegionEdge
     return hit;
 }
 
+NewMidiKeyboardComponent::RegionHandle NewMidiKeyboardComponent::hitTestRegionHandle (Point<float> pos)
+{
+    RegionHandle hit;
+    if (! editMode || ! noteColourProvider)
+        return hit;
+
+    // Horizontal keyboard only — the band sits along the top of the keys.
+    if (getOrientation() != horizontalKeyboard)
+        return hit;
+
+    if (pos.y > kRegionHandleHeight)
+        return hit;
+
+    // Close button overlaps the band at the top-left and takes priority.
+    if (triggerEditor.hasContext() && getCloseButtonBounds().expanded (4.0f).contains (pos))
+        return hit;
+
+    const int note = getNoteAndVelocityAtPosition (pos).note;
+    if (note < 0)
+        return hit;
+
+    const auto c = noteColourProvider (note);
+    if (! c.has_value())
+        return hit;
+
+    int start = note, end = note;
+    while (start - 1 >= getRangeStart() && noteColourProvider (start - 1) == c) --start;
+    while (end   + 1 <= getRangeEnd()   && noteColourProvider (end   + 1) == c) ++end;
+
+    hit.valid       = true;
+    hit.regionStart = start;
+    hit.regionEnd   = end;
+    return hit;
+}
+
 void NewMidiKeyboardComponent::mouseUp (const MouseEvent& e)
 {
     if (resizingRegion)
@@ -847,8 +911,13 @@ void NewMidiKeyboardComponent::mouseUp (const MouseEvent& e)
         resizingRegion = false;
 
         if (editMode)
-            setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
-                                                                 : MouseCursor::NormalCursor);
+        {
+            if (hitTestRegionHandle (e.position).valid)
+                setMouseCursor (MouseCursor::DraggingHandCursor);
+            else
+                setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
+                                                                     : MouseCursor::NormalCursor);
+        }
         return;
     }
 
@@ -868,6 +937,13 @@ void NewMidiKeyboardComponent::mouseEnter (const MouseEvent& e)
 void NewMidiKeyboardComponent::mouseExit (const MouseEvent& e)
 {
     updateNoteUnderMouse (e, false);
+
+    if (hoveredHandleStart >= 0)
+    {
+        hoveredHandleStart = -1;
+        hoveredHandleEnd   = -1;
+        repaint();
+    }
 
     if (! resizingRegion)
         setMouseCursor (MouseCursor::NormalCursor);
@@ -3121,6 +3197,116 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
     if (auto* um = builder ? &builder->getUndoManager() : nullptr)
         um->beginNewTransaction (lowEdge ? "Resize trigger (lower note)"
                                          : "Resize trigger (upper note)");
+
+    resizeActive = true;
+    return true;
+}
+
+bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegion)
+{
+    // Same shape as beginEdgeResize, but captures BOTH edges of every range
+    // pair so one delta translates the whole region. updateEdgeResize and
+    // endEdgeResize are reused unchanged.
+    resizeActive = false;
+    resizeBounds.clear();
+
+    if (! getContainer().isValid())
+        return false;
+
+    auto nodes = findNodesForKey (anyNoteInRegion);
+    if (nodes.isEmpty())
+        return false;
+
+    int minLowVal  = 128;
+    int maxHighVal = -1;
+
+    for (auto& n : nodes)
+    {
+        for (const auto& pair : kTriggerRangePairs)
+        {
+            const Identifier lo (pair.lo), hi (pair.hi);
+            if (! (n.hasProperty (lo) && n.hasProperty (hi)))
+                continue;
+
+            const int loV = (int) n.getProperty (lo);
+            const int hiV = (int) n.getProperty (hi);
+
+            resizeBounds.push_back ({ n, lo, loV });
+            resizeBounds.push_back ({ n, hi, hiV });
+
+            minLowVal  = jmin (minLowVal,  loV);
+            maxHighVal = jmax (maxHighVal, hiV);
+        }
+    }
+
+    if (resizeBounds.empty())
+        return false;
+
+    // Grouped followers — same set as beginEdgeResize. Capture both edges;
+    // each saturates individually at 0/127 (default per-bound clamp), matching
+    // edge-drag semantics.
+    {
+        static const Identifier followerLow  ("input-low-note");
+        static const Identifier followerHigh ("input-high-note");
+
+        StringArray groupIDs;
+        for (const auto& n : nodes)
+        {
+            const auto id = n.getProperty ("id").toString();
+            if (id.isNotEmpty())
+                groupIDs.addIfNotAlreadyThere (id);
+        }
+
+        if (! groupIDs.isEmpty())
+        {
+            std::function<void (const ValueTree&)> visit = [&] (const ValueTree& node)
+            {
+                if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
+                {
+                    const int loV = node.hasProperty (followerLow)  ? (int) node.getProperty (followerLow)  : 0;
+                    const int hiV = node.hasProperty (followerHigh) ? (int) node.getProperty (followerHigh) : 127;
+
+                    resizeBounds.push_back ({ node, followerLow,  loV });
+                    resizeBounds.push_back ({ node, followerHigh, hiV });
+                }
+
+                for (auto child : node)
+                    visit (child);
+            };
+
+            for (auto child : getContainer())
+            {
+                const auto childID = child.getProperty ("id").toString();
+                if (childID.isNotEmpty() && groupIDs.contains (childID, true))
+                    visit (child);
+            }
+        }
+    }
+
+    // Same blockedByOther scan as beginEdgeResize, run for both directions —
+    // the region can't push into a neighbour on either side.
+    auto blockedByOther = [this, &nodes] (int note)
+    {
+        auto container = getContainer();
+        for (auto child : container)
+            if (! nodes.contains (child) && nodeCoversKey (child, note))
+                return true;
+        return false;
+    };
+
+    int floorNote = 0;
+    for (int n = minLowVal - 1; n >= 0; --n)
+        if (blockedByOther (n)) { floorNote = n + 1; break; }
+
+    int ceilNote = 127;
+    for (int n = maxHighVal + 1; n <= 127; ++n)
+        if (blockedByOther (n)) { ceilNote = n - 1; break; }
+
+    resizeMinDelta = floorNote - minLowVal;
+    resizeMaxDelta = ceilNote  - maxHighVal;
+
+    if (auto* um = builder ? &builder->getUndoManager() : nullptr)
+        um->beginNewTransaction ("Move trigger region");
 
     resizeActive = true;
     return true;
