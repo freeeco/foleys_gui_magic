@@ -538,6 +538,7 @@ private:
         void saveKeyAs       (int note);
         void applyPresetFile (int note, const File& file);
         void insertPayloadAtKey (ValueTree payloadRoot, int note);
+        void autoColourSnippet  (ValueTree& root);
         void buildPresetMenu (PopupMenu& menu, const File& folder,
                               std::vector<File>& files, int baseId);
         static void remapNoteRanges (ValueTree node, int delta);
@@ -565,6 +566,11 @@ private:
     };
 
     TriggerEditor triggerEditor { *this };
+    
+    // Cycles round kTriggerColours when applyPresetFile autoColours an inserted
+    // snippet. Reached from TriggerEditor through owner; per-keyboard so multiple
+    // keyboards cycle independently.
+    int nextAutoColourIndex = 0;
 
     //==============================================================================
     

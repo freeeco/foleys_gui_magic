@@ -74,6 +74,14 @@ namespace
         "transpose-root-note-value",
         "trigger-low-note-value",   "trigger-high-note-value",
     };
+    
+    // Macro pool sizes — upper bounds only. The allocator self-limits to params that
+    // actually exist in the patch (Step 5 in insertPayloadAtKey checks getParameter),
+    // so these just need to be >= the macro_select / macro_knob / macro_button counts
+    // exposed by the RNBO patch.
+    static constexpr int kMaxSelectMacros = 32;
+    static constexpr int kMaxKnobMacros   = 32;
+    static constexpr int kMaxButtonMacros = 32;
 
     //==============================================================================
     // Group-id helpers — see insertPayloadAtKey / doClear.
@@ -233,19 +241,106 @@ namespace
     // still read too bright are taken down further.
     struct TriggerNamedColour { String name; Colour colour; float brightness = 0.5f; };
 
+// Rainbow order, looks nice but no good for adjacent keys?
+
+//    const std::vector<TriggerNamedColour> kTriggerColours
+//    {
+//        { "Red",     Colour (0xffe53935) }, { "Bronze",  Colour (0xfffb8c00) },
+//        { "Amber",   Colour (0xffffb300) }, { "Mustard", Colour (0xfffdd835) },
+//        { "Olive",   Colour (0xffc0ca33) }, { "Green",   Colour (0xff43a047) },
+//        { "Teal",    Colour (0xff00897b) }, { "Cyan",    Colour (0xff00acc1) },
+//        { "Blue",    Colour (0xff039be5) }, { "Navy",    Colour (0xff1e88e5), 0.25f },
+//        { "Indigo",  Colour (0xff3949ab) }, { "Violet",  Colour (0xff8e24aa) },
+//        { "Wine",    Colour (0xffd81b60), 0.25f }, { "Rose",    Colour (0xffec407a) },
+//        { "Plum",    Colour (0xfff06292) }, { "Brown",   Colour (0xff6d4c41) },
+//        { "Slate",   Colour (0xff546e7a) }, { "Grey",    Colour (0xff9e9e9e) },
+//        { "Forest",  Colour (0xff66bb6a) }, { "Purple",  Colour (0xff9575cd) },
+//    };
+
+// Better (stripes) order?
+
     const std::vector<TriggerNamedColour> kTriggerColours
     {
-        { "Red",     Colour (0xffe53935) }, { "Bronze",  Colour (0xfffb8c00) },
-        { "Amber",   Colour (0xffffb300) }, { "Mustard", Colour (0xfffdd835) },
-        { "Olive",   Colour (0xffc0ca33) }, { "Green",   Colour (0xff43a047) },
-        { "Teal",    Colour (0xff00897b) }, { "Cyan",    Colour (0xff00acc1) },
-        { "Blue",    Colour (0xff039be5) }, { "Navy",    Colour (0xff1e88e5), 0.25f },
-        { "Indigo",  Colour (0xff3949ab) }, { "Violet",  Colour (0xff8e24aa) },
-        { "Wine",    Colour (0xffd81b60), 0.25f }, { "Rose",    Colour (0xffec407a) },
-        { "Plum",    Colour (0xfff06292) }, { "Brown",   Colour (0xff6d4c41) },
-        { "Slate",   Colour (0xff546e7a) }, { "Grey",    Colour (0xff9e9e9e) },
-        { "Forest",  Colour (0xff66bb6a) }, { "Purple",  Colour (0xff9575cd) },
+        { "Red",     Colour (0xffe53935) },                { "Indigo",  Colour (0xff3949ab) },
+        { "Bronze",  Colour (0xfffb8c00) },                { "Violet",  Colour (0xff8e24aa) },
+        { "Amber",   Colour (0xffffb300) },                { "Wine",    Colour (0xffd81b60), 0.25f },
+        { "Mustard", Colour (0xfffdd835) },                { "Rose",    Colour (0xffec407a) },
+        { "Olive",   Colour (0xffc0ca33) },                { "Plum",    Colour (0xfff06292) },
+        { "Green",   Colour (0xff43a047) },                { "Brown",   Colour (0xff6d4c41) },
+        { "Teal",    Colour (0xff00897b) },                { "Slate",   Colour (0xff546e7a) },
+        { "Cyan",    Colour (0xff00acc1) },                { "Grey",    Colour (0xff9e9e9e) },
+        { "Blue",    Colour (0xff039be5) },                { "Forest",  Colour (0xff66bb6a) },
+        { "Navy",    Colour (0xff1e88e5), 0.25f },         { "Purple",  Colour (0xff9575cd) },
     };
+
+    // Auto-colour tuning. autoColourSnippet writes a trigger colour T pulled from
+    // kTriggerColours (with its brightness factor applied, exactly like the menu),
+    // then derives the GUI panel's Background gradient from T:
+    //   panel  P = T * kAutoColourPanelBrightness         (lighter than the trigger)
+    //   shadow S = P * kAutoColourPanelShadowBrightness   (bottom stop of the gradient)
+    // Multi-trigger snippets ramp the upper triggers brighter than the anchor:
+    //   trigger_i = T * (1 + (i / (N-1)) * kAutoColourMultiTriggerSpread)
+    // Tweak freely.
+    constexpr float kAutoColourTriggerSaturation     = 0.65f;
+    constexpr float kAutoColourTriggerBrightness     = 1.1f;
+    constexpr float kAutoColourMultiTriggerSpread    = 0.15f;
+    constexpr float kAutoColourMultiTriggerHueRotate = 0.05f;
+    constexpr float kAutoColourPanelBrightness       = 1.6f;
+    constexpr float kAutoColourPanelSaturation       = 0.65f;
+    constexpr float kAutoColourPanelShadowBrightness = 0.96f;
+
+    // Shared writer for the auto-colour palette of one logical group. The anchor
+    // (sort index 0) gets T (= baseTriggerColour with the trigger-side brightness
+    // and saturation transforms); subsequent triggers ramp through hue-rotated,
+    // brightness-spread variants of T. Each Background gets the same 3-stop
+    // fill-gradient (shadow at 0%, panel from 64%-100%) driven by P and S.
+    // Called from autoColourSnippet (off-tree, nullptr um) and from
+    // TriggerEditor::setColourForKey (live, with the keyboard's UM).
+    // triggersSortedByLowestNote must already be in the order the spread should
+    // ramp; backgrounds may be empty.
+    inline void writeAutoColourPalette (const Array<ValueTree>& triggersSortedByLowestNote,
+                                        const Array<ValueTree>& backgrounds,
+                                        Colour                  baseTriggerColour,
+                                        UndoManager*            um)
+    {
+        static const Identifier triggerColourProp ("trigger-colour");
+        static const Identifier fillGradientProp  ("fill-gradient");
+
+        const Colour T = baseTriggerColour.withMultipliedBrightness (kAutoColourTriggerBrightness)
+                                          .withMultipliedSaturation (kAutoColourTriggerSaturation);
+
+        const int N = triggersSortedByLowestNote.size();
+        for (int i = 0; i < N; ++i)
+        {
+            Colour c = T;
+            if (i > 0)
+            {
+                const float hueDelta   = (float) i * kAutoColourMultiTriggerHueRotate;
+                const float brightness = (i % 2 == 1) ? (1.0f - kAutoColourMultiTriggerSpread)
+                                                      : (1.0f + kAutoColourMultiTriggerSpread);
+                c = T.withRotatedHue (hueDelta).withMultipliedBrightness (brightness);
+            }
+            ValueTree node = triggersSortedByLowestNote.getReference (i);
+            node.setProperty (triggerColourProp, c.toString(), um);
+        }
+
+        if (backgrounds.isEmpty())
+            return;
+
+        const Colour P = T.withMultipliedBrightness (kAutoColourPanelBrightness)
+                          .withMultipliedSaturation (kAutoColourPanelSaturation);
+        const Colour S = P.withMultipliedBrightness (kAutoColourPanelShadowBrightness);
+
+        const String gradient = "linear-gradient(0,0% " + S.toString()
+                              + ",64% " + P.toString()
+                              + ",100% " + P.toString() + ")";
+
+        for (int i = 0; i < backgrounds.size(); ++i)
+        {
+            ValueTree bg = backgrounds.getReference (i);
+            bg.setProperty (fillGradientProp, gradient, um);
+        }
+    }
 
     // Menu result-id ranges.
     enum
@@ -1998,7 +2093,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     // ── Step 2 — transpose delta from the trigger note-range props.
     // Computed on the payload triggers only (extras don't carry these); the
     // delta is then applied to triggers via remapNoteRanges and to range-
-    // follower extras (Mapper / Arpeggiator / LFO / Envelope) in Step 6.
+    // follower extras (Mapper / Arpeggiator / LFO / Envelope) in Step 7.
     int lowest  = std::numeric_limits<int>::max();
     int highest = std::numeric_limits<int>::min();
     for (auto& n : payload)
@@ -2104,7 +2199,137 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (payload.isEmpty())
         return;   // every trigger in the bundle was a [global] that's already loaded
 
-    // ── Step 5 — place the MidiTriggers into empty slots.
+    // ── Step 5 — macro allocation. The only place `parameter` is automatically
+    // reassigned. For each PropertyControl in the bundle whose `parameter` is
+    // non-empty, claim the lowest-free macro in its control-type's pool (skipping
+    // ids already bound in the live container, already claimed in this bundle, or
+    // not present in the patch), rewrite `parameter`, and seed the macro from
+    // `default`. Exhausted / missing param → clear `parameter` so the control
+    // falls back to property-stored. Writes target the off-tree copies (nullptr),
+    // exactly like the id rewrites above; the seed touches the live param.
+    {
+        static const Identifier pParameter      ("parameter");
+        static const Identifier pControlType    ("control-type");
+        static const Identifier pDefinitions    ("definitions");
+        static const Identifier pDefault        ("default");
+        static const Identifier propControlType ("PropertyControl");
+
+        auto& magicState = builder->getMagicState();
+
+        // inlined seed - same as the processor's seedMacro, reached straight through
+        // magicState so we don't need the concrete processor type here.
+        auto seedMacro = [&] (const String& macroID, float plainValue)
+        {
+            if (auto* p = magicState.getParameter (macroID))
+                p->setValueNotifyingHost (p->convertTo0to1 (plainValue));
+        };
+
+        auto poolFor = [] (const String& ctype, String& prefix, int& size)
+        {
+            if      (ctype == "menu")   { prefix = "macro_select_"; size = kMaxSelectMacros; }
+            else if (ctype == "slider") { prefix = "macro_knob_";   size = kMaxKnobMacros;   }
+            else if (ctype == "button") { prefix = "macro_button_"; size = kMaxButtonMacros; }
+            else                        { prefix = {};              size = 0;                }
+        };
+
+        // 0-based index of `default` within `definitions` (menu seed), or -1.
+        // Mirrors the menu value extraction: token between first '[' and last ']'.
+        auto menuIndexOfDefault = [] (const String& definitions, const String& def) -> int
+        {
+            if (definitions.isEmpty() || def.isEmpty())
+                return -1;
+
+            int index = 0;
+            for (auto entry : StringArray::fromTokens (definitions, "|", ""))
+            {
+                entry = entry.trim();
+                if (entry.isEmpty())
+                    continue;
+                const int i = entry.indexOfChar ('[');
+                const int j = entry.lastIndexOfChar (']');
+                const auto val = (i >= 0 && j > i) ? entry.substring (i + 1, j).trim() : entry;
+                if (val == def)
+                    return index;
+                ++index;
+            }
+            return -1;
+        };
+
+        // `taken` = every macro id already bound in the live container.
+        StringArray taken;
+        std::function<void (const ValueTree&)> scanTaken = [&] (const ValueTree& node)
+        {
+            if (node.getType() == propControlType)
+            {
+                const auto p = node.getProperty (pParameter).toString();
+                if (p.isNotEmpty())
+                    taken.addIfNotAlreadyThere (p);
+            }
+            for (auto child : node)
+                scanTaken (child);
+        };
+        scanTaken (container);
+
+        // Rewrite + seed each opted-in PropertyControl in the bundle.
+        std::function<void (ValueTree&)> allocate = [&] (ValueTree& node)
+        {
+            if (node.getType() == propControlType
+                && node.getProperty (pParameter).toString().isNotEmpty())
+            {
+                String prefix; int poolSize = 0;
+                poolFor (node.getProperty (pControlType).toString(), prefix, poolSize);
+
+                String claimed;
+                for (int k = 1; k <= poolSize; ++k)
+                {
+                    const auto cand = prefix + String (k);
+                    if (taken.contains (cand, true))                continue;   // live or batch-claimed
+                    if (magicState.getParameter (cand) == nullptr)  continue;   // patch lacks it
+                    claimed = cand;
+                    break;
+                }
+
+                if (claimed.isNotEmpty())
+                {
+                    node.setProperty (pParameter, claimed, nullptr);
+                    taken.add (claimed);   // de-dupe the rest of this bundle
+
+                    // Seed the live macro from `default` (raw domain).
+                    const auto ctype = node.getProperty (pControlType).toString();
+                    const auto def   = node.getProperty (pDefault).toString();
+                    if (def.isNotEmpty())
+                    {
+                        if (ctype == "menu")
+                        {
+                            const int idx = menuIndexOfDefault (node.getProperty (pDefinitions).toString(), def);
+                            if (idx >= 0)
+                                seedMacro (claimed, (float) idx);
+                        }
+                        else if (ctype == "slider")
+                        {
+                            seedMacro (claimed, def.getFloatValue());
+                        }
+                        else if (ctype == "button")
+                        {
+                            seedMacro (claimed, def == "1" ? 1.0f : 0.0f);
+                        }
+                    }
+                }
+                else
+                {
+                    node.removeProperty (pParameter, nullptr);   // exhausted/missing → property-stored
+                }
+            }
+
+            for (auto child : node)
+                allocate (child);
+        };
+
+        for (auto& n : payload) allocate (n);
+        for (auto& n : extras)  allocate (n);
+    }
+
+    // ── Step 6 — place the MidiTriggers into empty slots.
     auto slots = findEmptySlots (container, payload.size());
     if (slots.size() < payload.size())
         return;
@@ -2118,7 +2343,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
         fillSlot (slots.getReference (i), payload.getReference (i), um);
     }
 
-    // ── Step 6 — append extras. MidiEditor still de-dupes by midi-state-index
+    // ── Step 7 — append extras. MidiEditor still de-dupes by midi-state-index
     // (no id). Range-follower types get their input range shifted by delta,
     // saturating at 0/127; a full 0..127 input range is the "no filter"
     // sentinel and stays untouched. The shift walks each extra's subtree so
@@ -2179,6 +2404,159 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     owner.repaint();
 }
 
+void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root)
+{
+    if (! root.isValid())
+        return;
+
+    static const Identifier midiTriggerType   ("MidiTrigger");
+    static const Identifier idProp            ("id");
+    static const Identifier triggerColourProp ("trigger-colour");
+    static const String     backgroundID      ("Background");
+
+    // ── Step 1 — gather payload MidiTriggers that already carry a trigger-colour.
+    // A snippet can include invisible "switch" MidiTriggers stacked on top of
+    // visible ones (e.g. Note Repeat's per-key enable switches sharing the
+    // panel's id) — those have no trigger-colour set and must not gain one.
+    // _multiCopy: top-level children; otherwise root is the sole node (the
+    // same shape insertPayloadAtKey reads).
+    Array<ValueTree> triggers;
+    auto takeIfColoured = [&] (const ValueTree& n)
+    {
+        if (n.getType() == midiTriggerType && n.hasProperty (triggerColourProp))
+            triggers.add (n);
+    };
+
+    if (root.getType().toString() == "_multiCopy")
+    {
+        for (auto child : root)
+            takeIfColoured (child);
+    }
+    else
+    {
+        takeIfColoured (root);
+    }
+
+    if (triggers.isEmpty())
+        return;
+
+    // ── Step 2 — sort by lowest range note ascending, file-order descending on
+    // ties. Sort index 0 is the anchor (gets the unmodified T); the descending
+    // tiebreak means the later trigger wins when ranges coincide — "last in the
+    // file" as agreed.
+    auto lowestNoteOf = [] (const ValueTree& n)
+    {
+        int lowest = std::numeric_limits<int>::max();
+        for (const auto& p : kTriggerNoteValuedProps)
+        {
+            const Identifier prop (p);
+            if (n.hasProperty (prop))
+                lowest = jmin (lowest, (int) n.getProperty (prop));
+        }
+        return lowest;
+    };
+
+    Array<std::pair<int, ValueTree>> sorted;
+    for (int i = 0; i < triggers.size(); ++i)
+        sorted.add ({ i, triggers[i] });
+
+    std::sort (sorted.begin(), sorted.end(),
+               [&] (const auto& a, const auto& b)
+               {
+                   const int la = lowestNoteOf (a.second);
+                   const int lb = lowestNoteOf (b.second);
+                   if (la != lb) return la < lb;
+                   return a.first > b.first;
+               });
+
+    // ── Step 3 — collect "taken" colours from the container. Top-level
+    // MidiTriggers, grouped by id (same convention insertPayloadAtKey uses):
+    // one colour per id-group, id-less triggers stand alone. Empty / unset
+    // trigger-colour contributes nothing.
+    StringArray takenColours;
+    if (auto container = getContainer(); container.isValid())
+    {
+        std::map<String, String> idToColour;
+        for (auto child : container)
+        {
+            if (child.getType() != midiTriggerType)
+                continue;
+
+            const auto colour = child.getProperty (triggerColourProp).toString();
+            if (colour.isEmpty())
+                continue;
+
+            const auto id = child.getProperty (idProp).toString();
+            if (id.isNotEmpty())
+            {
+                if (idToColour.find (id) == idToColour.end())
+                    idToColour[id] = colour;
+            }
+            else
+            {
+                takenColours.addIfNotAlreadyThere (colour);
+            }
+        }
+        for (const auto& kv : idToColour)
+            takenColours.addIfNotAlreadyThere (kv.second);
+    }
+
+    // ── Step 4 — pick a palette entry. Starting from owner.nextAutoColourIndex,
+    // advance past entries whose final (post-brightness) colour is already in
+    // use. Single wrap; if every colour is taken, settle on the start index.
+    const int paletteSize = (int) kTriggerColours.size();
+    const int startIndex  = ((owner.nextAutoColourIndex % paletteSize) + paletteSize) % paletteSize;
+    int       chosen      = startIndex;
+
+    for (int step = 0; step < paletteSize; ++step)
+    {
+        const int candidate = (startIndex + step) % paletteSize;
+        const auto& tc      = kTriggerColours[(size_t) candidate];
+        const auto  finalC  = tc.colour.withMultipliedBrightness (tc.brightness).toString();
+        if (! takenColours.contains (finalC, true))
+        {
+            chosen = candidate;
+            break;
+        }
+    }
+    owner.nextAutoColourIndex = (chosen + 1) % paletteSize;
+
+    // ── Step 5 — locate the Background (first match, skipping MidiTrigger
+    // subtrees — a panel always lives outside them). Snippets carry at most
+    // one Background; we wrap it in an array for the shared writer.
+    Array<ValueTree> backgrounds;
+    std::function<ValueTree (const ValueTree&)> findBackground = [&] (const ValueTree& node) -> ValueTree
+    {
+        if (node.getType() == midiTriggerType)
+            return {};
+        if (node.getProperty (idProp).toString() == backgroundID)
+            return node;
+        for (auto child : node)
+            if (auto found = findBackground (child); found.isValid())
+                return found;
+        return {};
+    };
+    if (auto bg = findBackground (root); bg.isValid())
+        backgrounds.add (bg);
+
+    // Flatten the sorted-with-index pairs into a plain trigger array — the
+    // writer just iterates by position, the original-index tiebreak is already
+    // baked into the order.
+    Array<ValueTree> sortedTriggers;
+    sortedTriggers.ensureStorageAllocated (sorted.size());
+    for (const auto& s : sorted)
+        sortedTriggers.add (s.second);
+
+    // Hand off to the shared writer — off-tree (nullptr UM); the live insert
+    // happens later in insertPayloadAtKey. Preserves the authored 3-stop
+    // background gradient pattern. Same call shape setColourForKey uses.
+    const auto& tc = kTriggerColours[(size_t) chosen];
+    writeAutoColourPalette (sortedTriggers,
+                            backgrounds,
+                            tc.colour.withMultipliedBrightness (tc.brightness),
+                            nullptr);
+}
+
 void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
 {
     insertPayloadAtKey (ValueTree::fromXml (SystemClipboard::getTextFromClipboard()), note);
@@ -2186,7 +2564,9 @@ void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
 
 void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const File& file)
 {
-    insertPayloadAtKey (ValueTree::fromXml (file.loadFileAsString()), note);
+    auto root = ValueTree::fromXml (file.loadFileAsString());
+    autoColourSnippet (root);
+    insertPayloadAtKey (root, note);
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
@@ -2483,15 +2863,123 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
     if (! container.isValid())
         return;
 
-    auto nodes = findNodesForKey (note);   // applies to all nodes covering the key
-    if (nodes.isEmpty())
+    auto clickedNodes = findNodesForKey (note);
+    if (clickedNodes.isEmpty())
         return;
+
+    static const Identifier midiTriggerType ("MidiTrigger");
+    static const Identifier idProp          ("id");
+    static const String     backgroundID    ("Background");
 
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Set trigger colour");
 
-    for (auto& n : nodes)
-        n.setProperty ("trigger-colour", colour.toString(), um);
+    // Sort key inside a group: lowest range note ascending, ties broken by
+    // descending file order. Same rule autoColourSnippet uses so a manually
+    // coloured group ramps identically to an auto-coloured snippet.
+    auto lowestNoteOf = [] (const ValueTree& n)
+    {
+        int lowest = std::numeric_limits<int>::max();
+        for (const auto& p : kTriggerNoteValuedProps)
+        {
+            const Identifier prop (p);
+            if (n.hasProperty (prop))
+                lowest = jmin (lowest, (int) n.getProperty (prop));
+        }
+        return lowest;
+    };
+
+    // Background search inside a top-level View container. Defensive on the
+    // MidiTrigger skip — at root the View isn't a MidiTrigger, but a Background
+    // could be nested arbitrarily deep, so we recurse with the same skip rule
+    // autoColourSnippet uses.
+    std::function<void (const ValueTree&, Array<ValueTree>&)> collectBackgrounds =
+        [&] (const ValueTree& node, Array<ValueTree>& out)
+    {
+        if (node.getType() == midiTriggerType)
+            return;
+        if (node.getProperty (idProp).toString() == backgroundID)
+            out.add (node);
+        for (auto child : node)
+            collectBackgrounds (child, out);
+    };
+
+    // Partition the clicked nodes into id-groups (and id-less loners). Each
+    // id-group is then expanded by sweeping the root: top-level MidiTriggers
+    // sharing the id join the trigger set; top-level non-MidiTriggers sharing
+    // the id are walked for Background descendants. Id-less clicked nodes
+    // colour solo (anchor T only, no spread, no background).
+    StringArray      groupIDs;
+    Array<ValueTree> idlessTriggers;
+
+    for (const auto& n : clickedNodes)
+    {
+        const auto id = n.getProperty (idProp).toString();
+        if (id.isEmpty())
+            idlessTriggers.add (n);
+        else
+            groupIDs.addIfNotAlreadyThere (id);
+    }
+
+    struct GroupBuffers { Array<ValueTree> triggers, backgrounds; };
+    std::vector<GroupBuffers> groups (groupIDs.size());
+
+    // Single root sweep — file order is preserved, which is the input the
+    // tie-break below relies on.
+    for (auto child : container)
+    {
+        const auto childID = child.getProperty (idProp).toString();
+        if (childID.isEmpty())
+            continue;
+        const int idx = groupIDs.indexOf (childID);
+        if (idx < 0)
+            continue;
+
+        if (child.getType() == midiTriggerType)
+            groups[(size_t) idx].triggers.add (child);
+        else
+            collectBackgrounds (child, groups[(size_t) idx].backgrounds);
+    }
+
+    // Sort each group's triggers (lowest-note ascending; ties broken by
+    // descending file order — stash the file-order index first so the sort is
+    // stable against std::sort's reordering).
+    for (auto& g : groups)
+    {
+        Array<std::pair<int, ValueTree>> indexed;
+        indexed.ensureStorageAllocated (g.triggers.size());
+        for (int i = 0; i < g.triggers.size(); ++i)
+            indexed.add ({ i, g.triggers.getReference (i) });
+
+        std::sort (indexed.begin(), indexed.end(),
+                   [&] (const auto& a, const auto& b)
+                   {
+                       const int la = lowestNoteOf (a.second);
+                       const int lb = lowestNoteOf (b.second);
+                       if (la != lb) return la < lb;
+                       return a.first > b.first;
+                   });
+
+        g.triggers.clearQuick();
+        for (const auto& pair : indexed)
+            g.triggers.add (pair.second);
+    }
+
+    // Write each id-group through the shared writer, then each id-less loner.
+    // Same call shape autoColourSnippet uses — visually identical results.
+    for (const auto& g : groups)
+        writeAutoColourPalette (g.triggers, g.backgrounds, colour, um);
+
+    if (! idlessTriggers.isEmpty())
+    {
+        const Array<ValueTree> noBackgrounds;
+        for (auto& solo : idlessTriggers)
+        {
+            Array<ValueTree> one;
+            one.add (solo);
+            writeAutoColourPalette (one, noBackgrounds, colour, um);
+        }
+    }
 
     owner.repaint();
 }
