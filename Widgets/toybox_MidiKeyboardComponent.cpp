@@ -2769,32 +2769,26 @@ void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
 void NewMidiKeyboardComponent::TriggerEditor::clearKey (int note)
 {
     if (builder == nullptr) return;
+    
+    builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
 
-        DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(true) BEFORE");
-        builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
-        DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(true) AFTER");
+    auto safe = juce::Component::SafePointer<NewMidiKeyboardComponent> (&owner);
 
-        auto safe = juce::Component::SafePointer<NewMidiKeyboardComponent> (&owner);
-
-        juce::Timer::callAfterDelay (10, [this, safe, note]
+    juce::Timer::callAfterDelay (10, [this, safe, note]
+    {
+        if (safe.getComponent() != nullptr)
         {
-            if (safe.getComponent() != nullptr)
-            {
-                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: doClear BEFORE");
-                doClear (note);
-                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: doClear AFTER");
-            }
-        });
+            doClear (note);
+        }
+    });
 
-        juce::Timer::callAfterDelay (1000, [this, safe]
+    juce::Timer::callAfterDelay (1000, [this, safe]
+    {
+        if (safe.getComponent() != nullptr && builder != nullptr)
         {
-            if (safe.getComponent() != nullptr && builder != nullptr)
-            {
-                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(false) BEFORE");
-                builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
-                DBG ("[" << juce::Time::getMillisecondCounterHiRes() << "] keyboard: setValue(false) AFTER");
-            }
-        });
+            builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
+        }
+    });
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
