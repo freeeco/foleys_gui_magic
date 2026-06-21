@@ -2420,12 +2420,15 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     }
 
     // ── Step 7 — append extras. MidiEditor still de-dupes by midi-state-index
-    // (no id). Range-follower types get their input range shifted by delta,
-    // saturating at 0/127; a full 0..127 input range is the "no filter"
-    // sentinel and stays untouched. The shift walks each extra's subtree so
-    // followers nested inside a group-root View (e.g. Note_Repeat's LFO
-    // tucked inside the user-facing panel) follow the transpose along with
-    // their containing group.
+    // (no id); the collision scan walks each extra's subtree so a MidiEditor
+    // nested inside a group-root View (e.g. wrapped with a Rectangle
+    // background) still collides with one already in the container. Range-
+    // follower types get their input range shifted by delta, saturating at
+    // 0/127; a full 0..127 input range is the "no filter" sentinel and stays
+    // untouched. The shift walks each extra's subtree so followers nested
+    // inside a group-root View (e.g. Note_Repeat's LFO tucked inside the
+    // user-facing panel) follow the transpose along with their containing
+    // group.
     std::function<bool (const ValueTree&, int)> hasMidiEditorWithIndex =
         [&] (const ValueTree& tree, int index) -> bool
         {
@@ -2436,6 +2439,21 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
             for (auto child : tree)
                 if (hasMidiEditorWithIndex (child, index))
+                    return true;
+
+            return false;
+        };
+
+    std::function<bool (const ValueTree&)> extraCollidesWithContainer =
+        [&] (const ValueTree& tree) -> bool
+        {
+            if (tree.getType() == midiEditorType
+                && tree.hasProperty (midiStateIdxProp)
+                && hasMidiEditorWithIndex (container, (int) tree.getProperty (midiStateIdxProp)))
+                return true;
+
+            for (auto child : tree)
+                if (extraCollidesWithContainer (child))
                     return true;
 
             return false;
@@ -2466,9 +2484,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
     for (auto& extra : extras)
     {
-        if (extra.getType() == midiEditorType
-            && extra.hasProperty (midiStateIdxProp)
-            && hasMidiEditorWithIndex (container, (int) extra.getProperty (midiStateIdxProp)))
+        if (extraCollidesWithContainer (extra))
             continue;
 
         if (delta != 0)
