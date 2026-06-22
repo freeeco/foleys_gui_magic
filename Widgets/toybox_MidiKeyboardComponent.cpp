@@ -266,9 +266,9 @@ namespace
         { "Amber",   Colour (0xffffb300) },                { "Wine",    Colour (0xffd81b60), 0.25f },
         { "Mustard", Colour (0xfffdd835) },                { "Rose",    Colour (0xffec407a) },
         { "Olive",   Colour (0xffc0ca33) },                { "Plum",    Colour (0xfff06292) },
-        { "Green",   Colour (0xff43a047) },                { "Brown",   Colour (0xff6d4c41) },
+        { "Green",   Colour (0xff43a047) },                { "Brown",   Colour (0xff7d5c51) },
         { "Teal",    Colour (0xff00897b) },                { "Slate",   Colour (0xff546e7a) },
-        { "Cyan",    Colour (0xff00acc1) },                { "Grey",    Colour (0xff9e9e9e) },
+        { "Cyan",    Colour (0xff00acc1) },                { "Grey",    Colour (0xffbb9e9e) },
         { "Blue",    Colour (0xff039be5) },                { "Forest",  Colour (0xff66bb6a) },
         { "Navy",    Colour (0xff1e88e5), 0.25f },         { "Purple",  Colour (0xff9575cd) },
     };
@@ -3397,8 +3397,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     menu.addItem (miPaste, "Paste", hasClip);
 
     menu.addSeparator();
-    menu.addItem (miClear, "Clear", hasNodes);
-    menu.addSeparator();
+    menu.addItem (miClear,    "Clear", hasNodes);
+    menu.addItem (miClearAll, "Clear All");
 
     // Easter egg: holding Alt/Option as the menu opens reveals Save As...,
     // which writes the key's stack to the Triggers folder using the same
@@ -3407,15 +3407,19 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     const bool altHeld = ModifierKeys::getCurrentModifiers().isAltDown();
     if (altHeld && hasNodes)
     {
-        menu.addItem (miSaveAs, "Save As...");
         menu.addSeparator();
+        menu.addItem (miSaveAs, "Save As...");
     }
+
+    menu.addSeparator();
 
     // Add Trigger — insert a preset node/stack from disk onto this key.
     std::vector<File> presetFiles;
     PopupMenu addTriggerMenu;
     buildPresetMenu (addTriggerMenu, presetFolder, presetFiles, miPresetBase);
     menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
+
+    menu.addSeparator();
 
     // Colour — recolour the node(s) on this key. (The assigned L&F overrides the
     // per-item text colour, so the names render in the normal menu colour; the
@@ -3427,9 +3431,6 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
                                     kTriggerColours[(size_t) i].name,
                                     kTriggerColours[(size_t) i].colour);
     menu.addSubMenu ("Colour", colourMenu, hasNodes);
-
-    menu.addSeparator();
-    menu.addItem (miClearAll, "Clear All");
 
     // Theme the menu (submenus inherit it) with the look & feel assigned to
     // the keyboard item in the PGM editor — that L&F lives on our parent
