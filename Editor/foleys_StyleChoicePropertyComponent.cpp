@@ -85,8 +85,8 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
 
             menu->addItem (makeUniqueLabel, [this]()
             {
-                auto secondsSince2000 = juce::String (juce::int64 (
-                    (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+                auto msSince2000 = juce::String (juce::int64 (
+                    (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds()));
 
                 juce::String newValue;
                 auto currentValue = node.getProperty (property).toString();
@@ -96,7 +96,7 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                     // UID format: Prefix_timestamp
                     if (currentValue.isEmpty())
                     {
-                        newValue = uidPrefix + "_" + secondsSince2000;
+                        newValue = uidPrefix + "_" + msSince2000;
                     }
                     else
                     {
@@ -108,7 +108,7 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                             if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
                                 cleanValue = currentValue.substring (0, lastUnderscore);
                         }
-                        newValue = cleanValue + "_" + secondsSince2000;
+                        newValue = cleanValue + "_" + msSince2000;
                     }
                 }
                 else
@@ -122,7 +122,7 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                         else
                             nodePrefix = node.getType().toString().replace (" ", "-");
 
-                        newValue = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                        newValue = nodePrefix + ":" + property.toString() + "-" + msSince2000;
                     }
                     else
                     {
@@ -134,7 +134,7 @@ bool StyleChoicePropertyComponent::isPropertiesMenu (juce::ComboBox& combo)
                             if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
                                 cleanValue = currentValue.substring (0, lastDash);
                         }
-                        newValue = cleanValue + "-" + secondsSince2000;
+                        newValue = cleanValue + "-" + msSince2000;
                     }
                 }
 
@@ -324,13 +324,13 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
                 
                 if (currentText.isEmpty())
                 {
-                    auto secondsSince2000 = juce::String (juce::int64 (
-                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inSeconds()));
+                    auto msSince2000 = juce::String (juce::int64 (
+                        (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds()));
 
                     if (uidPrefix.isNotEmpty())
                     {
                         // UID format: Prefix_timestamp
-                        currentText = uidPrefix + "_" + secondsSince2000;
+                        currentText = uidPrefix + "_" + msSince2000;
                     }
                     else
                     {
@@ -341,7 +341,7 @@ void StyleChoicePropertyComponent::initialiseComboBox (bool editable)
                         else
                             nodePrefix = node.getType().toString().replace (" ", "-");
 
-                        currentText = nodePrefix + ":" + property.toString() + "-" + secondsSince2000;
+                        currentText = nodePrefix + ":" + property.toString() + "-" + msSince2000;
                     }
 
                     // Write it into the field and the node immediately

@@ -740,6 +740,18 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createTriggerMenuLambda() 
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMidiTriggerUIDMenuLambda() const
+{
+    return [] (juce::ComboBox& combo)
+    {
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPlayheadUIDMenuLambda() const
 {
     return [this](juce::ComboBox& combo)
