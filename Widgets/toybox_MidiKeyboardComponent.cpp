@@ -2923,8 +2923,6 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Clear all triggers");
 
-    builder->prepareForTreeSwap();         // suppress + reset
-
     // Mirrors clearAllTriggers: MidiTrigger slots keep their slot (index
     // preserved, contents cleared); other node types are removed entirely.
     // Snapshot first — removing extras shifts child indices mid-iteration.
@@ -2939,11 +2937,10 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
         else if (node.isValid() && node.getParent() == container)
             container.removeChild (node, um);
     }
-
+    
     toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
 
-    builder->completeTreeSwap();           // one rebuild here
-    // owner.repaint() no longer needed — completeTreeSwap rebuilds everything
+    owner.repaint();
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour colour)
