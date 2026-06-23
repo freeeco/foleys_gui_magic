@@ -484,6 +484,13 @@ private:
     bool macroButtonVisible = false;
     bool macroPanelOpen     = false;
 
+    // Set in mouseDown when the press is consumed by a button (macro toggle,
+    // edit toggle, or a right-click menu) rather than a key. The press still
+    // captures the mouse, so a tiny movement fires mouseDrag with the cursor
+    // over a key beneath the button; without this flag that drag would leak a
+    // note-on. Reset at the top of every mouseDown.
+    bool mouseDownConsumedByButton = false;
+
     // Scroll position stashed while the panel is open (hiding the scroll buttons
     // resets the keyboard to its leftmost key); restored on reshow. -1 = unset.
     int  savedLowestVisibleKey = -1;

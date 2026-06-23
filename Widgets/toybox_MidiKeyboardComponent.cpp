@@ -688,7 +688,13 @@ void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 {
-    
+    // The press that started this drag was claimed by a button (macro/edit
+    // toggle or a right-click menu), or the macro panel is up. The mouse is
+    // still captured by the keyboard, so without this a few pixels of movement
+    // would compute the key under the cursor and play it. Don't.
+    if (mouseDownConsumedByButton || macroPanelOpen)
+        return;
+
 #if MAX_MIDI_TRIGGERS > 0
     // Belt-and-braces with mouseDown's popup-button short-circuit: a
     // right-button drag shouldn't slip a note-on through before
@@ -719,6 +725,11 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 
 void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 {
+    // A fresh press: assume it's a key unless one of the button branches below
+    // claims it. mouseDrag consults this so a button-press that wobbles a few
+    // pixels never leaks a note from the key beneath the button.
+    mouseDownConsumedByButton = false;
+
     // Macro-panel toggle button — independent of edit mode / triggers, fixed at
     // the top-left below the edit toggle. Left-click flips the bound macro value
     // via the callback; takes priority over the keys (and any edit-region edge)
@@ -729,6 +740,7 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
         && (macroPanelOpen || (macroButtonVisible && ! editMode))
         && (macroPanelOpen ? getMacroCloseButtonBounds() : getMacroButtonBounds()).expanded (4.0f).contains (e.position))
     {
+        mouseDownConsumedByButton = true;
         if (onToggleMacroPanel != nullptr)
             onToggleMacroPanel();
         return;
@@ -737,6 +749,7 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
 #if MAX_MIDI_TRIGGERS > 0
     if (e.mods.isPopupMenu())
     {
+        mouseDownConsumedByButton = true;
         const int note = getNoteAndVelocityAtPosition (e.position).note;
         if (note >= 0)
             triggerEditor.showMenuForKey (note, e.getScreenPosition());
@@ -748,6 +761,7 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
     // of the host-owned value — the keyboard doesn't flip it directly.
     if (triggerEditor.hasContext() && ! macroPanelOpen && getCloseButtonBounds().expanded (4.0f).contains (e.position))
     {
+        mouseDownConsumedByButton = true;
         if (editMode) { if (onExitEditMode  != nullptr) onExitEditMode();  }
         else          { if (onEnterEditMode != nullptr) onEnterEditMode(); }
         return;
