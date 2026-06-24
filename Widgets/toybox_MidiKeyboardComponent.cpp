@@ -372,6 +372,14 @@ namespace
     constexpr float kHoverCustomDarken = 0.14f;   // darken amount on coloured keys (vs 0.15)
     constexpr float kHoverOverlayAlpha = 0.35f;   // multiplier on mouseOverKeyOverlayColourId
 
+    // Edit mode: plain keys (no trigger colour) are blended toward a dim grey
+    // so the coloured trigger keys read as the focus. 0 = key unchanged,
+    // 1 = full grey target. Black keys aim at a darker grey than white.
+    constexpr uint32 kEditDimWhiteGreyArgb = 0xff3a3a3a;
+    constexpr float  kEditDimWhiteAmount   = 0.62f;
+    constexpr uint32 kEditDimBlackGreyArgb = 0xff181818;
+    constexpr float  kEditDimBlackAmount   = 0.55f;
+
     // Edit-mode region drag handle — a band along the top of each region's keys
     // that translates the whole range (low + high notes shift together by one
     // delta).
@@ -1155,6 +1163,8 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     Colour baseFill = findColour (whiteNoteColourId);
     if (custom)       baseFill = *custom;
     else if (stained) baseFill = baseFill.interpolatedWith (raw->withAlpha (1.0f), kWhiteStainTint);
+    else if (editMode && noteColourProvider)
+        baseFill = baseFill.interpolatedWith (Colour (kEditDimWhiteGreyArgb), kEditDimWhiteAmount);
 
     g.setColour (baseFill);
     g.fillPath (keyShape);
@@ -1270,6 +1280,8 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     Colour c;
     if (custom)       c = *custom;
     else if (stained) c = noteFillColour.brighter (kBlackStainLighten).interpolatedWith (raw->withAlpha (1.0f), kBlackStainTint);
+    else if (editMode && noteColourProvider)
+                      c = noteFillColour.interpolatedWith (Colour (kEditDimBlackGreyArgb), kEditDimBlackAmount);
     else              c = noteFillColour;
 
     if (custom)
