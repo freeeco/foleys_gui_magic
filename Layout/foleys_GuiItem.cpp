@@ -693,7 +693,10 @@ void GuiItem::valueTreeParentChanged (juce::ValueTree& treeThatChanged)
 
 void GuiItem::itemDragEnter (const juce::DragAndDropTarget::SourceDetails& details)
 {
-    if (details.description.toString().startsWith (IDs::dragCC))
+    const auto desc = details.description.toString();
+
+    if (desc.startsWith (IDs::dragCC)
+        || desc.startsWith (IDs::dragParamAssign.toString()))
     {
         auto paramID = getControlledParameterID (details.localPosition);
         if (paramID.isNotEmpty())
@@ -780,8 +783,11 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
 
     if (highlight.isNotEmpty())
     {
-        g.setColour (juce::Colour(1.0f, 0.0f, 0.0f, 0.3f));
-        g.fillRoundedRectangle((getWidth()-getHeight())/2,0,getHeight(),getHeight(),getHeight());
+        const auto bounds = getLocalBounds().toFloat()
+                              .reduced (getWidth() * 0.08f, getHeight() * 0.08f);
+
+        g.setColour (juce::Colour (1.0f, 0.0f, 0.0f, 0.15f));
+        g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.20f);
     }
 }
 
@@ -1210,6 +1216,51 @@ void GuiItem::itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSou
         if (number > 0 && parameterID.isNotEmpty())
             if (auto* procState = dynamic_cast<MagicProcessorState*>(&magicBuilder.getMagicState()))
                 procState->mapMidiController (number, parameterID);
+
+        repaint();
+        return;
+    }
+    
+    if (dragString.startsWith (IDs::dragParamAssign.toString()))
+    {
+        // Payload: "dragParamAssign:<destUid>:<destProperty>"
+        // Writes this GuiItem's controlled parameter id into the destination
+        // node's named property. Destination resolved by '*-uid' suffix walk,
+        // same pattern as ParamPropDragAndDropItem::resolveDestinationNode.
+        const auto rest = dragString.substring (IDs::dragParamAssign.toString().length());
+        const int  sep  = rest.indexOfChar (':');
+        if (sep < 0) { repaint(); return; }
+
+        const auto destUid     = rest.substring (0, sep);
+        const auto destProp    = rest.substring (sep + 1);
+        const auto parameterID = getControlledParameterID (dragSourceDetails.localPosition);
+
+        if (destUid.isNotEmpty() && destProp.isNotEmpty() && parameterID.isNotEmpty())
+        {
+            juce::ValueTree found;
+            std::function<void (juce::ValueTree)> walk = [&] (juce::ValueTree tree)
+            {
+                if (found.isValid()) return;
+
+                for (int i = 0; i < tree.getNumProperties(); ++i)
+                {
+                    auto propName = tree.getPropertyName (i);
+                    if (propName.toString().endsWith ("-uid")
+                        && tree.getProperty (propName).toString() == destUid)
+                    {
+                        found = tree;
+                        return;
+                    }
+                }
+
+                for (auto child : tree)
+                    walk (child);
+            };
+            walk (magicBuilder.getGuiRootNode());
+
+            if (found.isValid())
+                found.setProperty (juce::Identifier (destProp), parameterID, nullptr);
+        }
 
         repaint();
         return;

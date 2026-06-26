@@ -137,6 +137,7 @@ namespace IDs
     static juce::String dragSource    { "source:" };
     static juce::String dragPlot      { "plot:" };
     static juce::String dragCC        { "dragCC:" };
+    static juce::Identifier dragParamAssign { "dragParamAssign:" };
 
 
     static juce::Identifier backgroundImage     { "background-image" };
