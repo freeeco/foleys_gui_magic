@@ -3439,14 +3439,6 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
 
     menu.addSeparator();
 
-    // Add Trigger — insert a preset node/stack from disk onto this key.
-    std::vector<File> presetFiles;
-    PopupMenu addTriggerMenu;
-    buildPresetMenu (addTriggerMenu, presetFolder, presetFiles, miPresetBase);
-    menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
-
-    menu.addSeparator();
-
     // Colour — recolour the node(s) on this key. (The assigned L&F overrides the
     // per-item text colour, so the names render in the normal menu colour; the
     // colour actually applied to the keyboard is halved in brightness in the
@@ -3458,6 +3450,14 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
                                     kTriggerColours[(size_t) i].colour);
     menu.addSubMenu ("Colour", colourMenu, hasNodes);
 
+    menu.addSeparator();
+
+    // Add Trigger — insert a preset node/stack from disk onto this key.
+    std::vector<File> presetFiles;
+    PopupMenu addTriggerMenu;
+    buildPresetMenu (addTriggerMenu, presetFolder, presetFiles, miPresetBase);
+    menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
+    
     // Theme the menu (submenus inherit it) with the look & feel assigned to
     // the keyboard item in the PGM editor — that L&F lives on our parent
     // component, so we read it from there. Set before showing.
