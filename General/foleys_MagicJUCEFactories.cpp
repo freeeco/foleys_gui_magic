@@ -1917,6 +1917,14 @@ public:
     }
 
     juce::Component* getWrappedComponent() override { return &listBox; }
+    
+    juce::String getControlledParameterID (juce::Point<int>) override
+    {
+        if (paramModel == nullptr)
+            return {};                                           // object-model mode → not controlling a parameter
+
+        return configNode.getProperty ("parameter", juce::String()).toString();
+    }
 
 private:
     void timerCallback() override
