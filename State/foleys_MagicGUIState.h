@@ -302,6 +302,10 @@ public:
     void unregisterArpeggiatorUID (const juce::String& uid) { arpeggiatorUIDs.removeString (uid); }
     juce::StringArray getArpeggiatorUIDs() const { return arpeggiatorUIDs; }
     
+    void registerMidiBufferUID   (const juce::String& uid) { midiBufferUIDs.addIfNotAlreadyThere (uid); }
+    void unregisterMidiBufferUID (const juce::String& uid) { midiBufferUIDs.removeString (uid); }
+    juce::StringArray getMidiBufferUIDs() const { return midiBufferUIDs; }
+    
     using NoteColourProvider = std::function<std::optional<juce::Colour>(int)>;
     void                        setNoteColourProvider (NoteColourProvider fn) { noteColourProvider = std::move (fn); }
     const NoteColourProvider&   getNoteColourProvider() const noexcept        { return noteColourProvider; }
@@ -358,6 +362,7 @@ private:
     juce::StringArray calculatorUIDs;
     juce::StringArray mapperUIDs;
     juce::StringArray arpeggiatorUIDs;
+    juce::StringArray midiBufferUIDs;
     
     NoteColourProvider noteColourProvider;
     NoteLabelProvider noteLabelProvider;

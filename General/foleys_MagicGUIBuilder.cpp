@@ -1001,6 +1001,29 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createPositionMenuLambda()
     };
 }
 
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMidiBufferUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getMidiBufferUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLambda() const
 {
     auto* self = const_cast<MagicGUIBuilder*> (this);
