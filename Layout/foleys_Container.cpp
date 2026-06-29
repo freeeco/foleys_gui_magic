@@ -249,9 +249,9 @@ void Container::updateLayout()
 
             containerBox.setBounds (overall);
 
-            if (scrollMode == ScrollMode::ScrollHorizontal && viewport.isHorizontalScrollBarShown())
+            if (scrollMode == ScrollMode::ScrollHorizontal && viewport.canScrollHorizontally())
                 overall.removeFromBottom (viewport.getScrollBarThickness());
-            else if (scrollMode == ScrollMode::ScrollVertical && viewport.isVerticalScrollBarShown())
+            else if (scrollMode == ScrollMode::ScrollVertical && viewport.canScrollVertically())
                 overall.removeFromRight (viewport.getScrollBarThickness());
 
             flexBox.performLayout (overall);
