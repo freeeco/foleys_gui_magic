@@ -595,7 +595,6 @@ private:
     // Cycles round kTriggerColours when applyPresetFile autoColours an inserted
     // snippet. Reached from TriggerEditor through owner; per-keyboard so multiple
     // keyboards cycle independently.
-    int nextAutoColourIndex = 0;
 
     //==============================================================================
     

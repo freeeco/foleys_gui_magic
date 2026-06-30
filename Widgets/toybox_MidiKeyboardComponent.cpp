@@ -2524,7 +2524,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
 void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root)
 {
-    if (! root.isValid())
+    if (! root.isValid() || builder == nullptr)
         return;
 
     static const Identifier midiTriggerType   ("MidiTrigger");
@@ -2619,11 +2619,15 @@ void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root
             takenColours.addIfNotAlreadyThere (kv.second);
     }
 
-    // ── Step 4 — pick a palette entry. Starting from owner.nextAutoColourIndex,
-    // advance past entries whose final (post-brightness) colour is already in
-    // use. Single wrap; if every colour is taken, settle on the start index.
+    // ── Step 4 — pick a palette entry. The cycle index is stored in the magic
+    // state under the SAME key the DragToReorder editor uses, so both editors
+    // share one colour cycle. A member would also reset to 0 each insert once
+    // the keyboard moves to copy-and-swap (the rebuild destroys the component).
     const int paletteSize = (int) kTriggerColours.size();
-    const int startIndex  = ((owner.nextAutoColourIndex % paletteSize) + paletteSize) % paletteSize;
+
+    auto colourIndexValue = builder->getMagicState().getPropertyAsValue ("system:auto-colour-index");
+    const int storedIndex = (int) colourIndexValue.getValue();
+    const int startIndex  = ((storedIndex % paletteSize) + paletteSize) % paletteSize;
     int       chosen      = startIndex;
 
     for (int step = 0; step < paletteSize; ++step)
@@ -2637,7 +2641,7 @@ void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root
             break;
         }
     }
-    owner.nextAutoColourIndex = (chosen + 1) % paletteSize;
+    colourIndexValue.setValue ((chosen + 1) % paletteSize);
 
     // ── Step 5 — locate the Background (first match, skipping MidiTrigger
     // subtrees — a panel always lives outside them). Snippets carry at most

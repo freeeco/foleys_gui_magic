@@ -49,8 +49,7 @@ namespace toybox
     /** Defined in PluginProcessor.cpp. Lets shared library code trigger
         a deferred sweep of orphaned MIDI-framework objects without
         needing to include PluginProcessor.h. */
-    void scheduleFlushUnusedMidiObjects (foleys::MagicGUIState& magicState,
-                                         int delayMs = 200);
+    void scheduleFlushUnusedMidiObjects (foleys::MagicGUIState& magicState);
 }
 
 namespace foleys
