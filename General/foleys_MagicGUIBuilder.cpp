@@ -852,6 +852,26 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createCalculatorUIDMenuLam
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMsegUIDMenuLambda() const
+{
+    return [this](juce::ComboBox& combo)
+    {
+        auto uids = magicState.getMsegUIDs();
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMapperUIDMenuLambda() const
 {
     return [this](juce::ComboBox& combo)
