@@ -209,6 +209,8 @@ public:
     std::function<void(juce::ComboBox&)> createUidMenuLambda() const;
     std::function<void(juce::ComboBox&)> createMidiBufferUIDMenuLambda() const;
     std::function<void(juce::ComboBox&)> createNodePropertiesMenuLambda() const;
+    std::function<void(juce::ComboBox&)> createTypeUIDMenuLambda (juce::Identifier type) const;
+    std::function<void(juce::ComboBox&)> createUIDIdentityMenuLambda (juce::Identifier type) const;
 
     template<typename ObjectType>
     std::function<void(juce::ComboBox&)> createObjectsMenuLambda() const

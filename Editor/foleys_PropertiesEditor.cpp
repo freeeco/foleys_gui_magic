@@ -323,6 +323,22 @@ void PropertiesEditor::addNodeProperties()
 
     array.add (new juce::TextPropertyComponent (styleItem.getPropertyAsValue (IDs::id, &undo, true), IDs::id.toString(), 64, false, true));
 
+    // Passive per-type identity uid, grouped with id. Skipped for types that
+    // already declare their own <type>-uid (engine types keep their functional one).
+    {
+        const juce::Identifier typeUid (styleItem.getType().toString().toLowerCase() + "-uid");
+        bool declaresTypeUid = false;
+        if (auto probe = builder.createGuiItem (juce::ValueTree (styleItem.getType()), true))
+            for (auto& p : probe->getSettableProperties())
+                if (p.name.toString().equalsIgnoreCase (typeUid.toString()))
+                    declaresTypeUid = true;
+
+        if (! declaresTypeUid)
+            array.add (new StyleChoicePropertyComponent (
+                builder, typeUid, styleItem,
+                builder.createUIDIdentityMenuLambda (styleItem.getType())));
+    }
+
     if (styleItem == builder.getGuiRootNode())
     {
         array.add (new juce::BooleanPropertyComponent (styleItem.getPropertyAsValue (IDs::resizable, &undo), IDs::resizable.toString(), {}));

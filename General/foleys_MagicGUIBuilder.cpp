@@ -1088,6 +1088,80 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLa
     };
 }
 
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createTypeUIDMenuLambda (juce::Identifier type) const
+{
+    auto* self = const_cast<MagicGUIBuilder*> (this);
+    const juce::Identifier uidProp (type.toString().toLowerCase() + "-uid");
+
+    return [self, uidProp] (juce::ComboBox& combo)
+    {
+        juce::StringArray uids;
+
+        std::function<void (juce::ValueTree)> walk = [&] (juce::ValueTree tree)
+        {
+            auto value = tree.getProperty (uidProp).toString();
+            if (value.isNotEmpty())
+                uids.addIfNotAlreadyThere (value);
+
+            for (auto child : tree)
+                walk (child);
+        };
+
+        walk (self->getGuiRootNode());
+
+        int index = 1;
+        for (auto& uid : uids)
+            combo.addItem (uid, index++);
+
+        if (! uids.isEmpty())
+            combo.addSeparator();
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+    };
+}
+
+std::function<void(juce::ComboBox&)> MagicGUIBuilder::createUIDIdentityMenuLambda (juce::Identifier type) const
+{
+    const juce::String typeName = type.toString();
+
+    return [typeName] (juce::ComboBox& combo)
+    {
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("New / Edit Value"), [&combo]
+        {
+            combo.setEditableText (true);
+            combo.showEditor();
+        });
+
+        combo.getRootMenu()->addItem (NEEDS_TRANS ("Make UID Unique"), [&combo, typeName]
+        {
+            // Same suffix scheme as ToolBox::makeParameterRefsUnique: strip an
+            // existing "-<8+ digits>" suffix, then append ms-since-2000.
+            auto current = combo.getText().trim();
+            auto base    = current;
+
+            auto lastDash = current.lastIndexOf ("-");
+            if (lastDash >= 0)
+            {
+                auto suffix = current.substring (lastDash + 1);
+                if (suffix.containsOnly ("0123456789") && suffix.length() >= 8)
+                    base = current.substring (0, lastDash);
+            }
+
+            if (base.isEmpty())
+                base = typeName.toLowerCase();
+
+            auto msSince2000 = juce::int64 (
+                (juce::Time::getCurrentTime() - juce::Time (2000, 0, 1, 0, 0, 0)).inMilliseconds());
+
+            combo.setText (base + "-" + juce::String (msSince2000), juce::sendNotification);
+        });
+    };
+}
+
 juce::var MagicGUIBuilder::getPropertyDefaultValue (juce::Identifier property) const
 {
     // flexbox
