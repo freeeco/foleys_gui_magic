@@ -1158,7 +1158,9 @@ public:
     static const juce::String      pKeyWidth;
     static const juce::String      pInitialLowestKeyShowing;
     static const juce::String      pEditContainer;
+    static const juce::Identifier  pEditMode;
     static const juce::Identifier  pEditModeValue;
+    static const juce::String      pEditZoneHeight;
     static const juce::Identifier  pMacroPanelValue;
 
     KeyboardItem (MagicGUIBuilder& builder, const juce::ValueTree& node)
@@ -1174,6 +1176,7 @@ public:
             { "key-down-color",        juce::NewMidiKeyboardComponent::keyDownOverlayColourId },
             { "text-label-color",      juce::NewMidiKeyboardComponent::textLabelColourId },
             { "edit-outline-color",    juce::NewMidiKeyboardComponent::editOutlineColourId },
+            { "edit-zone-hover-color", juce::NewMidiKeyboardComponent::editZoneHoverColourId },
         });
 
         addAndMakeVisible (keyboard);
@@ -1210,19 +1213,33 @@ public:
         keyboard.setNoteTooltipProvider (getMagicState().getNoteTooltipProvider());
         
         keyboard.setEditContext (&magicBuilder, getProperty (pEditContainer).toString());
-        const auto editModeID = getProperty (pEditModeValue).toString();
-        editModeValue.removeListener (this);                       // avoid stacking on re-update
 
-        if (editModeID.isNotEmpty())
+        int zoneHeight = int (getProperty (pEditZoneHeight));
+        if (zoneHeight <= 0)
+            zoneHeight = 41;
+        keyboard.setEditZoneHeight (zoneHeight);
+
+        // Edit gate — the keyboard polls this at 20Hz (survives the backing
+        // property node being recreated, unlike a juce::Value listener).
+        // The edit-mode toggle forces it on; otherwise edit-mode-value's
+        // property (or a literal 1/0) drives it.
+        const bool editToggle  = bool (getProperty (pEditMode));
+        const auto editModeID  = getProperty (pEditModeValue).toString().trim();
+
+        if (editToggle || editModeID == "1" || editModeID.equalsIgnoreCase ("true"))
         {
-            editModeValue.referTo (getMagicState().getPropertyAsValue (editModeID));
-            editModeValue.addListener (this);
-            keyboard.setEditMode ((bool) editModeValue.getValue());
-            keyboard.onExitEditMode  = [this] { editModeValue.setValue (0); };
-            keyboard.onEnterEditMode = [this] { editModeValue.setValue (1); };
+            keyboard.setEditModeProvider ([] { return true; });
+        }
+        else if (editModeID.isNotEmpty() && editModeID != "0"
+                 && ! editModeID.equalsIgnoreCase ("false")
+                 && ! editModeID.equalsIgnoreCase ("void"))
+        {
+            keyboard.setEditModeProvider ([this, editModeID]
+                { return (bool) getMagicState().getPropertyAsValue (editModeID).getValue(); });
         }
         else
         {
+            keyboard.setEditModeProvider (nullptr);
             keyboard.setEditMode (false);
         }
         
@@ -1256,8 +1273,12 @@ public:
         props.push_back ({ configNode, pKeyWidth,      SettableProperty::Number, {}, {} , "Width of each white key in pixels" });
         props.push_back ({ configNode, pInitialLowestKeyShowing,      SettableProperty::Number, {}, {} , "Sets the initial lowest visible key" });
         props.push_back ({ configNode, pEditContainer, SettableProperty::Text,   {}, {} , "Container node id whose triggers this keyboard can edit (match the Trigger Bank Editor)" });
+        props.push_back ({ configNode, pEditMode, SettableProperty::Toggle, {}, {},
+                           "Forces the edit zone on (edit-mode-value can also enable it)" });
         props.push_back ({ configNode, pEditModeValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
-                           "Value that turns inline trigger editing on/off (bind to a button/parameter/property)" });
+                           "Property that gates the edit zone, polled at 20Hz (or a literal 1/0)" });
+        props.push_back ({ configNode, pEditZoneHeight, SettableProperty::Number, {}, {},
+                           "Height in pixels of the edit zone along the top of the keys (default 41)" });
         props.push_back ({ configNode, pMacroPanelValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
                            "Value toggled by the macro-panel button (bind to a button/parameter/property)" });
         
@@ -1271,14 +1292,11 @@ public:
 
 private:
     juce::NewMidiKeyboardComponent keyboard;
-    juce::Value editModeValue;
     juce::Value macroPanelValue;
     
     void valueChanged (juce::Value& v) override
     {
-        if (v.refersToSameSourceAs (editModeValue))
-            keyboard.setEditMode ((bool) editModeValue.getValue());
-        else if (v.refersToSameSourceAs (macroPanelValue))
+        if (v.refersToSameSourceAs (macroPanelValue))
             keyboard.setMacroPanelOpen ((bool) macroPanelValue.getValue());
     }
 
@@ -1287,7 +1305,9 @@ private:
 const juce::String      KeyboardItem::pKeyWidth                     {"key-width"};
 const juce::String      KeyboardItem::pInitialLowestKeyShowing      {"initial-lowest-key"};
 const juce::String      KeyboardItem::pEditContainer { "edit-container-id" };
+const juce::Identifier  KeyboardItem::pEditMode { "edit-mode" };
 const juce::Identifier  KeyboardItem::pEditModeValue { "edit-mode-value" };
+const juce::String      KeyboardItem::pEditZoneHeight { "edit-zone-height" };
 const juce::Identifier  KeyboardItem::pMacroPanelValue { "macro-panel-value" };
 
 //==============================================================================

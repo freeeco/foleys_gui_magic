@@ -199,7 +199,8 @@ public:
         textLabelColourId               = 0x1005005,
         shadowColourId                  = 0x1005006,
         keyLabelTextColourId            = 0x1005007,
-        editOutlineColourId             = 0x1005008   /**< Outline drawn around trigger key-groups in edit mode. */
+        editOutlineColourId             = 0x1005008,  /**< Outline drawn around trigger key-groups in edit mode. */
+        editZoneHoverColourId           = 0x1005009   /**< Full-width bar painted over the edit zone when hovered off-region. */
     };
 
     //==============================================================================
@@ -294,18 +295,36 @@ public:
     int getInitialLowestKeyShowing() {return initialLowestKeyShowing; };
 
     //==============================================================================
-    // Inline trigger editing (edit mode).
+    // Inline trigger editing (the edit zone).
     //
-    // When edit mode is on, clicking a key opens an editing menu instead of
-    // playing the note. The keyboard owns the edit-mode flag (it needs it for
-    // its own outline drawing) and a nested TriggerEditor that does the data
-    // side (resolving a key to node(s) in the container tree and performing
-    // copy / cut / paste / clear / colour / add-from-preset). See setEditContext.
+    // Editing is integrated into normal play mode: the top editZoneHeight
+    // pixels of the keyboard act as the edit zone. Within it, a click (no
+    // drag) opens the trigger edit menu for the key; a drag near a region
+    // edge resizes that edge; a drag elsewhere over a region translates the
+    // whole region. Everything below the zone plays notes as usual. The
+    // editMode flag is now purely a master gate — when off, the zone is
+    // inert and the keyboard behaves like a plain keyboard. The nested
+    // TriggerEditor does the data side (resolving a key to node(s) in the
+    // container tree and performing copy / cut / paste / clear / colour /
+    // add-from-preset). See setEditContext.
 
-    /** Turns inline trigger editing on/off. While on, key clicks open the edit
-        menu and don't play notes; the trigger-group outlines are drawn. */
+    /** Gates the edit zone on/off. While off, the zone's hit tests, hover
+        affordances and click-menu are all disabled. */
     void setEditMode (bool shouldBeOn);
     bool isEditMode() const noexcept { return editMode; }
+
+    /** Sets a callback that supplies the edit-zone gate, polled from the
+        20Hz timer (and evaluated once immediately when set). Preferred over
+        binding a juce::Value: a Value's listener silently detaches when the
+        underlying property node is recreated (e.g. on preset / state load),
+        whereas a poll resolves the property fresh every tick. setEditMode
+        no-ops when unchanged, so polling is cheap. Pass nullptr to stop. */
+    void setEditModeProvider (std::function<bool()> provider);
+
+    /** Height in pixels of the edit zone along the top of the keys.
+        Default 41. */
+    void setEditZoneHeight (int pixels);
+    int  getEditZoneHeight() const noexcept { return editZoneHeight; }
 
     /** Gives the editor the builder + the id of the container node whose
         triggers this keyboard edits. Must match the container id used by the
@@ -324,34 +343,13 @@ public:
         -1 clears it. Driven internally by the editor's menu lifetime. */
     void setActiveEditNote (int note);
 
-    /** Called when the user clicks the in-keyboard toggle button (top-left)
-        while edit mode is on (the button shows an x). Wire this to clear the
-        edit-mode value so any external control bound to it updates too, e.g.:
-        @code
-            keyboard.onExitEditMode = [this] { editModeValue.setValue (0); };
-        @endcode
-        The keyboard deliberately doesn't toggle editMode itself here — it lets
-        that value drive setEditMode, keeping a single source of truth. */
-    std::function<void()> onExitEditMode;
-
-    /** Mirror of onExitEditMode — called when the user clicks the toggle
-        button while edit mode is off (the button shows a +). Wire to set the
-        edit-mode value to 1, e.g.:
-        @code
-            keyboard.onEnterEditMode = [this] { editModeValue.setValue (1); };
-        @endcode
-        Same single-source-of-truth rule as onExitEditMode: the keyboard
-        doesn't flip editMode itself. */
-    std::function<void()> onEnterEditMode;
-
     //==============================================================================
     // Macro-panel toggle button.
     //
-    // A second fixed top-left button, drawn 8px below the edit-mode toggle,
-    // showing three dots ("..."). It's a simple open/closed toggle that drives
-    // an external value (typically backed by an APVTS parameter), independent of
-    // edit mode and the trigger context. Same single-source-of-truth rule as
-    // edit mode: clicking calls onToggleMacroPanel (which flips the bound value)
+    // A fixed top-right button showing three dots ("..."). It's a simple
+    // open/closed toggle that drives an external value (typically backed by an
+    // APVTS parameter), independent of the trigger context. Single source of
+    // truth: clicking calls onToggleMacroPanel (which flips the bound value)
     // and the value drives setMacroPanelOpen back; the keyboard never flips its
     // own flag.
 
@@ -365,7 +363,7 @@ public:
         entirely: it stops painting the keys, becomes a transparent click-through
         overlay (every click except the close button falls through to the
         component behind), hides its scroll buttons, and draws a single close
-        button (an x-disc, same look as the edit-mode toggle) that toggles the
+        button (a disc with a micro keyboard glyph) that toggles the
         value back to 0. */
     void setMacroPanelOpen (bool isOpen);
     bool isMacroPanelOpen() const noexcept { return macroPanelOpen; }
@@ -395,23 +393,24 @@ private:
     void drawLabelForKey (Graphics& g, Rectangle<float> keyArea,
                           std::optional<Colour> baseFill, int midiNoteNumber);
 
-    /** Edit-mode zone outlines. drawEditOutlines walks the visible range,
-        groups each maximal run of same-coloured notes into a zone, and calls
-        drawZoneOutline to stroke that zone's silhouette as a single path
-        (straight top/bottom, L-stepped sides around the black keys). Called from
-        paint() after the keys; the active group (menu open) is stroked heavier. */
-    void drawEditOutlines (Graphics& g);
-    void drawZoneOutline  (Graphics& g, int startNote, int endNote);
+    /** Edit-zone overlays, called from paint() after the keys. While a
+        confirmed drag is in progress, strokes only the dragged region's
+        silhouette (via drawZoneOutline: straight top/bottom, L-stepped sides
+        around the black keys). While the edit menu is open, strokes the
+        active region. Otherwise paints the hover affordance: a full-width
+        bar in editZoneHoverColourId when hovering the zone off-region, or a
+        region-width dark tint when hovering over a region. */
+    void drawEditZoneOverlays (Graphics& g);
+    void drawZoneOutline (Graphics& g, int startNote, int endNote);
 
-    /** Bounds of the edit-mode toggle button — top-left, "+" and "x" in place.
-        iOS buttons are fatter for touch. Drawn / hit-tested whenever
-        triggerEditor.hasContext() is true and the macro panel isn't open. */
-    Rectangle<float> getCloseButtonBounds() const;
+    /** Recomputes the hover affordance + mouse cursor for a point. No-op
+        while a zone gesture is in progress (mouseDown/Up own the state
+        then). Called from mouseMove and after a gesture ends. */
+    void updateZoneHover (Point<float> pos);
 
-    /** Bounds of the macro-panel toggle button — top-right, the edit button
-        mirrored across the keyboard (same distance from the right edge as the
-        edit button is from the left). Holds both the idle "..." (hidden while
-        edit mode is active) and the panel-open close (x) overlay. */
+    /** Bounds of the macro-panel toggle button — top-right, inset from the
+        right octave-scroll button. iOS buttons are fatter for touch. Holds
+        both the idle "..." and the panel-open close (x) overlay. */
     Rectangle<float> getMacroButtonBounds() const;
 
     /** Bounds of just the panel-open close (x) box — derived from the macro
@@ -419,19 +418,40 @@ private:
         of the "..." button. */
     Rectangle<float> getMacroCloseButtonBounds() const;
 
-    /** Edit-mode region edge resize. A trigger region is the contiguous run of
-        same-coloured notes; dragging within a few pixels of its left/right edge
-        changes the region's lower/upper note (applied to every node in the
-        stack). hitTestRegionEdge reports the edge under a point, if any. */
+    /** Region edge resize. A trigger region is the contiguous run of
+        same-coloured notes; dragging within a few pixels of its left/right
+        edge — inside the edit zone — changes the region's lower/upper note
+        (applied to every node in the stack). hitTestRegionEdge reports the
+        edge under a point, if any. Valid only when the gate is on, the point
+        is inside the zone, and the keyboard is horizontal. */
     struct RegionEdge { bool valid = false; bool lowEdge = false; int regionStart = -1, regionEnd = -1; };
     RegionEdge hitTestRegionEdge (Point<float> pos);
 
-    /** Edit-mode region drag handle. A 30-px band at the top of each region's
-        keys; dragging within it translates the whole region (low + high notes
-        shift together by one delta). hitTestRegionHandle reports the region
-        under a point if it's inside the band, else invalid. */
+    /** Region drag handle — the edit zone over a region's keys. Dragging in
+        it (away from the edges) translates the whole region (low + high
+        notes shift together by one delta). hitTestRegionHandle reports the
+        region under a point if it's inside the zone, else invalid. */
     struct RegionHandle { bool valid = false; int regionStart = -1, regionEnd = -1; };
     RegionHandle hitTestRegionHandle (Point<float> pos);
+
+    /** X of a region boundary's *visible* edge at a given y — the silhouette
+        drawZoneOutline traces, not the boundary white key's full-width rect.
+        Within the black-key band, a black boundary note protrudes to its own
+        edge and a white boundary note with a foreign black key beside it is
+        notched in to that black key's edge (the L-shape); below the black
+        keys the white key's own edge applies. lowEdge selects the region's
+        left (low-note) or right (high-note) boundary. Shared by the edge hit
+        test and the zone hover strip. */
+    float getVisibleEdgeX (int note, bool lowEdge, float y);
+
+    /** True while the edit visuals (key dimming + single-region outline)
+        should show: a confirmed zone drag, or the edit menu being open on a
+        region. A menu opened on a background (non-range) key sets
+        activeEditNote but leaves activeRunStart at -1 — no dim for those. */
+    bool editVisualsActive() const noexcept
+    {
+        return (resizingRegion && dragConfirmed) || activeRunStart >= 0;
+    }
 
     int initialLowestKeyShowing = 24;
 
@@ -462,21 +482,48 @@ private:
     melatonin::DropShadow blackKeyShadow { Colours::black.withAlpha (0.5f), 4, { 0, 2 } };
 
     //==============================================================================
-    // Edit-mode state.
-    bool editMode       = false;
+    // Edit-zone state.
+    bool editMode       = false;   // master gate for the whole edit zone
+    std::function<bool()> editModeProvider;   // polled gate source (see setEditModeProvider)
+    int  editZoneHeight = 41;      // zone height in px along the top of the keys
     int  activeEditNote = -1;   // note whose group is highlighted while its menu is open
     int  activeRunStart = -1;   // computed run extent of the active note, for the heavy outline
     int  activeRunEnd   = -1;
 
-    // Region edge-resize drag (set on mouseDown over an edge).
+    // Zone press / gesture session. A press in the zone never plays a note;
+    // it resolves on mouseUp: click (never passed the drag slop) → edit menu,
+    // confirmed drag → the resize/translate that mouseDown armed.
+    bool zonePressActive = false;
+    bool dragConfirmed   = false;   // true once the press moved past the slop; drag visuals + deltas gate on this
+    int  pendingMenuNote = -1;      // key under the press, menu target if it stays a click
+
+    // Set by the edit menu's dismissal callback. A click that dismisses the
+    // menu can be delivered to the keyboard too (platform dependent); zone
+    // presses arriving while the menu is up or within a short window of this
+    // timestamp are swallowed so the dismissal doesn't reopen the menu.
+    juce::uint32 lastMenuDismissTime = 0;
+
+    // Region edge-resize / translate drag (armed on mouseDown over an edge or
+    // a region; deltas only flow once dragConfirmed).
     bool resizingRegion   = false;
     bool resizeLowEdge    = false;
     int  resizeAnchorNote = -1;   // the edge's original note, drag deltas are measured from here
 
-    // Hovered drag-handle region (top-band hover indicator). Cleared while a
-    // drag is in progress, repainted on hover changes. -1 = nothing hovered.
-    int hoveredHandleStart = -1;
-    int hoveredHandleEnd   = -1;
+    // Dragged-region geometry, for stroking only that region while dragging.
+    // Start/end are the region's extent at mouseDown; dragAppliedDelta is the
+    // clamped delta the editor actually applied (returned by updateEdgeResize).
+    bool dragIsRegionMove  = false;
+    int  dragRegionStart   = -1;
+    int  dragRegionEnd     = -1;
+    int  dragAppliedDelta  = 0;
+
+    // Hover affordance (mouse only; cleared during gestures / on exit).
+    // hoverRegionStart/End >= 0 → region-width tint; hoverZoneGaps → dim
+    // strips over every uncoloured gap in the visible range (hovering the
+    // zone anywhere off-region). Mutually exclusive.
+    int  hoverRegionStart = -1;
+    int  hoverRegionEnd   = -1;
+    bool hoverZoneGaps    = false;
 
     //==============================================================================
     // Macro-panel button state. Visibility and open-state are both externally
@@ -484,8 +531,8 @@ private:
     bool macroButtonVisible = false;
     bool macroPanelOpen     = false;
 
-    // Set in mouseDown when the press is consumed by a button (macro toggle,
-    // edit toggle, or a right-click menu) rather than a key. The press still
+    // Set in mouseDown when the press is consumed by a button (macro toggle
+    // or a right-click menu) rather than a key. The press still
     // captures the mouse, so a tiny movement fires mouseDrag with the cursor
     // over a key beneath the button; without this flag that drag would leak a
     // note-on. Reset at the top of every mouseDown.
@@ -529,7 +576,7 @@ private:
         // edge's original note) are applied absolutely so there's no drift,
         // coalesced into a single undo transaction.
         bool beginEdgeResize  (int edgeNote, bool lowEdge);
-        void updateEdgeResize (int delta);
+        int  updateEdgeResize (int delta);   // returns the clamped delta actually applied
         void endEdgeResize();
 
         // Region drag handle — captures BOTH edges of every range pair on every

@@ -124,11 +124,10 @@ namespace
     //                     start with "http", and ends with -<8+ digits>. Standalone
     //                     only — composite strings (anything with ",;/") are
     //                     treated as opaque external references and left alone.
-    //   * UID refs      — property *name* contains "-uid" and value matches
-    //                     <text>_<8+ digits> as a whole identifier (no ",;:/" or
-    //                     whitespace). Same standalone-only rule: a Playlist score
-    //                     string carrying clip UIDs with timing reaches outside the
-    //                     bundle and stays verbatim.
+    //   * UID refs      — property *name* ends with "-uid" and value ends with
+    //                     5+ digits (timestamp stamps and hand-authored counters
+    //                     like "View_uid-00003" alike). Fixed UIDs with no digit
+    //                     suffix ("Playhead_root") are left verbatim.
     //
     // Two-pass: pass 1 discovers and mints new stamps, pass 2 substitutes by
     // exact-value lookup so cross-refs within the bundle land on the same new
@@ -152,16 +151,22 @@ namespace
         return suffix.length() >= 8 && suffix.containsOnly ("0123456789");
     }
 
-    inline bool isStandaloneUniquifiedUID (const String& value)
+    // Returns the stem of a remappable UID (value ends with >=5 digits), or an
+    // empty string for fixed UIDs (e.g. "Playhead_root") which must not be minted.
+    inline String remappableUIDStem (const String& value)
     {
-        if (value.isEmpty())                                 return false;
-        if (value.containsAnyOf (",;:/ \t\n\r"))             return false;
+        int digits = 0;
+        while (digits < value.length()
+               && CharacterFunctions::isDigit (value[value.length() - 1 - digits]))
+            ++digits;
 
-        const int lastUnderscore = value.lastIndexOfChar ('_');
-        if (lastUnderscore <= 0)                             return false;
+        if (digits < 5 || digits == value.length())
+            return {};
 
-        const auto suffix = value.substring (lastUnderscore + 1);
-        return suffix.length() >= 8 && suffix.containsOnly ("0123456789");
+        auto stem = value.dropLastCharacters (digits);
+        if (stem.endsWithChar ('_') || stem.endsWithChar ('-'))
+            stem = stem.dropLastCharacters (1);
+        return stem;
     }
 
     inline void uniquifyPayloadRefs (Array<ValueTree>& payload, Array<ValueTree>& extras)
@@ -179,15 +184,13 @@ namespace
                 const auto name  = node.getPropertyName (i);
                 const auto value = node.getProperty (name).toString();
 
-                const bool isUidProp = name.toString().containsIgnoreCase ("-uid");
+                const bool isUidProp = name.toString().endsWithIgnoreCase ("-uid");
 
                 if (isUidProp)
                 {
-                    if (isStandaloneUniquifiedUID (value) && uidMap.find (value) == uidMap.end())
-                    {
-                        const auto stem = value.upToLastOccurrenceOf ("_", false, false);
-                        uidMap[value] = stem + "_" + String (baseStamp + counter++);
-                    }
+                    if (uidMap.find (value) == uidMap.end())
+                        if (const auto stem = remappableUIDStem (value); stem.isNotEmpty())
+                            uidMap[value] = stem + "_" + String (baseStamp + counter++);
                 }
                 else if (isStandaloneUniquifiedValue (value) && valueMap.find (value) == valueMap.end())
                 {
@@ -380,10 +383,18 @@ namespace
     constexpr uint32 kEditDimBlackGreyArgb = 0xff181818;
     constexpr float  kEditDimBlackAmount   = 0.55f;
 
-    // Edit-mode region drag handle — a band along the top of each region's keys
-    // that translates the whole range (low + high notes shift together by one
-    // delta).
-    constexpr float kRegionHandleHeight     = 30.0f;
+    // Edit zone — region-width hover tint (dark grey, ~0.2 alpha) painted over
+    // a hovered region's strip. The off-region full-width bar uses the
+    // editZoneHoverColourId stylesheet colour instead.
+    constexpr uint32 kZoneRegionHoverArgb = 0x33333333;
+
+    // Pixels a zone press must travel before it becomes a drag rather than a
+    // click (which opens the edit menu on release). Fatter for touch.
+#if JUCE_IOS
+    constexpr int kZoneDragSlop = 8;
+#else
+    constexpr int kZoneDragSlop = 4;
+#endif
 }
 
 //==============================================================================
@@ -407,11 +418,13 @@ NewMidiKeyboardComponent::NewMidiKeyboardComponent (MidiKeyboardState& stateToUs
     mouseDownNotes.insertMultiple (0, -1, 32);
 
     // The standard MidiKeyboardComponent colour IDs (0x1005000–0x1005006) get
-    // their defaults from LookAndFeel_V2. editOutlineColourId is a custom ID the
-    // L&F doesn't know, so seed a default here — otherwise findColour trips a
-    // jassertfalse when the stylesheet hasn't set "edit-outline-color". The
-    // stylesheet still overrides this when the colour is specified.
-    setColour (editOutlineColourId, Colours::white.withAlpha (0.65f));
+    // their defaults from LookAndFeel_V2. editOutlineColourId and
+    // editZoneHoverColourId are custom IDs the L&F doesn't know, so seed
+    // defaults here — otherwise findColour trips a jassertfalse when the
+    // stylesheet hasn't set them. The stylesheet still overrides these when
+    // the colours are specified.
+    setColour (editOutlineColourId,   Colours::white.withAlpha (0.65f));
+    setColour (editZoneHoverColourId, Colours::white.withAlpha (0.10f));
 
     colourChanged();
 
@@ -581,8 +594,8 @@ void NewMidiKeyboardComponent::updateNoteUnderMouse (Point<float> pos, bool isDo
 void NewMidiKeyboardComponent::paint (Graphics& g)
 {
     // Macro panel open: the keyboard is hidden so the component behind shows
-    // through. Paint nothing but a close button — an x-disc identical to the
-    // edit-mode toggle — at the macro button's position. Clicking it toggles
+    // through. Paint nothing but a close button — a disc with a micro
+    // keyboard glyph — at the macro button's position. Clicking it toggles
     // the bound value back to 0 (handled in mouseDown, same hit target as
     // getMacroCloseButtonBounds()).
     if (macroPanelOpen)
@@ -593,11 +606,23 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
         g.setColour (Colours::grey);
         g.drawEllipse (b, 1.0f);
 
-        const auto x   = b.reduced (b.getWidth() * 0.32f);
-        const float th = jmax (1.5f, b.getWidth() * 0.10f);
-        g.setColour (Colours::darkgrey);
-        g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
-        g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
+        // Micro keyboard glyph — C D E with C# and D#. Outline, two divider
+        // lines at thirds, and two fat short strokes from the top for the
+        // black keys (drawn over the dividers, same colour). Proportional to
+        // the disc so it scales with the iOS/desktop button sizes.
+        const auto  kb   = b.reduced (b.getWidth() * 0.22f).toNearestInt().toFloat();
+        const float th   = jmax (1.0f, b.getWidth() * 0.06f);
+        const float x1   = kb.getX() + kb.getWidth() * (1.0f / 3.0f);
+        const float x2   = kb.getX() + kb.getWidth() * (2.0f / 3.0f);
+        const float bkTh = jmax (2.0f, b.getWidth() * 0.15f);
+        const float bkY  = kb.getY() + kb.getHeight() * 0.55f;
+
+        g.setColour (Colour (0xff6a6a6a));
+        g.drawRect (kb, th);                                  // the 4 outline lines
+        g.drawLine (x1, kb.getY(), x1, kb.getBottom(), th);   // C|D divider
+        g.drawLine (x2, kb.getY(), x2, kb.getBottom(), th);   // D|E divider
+        g.drawLine (x1, kb.getY(), x1, bkY, bkTh);            // C#
+        g.drawLine (x2, kb.getY(), x2, bkY, bkTh);            // D#
         return;
     }
 
@@ -605,42 +630,13 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
 
     KeyboardComponentBase::paint (g);
 
-    drawEditOutlines (g);
+    drawEditZoneOverlays (g);
 
-    // Edit-mode toggle button — fixed at the top-left, drawn last so it sits
-    // on top and doesn't scroll with the keys. Light-grey disc with a
-    // dark-grey cross (in edit mode, to exit) or plus (out of edit mode, to
-    // enter). Only shown when the editor has a container to operate on.
-    if (triggerEditor.hasContext())
-    {
-        const auto b = getCloseButtonBounds();
-        g.setColour (Colours::lightgrey);
-        g.fillEllipse (b);
-        g.setColour (Colours::grey);
-        g.drawEllipse (b, 1.0f);
-
-        const auto x   = b.reduced (b.getWidth() * 0.32f);
-        const float th = jmax (1.5f, b.getWidth() * 0.10f);
-        g.setColour (Colours::darkgrey);
-
-        if (editMode)
-        {
-            g.drawLine (x.getX(), x.getY(),      x.getRight(), x.getBottom(), th);
-            g.drawLine (x.getX(), x.getBottom(), x.getRight(), x.getY(),      th);
-        }
-        else
-        {
-            const float cx = x.getCentreX(), cy = x.getCentreY();
-            g.drawLine (x.getX(),  cy,       x.getRight(), cy,           th);
-            g.drawLine (cx,        x.getY(), cx,           x.getBottom(), th);
-        }
-    }
-
-    // Macro-panel toggle button — the three dots ("..."), in the bottom slot
-    // below the edit toggle. Shown whenever a macro value is bound, but hidden
-    // while edit mode is active to keep the corner uncluttered. (Only drawn
-    // while closed; the open state is the full-keyboard overlay above.)
-    if (macroButtonVisible && ! editMode)
+    // Macro-panel toggle button — three short fat vertical bars (panels side
+    // by side, representing the panel view), top-right. Shown whenever a
+    // macro value is bound. (Only drawn while closed; the open state is the
+    // full-keyboard overlay above.)
+    if (macroButtonVisible)
     {
         const auto b = getMacroButtonBounds();
         g.setColour (Colours::lightgrey);
@@ -648,16 +644,16 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
         g.setColour (Colours::grey);
         g.drawEllipse (b, 1.0f);
 
-        const float dotR = jmax (1.0f, b.getWidth() * 0.07f);
-        const float gap  = b.getWidth() * 0.24f;
-        const float cy   = b.getCentreY();
+        const auto  area = b.reduced (b.getWidth() * 0.35f).toNearestInt().toFloat();
+        const float barW = jmax (2.0f, b.getWidth() * 0.12f);
+        const float gap  = b.getWidth() * 0.20f;
         const float cx   = b.getCentreX();
-        g.setColour (Colours::darkgrey);
+        g.setColour (Colour (0xff6a6a6a));
 
         for (int i = -1; i <= 1; ++i)
         {
-            const float dcx = cx + (float) i * gap;
-            g.fillEllipse (dcx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f);
+            const float bx = std::floor (cx + (float) i * gap - barW * 0.5f);
+            g.fillRect (bx, area.getY(), barW, area.getHeight());
         }
     }
 }
@@ -683,21 +679,69 @@ void NewMidiKeyboardComponent::repaintNote (int noteNum)
 void NewMidiKeyboardComponent::mouseMove (const MouseEvent& e)
 {
     updateNoteUnderMouse (e, false);
+    updateZoneHover (e.position);
+}
 
-    if (editMode && ! resizingRegion)
+void NewMidiKeyboardComponent::updateZoneHover (Point<float> pos)
+{
+    if (! editMode || getOrientation() != horizontalKeyboard)
+        return;
+
+    // A gesture owns the pointer state while it's live; mouseUp re-runs this.
+    if (zonePressActive || resizingRegion || macroPanelOpen)
+        return;
+
+    int  newStart = -1, newEnd = -1;   // region hover extent
+    bool newGaps  = false;             // hovering off-region → light all gaps
+    auto cursor   = MouseCursor::NormalCursor;
+
+    if (pos.y >= 0.0f && pos.y <= (float) editZoneHeight
+        && getLocalBounds().toFloat().contains (pos))
     {
-        if (hitTestRegionHandle (e.position).valid)
-            setMouseCursor (MouseCursor::DraggingHandCursor);
-        else
-            setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
-                                                                 : MouseCursor::NormalCursor);
+        // The macro button owns its corner.
+        const bool overMacro = macroButtonVisible
+                            && getMacroButtonBounds().expanded (4.0f).contains (pos);
+        if (! overMacro)
+        {
+            if (const auto edge = hitTestRegionEdge (pos); edge.valid)
+            {
+                newStart = edge.regionStart;
+                newEnd   = edge.regionEnd;
+                cursor   = MouseCursor::LeftRightResizeCursor;
+            }
+            else if (const auto handle = hitTestRegionHandle (pos); handle.valid)
+            {
+                newStart = handle.regionStart;
+                newEnd   = handle.regionEnd;
+                cursor   = MouseCursor::DraggingHandCursor;
+            }
+            else
+            {
+                // Off-region: light every gap (painted in
+                // drawEditZoneOverlays), as long as the pointer is over an
+                // uncoloured key.
+                const int note = getNoteAndVelocityAtPosition (pos).note;
+                newGaps = note >= 0
+                       && ! (noteColourProvider && noteColourProvider (note).has_value());
+            }
+        }
+    }
+
+    setMouseCursor (cursor);
+
+    if (newStart != hoverRegionStart || newEnd != hoverRegionEnd || newGaps != hoverZoneGaps)
+    {
+        hoverRegionStart = newStart;
+        hoverRegionEnd   = newEnd;
+        hoverZoneGaps    = newGaps;
+        repaint (0, 0, getWidth(), editZoneHeight + 1);
     }
 }
 
 void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
 {
-    // The press that started this drag was claimed by a button (macro/edit
-    // toggle or a right-click menu), or the macro panel is up. The mouse is
+    // The press that started this drag was claimed by a button (macro toggle
+    // or a right-click menu), or the macro panel is up. The mouse is
     // still captured by the keyboard, so without this a few pixels of movement
     // would compute the key under the cursor and play it. Don't.
     if (mouseDownConsumedByButton || macroPanelOpen)
@@ -709,21 +753,36 @@ void NewMidiKeyboardComponent::mouseDrag (const MouseEvent& e)
     // showMenuAsync's overlay grabs focus.
     if (e.mods.isPopupMenu())
         return;
-#endif
 
-    if (resizingRegion)
+    if (zonePressActive)
     {
-        // Sample the note from the x position at a fixed height inside the
-        // black-key band so the drag has full chromatic resolution wherever the
-        // pointer is vertically. Deltas are measured from the edge's original
-        // note, so the edit is absolute (no drift) and clamps cleanly.
-        const float x       = jlimit (0.0f, (float) getWidth() - 1.0f, e.position.x);
-        const float sampleY = (float) getHeight() * 0.25f;
-        const int   target  = getNoteAndVelocityAtPosition ({ x, sampleY }).note;
-        if (target >= 0)
-            triggerEditor.updateEdgeResize (target - resizeAnchorNote);
-        return;
+        // Past the slop the press is committed as a drag: it can no longer
+        // become a click-menu, even if it returns to its start position, and
+        // the drag visuals (background dim + dragged-region outline) turn on.
+        if (! dragConfirmed && e.getDistanceFromDragStart() > kZoneDragSlop)
+        {
+            dragConfirmed   = true;
+            pendingMenuNote = -1;
+            repaint();
+        }
+
+        if (resizingRegion && dragConfirmed)
+        {
+            // Sample the note from the x position at a fixed height inside the
+            // black-key band so the drag has full chromatic resolution wherever
+            // the pointer is vertically. Deltas are measured from the edge's
+            // original note, so the edit is absolute (no drift) and clamps
+            // cleanly; the applied (clamped) delta feeds the outline.
+            const float x       = jlimit (0.0f, (float) getWidth() - 1.0f, e.position.x);
+            const float sampleY = (float) getHeight() * 0.25f;
+            const int   target  = getNoteAndVelocityAtPosition ({ x, sampleY }).note;
+            if (target >= 0)
+                dragAppliedDelta = triggerEditor.updateEdgeResize (target - resizeAnchorNote);
+        }
+
+        return;   // a zone gesture never plays notes, even dragged onto the keys below
     }
+#endif
 
     auto newNote = getNoteAndVelocityAtPosition (e.position).note;
 
@@ -737,15 +796,17 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
     // claims it. mouseDrag consults this so a button-press that wobbles a few
     // pixels never leaks a note from the key beneath the button.
     mouseDownConsumedByButton = false;
+    zonePressActive           = false;
+    dragConfirmed             = false;
+    pendingMenuNote           = -1;
+    dragAppliedDelta          = 0;
 
-    // Macro-panel toggle button — independent of edit mode / triggers, fixed at
-    // the top-left below the edit toggle. Left-click flips the bound macro value
-    // via the callback; takes priority over the keys (and any edit-region edge)
-    // beneath it. The keyboard never flips its own macroPanelOpen flag. Matches
-    // the button's visibility: clickable when the panel is open (the close x) or
-    // when the dots are showing (macro bound and not in edit mode).
+    // Macro-panel toggle button — independent of the triggers, fixed at the
+    // top-right. Left-click flips the bound macro value via the callback; takes
+    // priority over the keys (and the edit zone) beneath it. The keyboard never
+    // flips its own macroPanelOpen flag.
     if (! e.mods.isPopupMenu()
-        && (macroPanelOpen || (macroButtonVisible && ! editMode))
+        && (macroPanelOpen || macroButtonVisible)
         && (macroPanelOpen ? getMacroCloseButtonBounds() : getMacroButtonBounds()).expanded (4.0f).contains (e.position))
     {
         mouseDownConsumedByButton = true;
@@ -764,41 +825,48 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
         return;
     }
     
-    // Toggle button takes priority over the keys beneath it whenever it's
-    // visible (i.e. the editor has a container). Click swaps editMode by way
-    // of the host-owned value — the keyboard doesn't flip it directly.
-    if (triggerEditor.hasContext() && ! macroPanelOpen && getCloseButtonBounds().expanded (4.0f).contains (e.position))
+    // Edit zone — the top editZoneHeight pixels, when the gate is on. The
+    // press is consumed here and resolved on mouseUp: a click (never past the
+    // slop) opens the edit menu for the key; a confirmed drag runs whichever
+    // session was armed below. Notes are never played from a zone press.
+    if (editMode && ! macroPanelOpen
+        && getOrientation() == horizontalKeyboard
+        && e.position.y <= (float) editZoneHeight)
     {
-        mouseDownConsumedByButton = true;
-        if (editMode) { if (onExitEditMode  != nullptr) onExitEditMode();  }
-        else          { if (onEnterEditMode != nullptr) onEnterEditMode(); }
-        return;
-    }
-
-    // Grabbing the top-band handle translates the whole region (low + high
-    // edges shift together). Checked before the edge hit so the upper corners
-    // are reliably grabbable as "translate" rather than "resize".
-    if (editMode)
-    {
-        const auto handle = hitTestRegionHandle (e.position);
-        if (handle.valid)
+        // Clicking off an open menu delivers the dismissing press here too
+        // (platform dependent); reopening the menu from that press reads as
+        // broken, so swallow it — both while the menu is still up
+        // (activeEditNote set) and shortly after its dismissal callback ran.
+        if (activeEditNote >= 0
+            || Time::getMillisecondCounter() - lastMenuDismissTime < 250)
         {
-            const int anchor = getNoteAndVelocityAtPosition (e.position).note;
-            if (anchor >= 0 && triggerEditor.beginRegionDrag (anchor))
-            {
-                resizingRegion     = true;
-                resizeAnchorNote   = anchor;
-                setMouseCursor (MouseCursor::DraggingHandCursor);
-                return;
-            }
+            mouseDownConsumedByButton = true;
+            return;
         }
-    }
 
-    // Grabbing a region edge starts a width resize instead of opening the menu.
-    if (editMode)
-    {
-        const auto edge = hitTestRegionEdge (e.position);
-        if (edge.valid)
+        zonePressActive = true;
+        pendingMenuNote = getNoteAndVelocityAtPosition (e.position).note;
+
+        // Drop the per-note mouse-over overlay for the duration of the
+        // gesture — the zone branches skip updateNoteUnderMouse, so without
+        // this the key under the press keeps its hover highlight while a
+        // region is dragged. An off-component point clears the over-note.
+        updateNoteUnderMouse ({ -10.0f, -10.0f }, false, e.source.getIndex());
+
+        // Hover affordance off for the duration of the gesture.
+        if (hoverRegionStart >= 0 || hoverZoneGaps)
+        {
+            hoverRegionStart = -1;
+            hoverRegionEnd   = -1;
+            hoverZoneGaps    = false;
+            repaint (0, 0, getWidth(), editZoneHeight + 1);
+        }
+
+        // Edge wins its ±7px so regions stay resizable inside the shared
+        // band — corners therefore resize rather than translate. Elsewhere
+        // over a region, arm a whole-region translate. Neither applies any
+        // change until the drag is confirmed in mouseDrag.
+        if (const auto edge = hitTestRegionEdge (e.position); edge.valid)
         {
             const int anchor = edge.lowEdge ? edge.regionStart : edge.regionEnd;
             if (triggerEditor.beginEdgeResize (anchor, edge.lowEdge))
@@ -806,9 +874,26 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
                 resizingRegion   = true;
                 resizeLowEdge    = edge.lowEdge;
                 resizeAnchorNote = anchor;
-                return;
+                dragIsRegionMove = false;
+                dragRegionStart  = edge.regionStart;
+                dragRegionEnd    = edge.regionEnd;
             }
         }
+        else if (const auto handle = hitTestRegionHandle (e.position); handle.valid)
+        {
+            const int anchor = getNoteAndVelocityAtPosition (e.position).note;
+            if (anchor >= 0 && triggerEditor.beginRegionDrag (anchor))
+            {
+                resizingRegion   = true;
+                resizeAnchorNote = anchor;
+                dragIsRegionMove = true;
+                dragRegionStart  = handle.regionStart;
+                dragRegionEnd    = handle.regionEnd;
+                setMouseCursor (MouseCursor::DraggingHandCursor);
+            }
+        }
+
+        return;
     }
 #endif
 
@@ -818,14 +903,14 @@ void NewMidiKeyboardComponent::mouseDown (const MouseEvent& e)
         updateNoteUnderMouse (e, true);
 }
 
-Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
+Rectangle<float> NewMidiKeyboardComponent::getMacroButtonBounds() const
 {
-    // Edit toggle: top-left, sitting just inboard of the left octave-scroll
+    // Macro toggle: top-right, sitting just inboard of the right octave-scroll
     // button. That scroll button is wider on iOS (its end keys double as touch
     // octave shifters), so derive the x inset from the actual scroll-button
     // width + a fixed gap rather than a magic constant — that way it clears the
     // octave button by the same gap on every platform. iOS also uses a fatter
-    // disc. The macro button on the right mirrors this, so both sides clear.
+    // disc.
 #if JUCE_IOS
     const float margin = 12.0f;
     const float d      = jlimit (16.0f, 34.0f, (float) getHeight() * 0.32f);
@@ -833,18 +918,9 @@ Rectangle<float> NewMidiKeyboardComponent::getCloseButtonBounds() const
     const float margin = 6.0f;
     const float d      = jlimit (16.0f, 28.0f, (float) getHeight() * 0.16f);
 #endif
-    const float gap = 8.0f;                                  // clearance from the octave-scroll button
-    const float x   = (float) getScrollButtonWidth() + gap;
-    return { x, margin + 2.0f, d, d };
-}
-
-Rectangle<float> NewMidiKeyboardComponent::getMacroButtonBounds() const
-{
-    // Macro toggle: top-right — the edit button mirrored across the keyboard, so
-    // it sits the same distance from the right edge as the edit button is from
-    // the left. Same y and size.
-    const auto edit = getCloseButtonBounds();
-    return edit.withX ((float) getWidth() - edit.getRight());
+    const float gap  = 8.0f;                                 // clearance from the octave-scroll button
+    const float inset = (float) getScrollButtonWidth() + gap;
+    return { (float) getWidth() - inset - d, margin + 2.0f, d, d };
 }
 
 Rectangle<float> NewMidiKeyboardComponent::getMacroCloseButtonBounds() const
@@ -855,10 +931,57 @@ Rectangle<float> NewMidiKeyboardComponent::getMacroCloseButtonBounds() const
     return getMacroButtonBounds().translated (macroCloseXOffset, 0.0f);
 }
 
+float NewMidiKeyboardComponent::getVisibleEdgeX (int note, bool lowEdge, float y)
+{
+    auto isBlack = [] (int n) { return MidiMessage::isMidiNoteBlack (n); };
+
+    if (lowEdge)
+    {
+        if (isBlack (note))     // black start → protrudes to its own left edge
+        {
+            const auto k = getRectangleForKey (note);
+            return (y <= k.getBottom() || note + 1 > getRangeEnd())
+                       ? k.getX()
+                       : getRectangleForKey (note + 1).getX();
+        }
+
+        float x = getRectangleForKey (note).getX();
+        if (note - 1 >= getRangeStart() && isBlack (note - 1))   // foreign black before → notch in
+        {
+            const auto k = getRectangleForKey (note - 1);
+            if (y <= k.getBottom())
+                x = k.getRight();
+        }
+        return x;
+    }
+
+    if (isBlack (note))         // black end → protrudes to its own right edge
+    {
+        const auto k = getRectangleForKey (note);
+        return (y <= k.getBottom() || note - 1 < getRangeStart())
+                   ? k.getRight()
+                   : getRectangleForKey (note - 1).getRight();
+    }
+
+    float x = getRectangleForKey (note).getRight();
+    if (note + 1 <= getRangeEnd() && isBlack (note + 1))         // foreign black after → notch in
+    {
+        const auto k = getRectangleForKey (note + 1);
+        if (y <= k.getBottom())
+            x = k.getX();
+    }
+    return x;
+}
+
 NewMidiKeyboardComponent::RegionEdge NewMidiKeyboardComponent::hitTestRegionEdge (Point<float> pos)
 {
     RegionEdge hit;
     if (! editMode || ! noteColourProvider)
+        return hit;
+
+    // Edge grabs live inside the edit zone only; below it is pure playing.
+    // The x-distance test below is horizontal-only anyway.
+    if (getOrientation() != horizontalKeyboard || pos.y > (float) editZoneHeight)
         return hit;
 
     const int note = getNoteAndVelocityAtPosition (pos).note;
@@ -874,8 +997,11 @@ NewMidiKeyboardComponent::RegionEdge NewMidiKeyboardComponent::hitTestRegionEdge
     while (start - 1 >= getRangeStart() && noteColourProvider (start - 1) == c) --start;
     while (end   + 1 <= getRangeEnd()   && noteColourProvider (end   + 1) == c) ++end;
 
-    const float leftX  = getRectangleForKey (start).getX();
-    const float rightX = getRectangleForKey (end).getRight();
+    // Test against the visible boundary at this y (see getVisibleEdgeX) — the
+    // grabbable line has to sit where the zone actually shows the edge.
+    const float leftX  = getVisibleEdgeX (start, true,  pos.y);
+    const float rightX = getVisibleEdgeX (end,   false, pos.y);
+
     const float thresh = 7.0f;
     const float dl     = std::abs (pos.x - leftX);
     const float dr     = std::abs (pos.x - rightX);
@@ -896,15 +1022,11 @@ NewMidiKeyboardComponent::RegionHandle NewMidiKeyboardComponent::hitTestRegionHa
     if (! editMode || ! noteColourProvider)
         return hit;
 
-    // Horizontal keyboard only — the band sits along the top of the keys.
+    // Horizontal keyboard only — the zone sits along the top of the keys.
     if (getOrientation() != horizontalKeyboard)
         return hit;
 
-    if (pos.y > kRegionHandleHeight)
-        return hit;
-
-    // Close button overlaps the band at the top-left and takes priority.
-    if (triggerEditor.hasContext() && getCloseButtonBounds().expanded (4.0f).contains (pos))
+    if (pos.y > (float) editZoneHeight)
         return hit;
 
     const int note = getNoteAndVelocityAtPosition (pos).note;
@@ -927,21 +1049,36 @@ NewMidiKeyboardComponent::RegionHandle NewMidiKeyboardComponent::hitTestRegionHa
 
 void NewMidiKeyboardComponent::mouseUp (const MouseEvent& e)
 {
-    if (resizingRegion)
+#if MAX_MIDI_TRIGGERS > 0
+    if (zonePressActive)
     {
-        triggerEditor.endEdgeResize();
-        resizingRegion = false;
-
-        if (editMode)
+        if (resizingRegion)
         {
-            if (hitTestRegionHandle (e.position).valid)
-                setMouseCursor (MouseCursor::DraggingHandCursor);
-            else
-                setMouseCursor (hitTestRegionEdge (e.position).valid ? MouseCursor::LeftRightResizeCursor
-                                                                     : MouseCursor::NormalCursor);
+            triggerEditor.endEdgeResize();
+            resizingRegion = false;
         }
+
+        const bool wasClick = ! dragConfirmed;
+        const int  menuNote = pendingMenuNote;
+
+        zonePressActive  = false;
+        dragConfirmed    = false;
+        pendingMenuNote  = -1;
+        dragAppliedDelta = 0;
+
+        repaint();                       // drop the drag dim / outline
+        updateZoneHover (e.position);    // restore hover affordance + cursor
+
+        // A click (never past the slop) opens the edit menu for the pressed
+        // key. Clicking off an open menu is swallowed by the menu's modal
+        // dismissal, so that click never reaches here — the menu closes
+        // rather than reopening.
+        if (wasClick && menuNote >= 0)
+            triggerEditor.showMenuForKey (menuNote, e.getScreenPosition());
+
         return;
     }
+#endif
 
     updateNoteUnderMouse (e, false);
 
@@ -960,11 +1097,12 @@ void NewMidiKeyboardComponent::mouseExit (const MouseEvent& e)
 {
     updateNoteUnderMouse (e, false);
 
-    if (hoveredHandleStart >= 0)
+    if (hoverRegionStart >= 0 || hoverZoneGaps)
     {
-        hoveredHandleStart = -1;
-        hoveredHandleEnd   = -1;
-        repaint();
+        hoverRegionStart = -1;
+        hoverRegionEnd   = -1;
+        hoverZoneGaps    = false;
+        repaint (0, 0, getWidth(), editZoneHeight + 1);
     }
 
     if (! resizingRegion)
@@ -977,6 +1115,11 @@ void NewMidiKeyboardComponent::timerCallback()
     // repaints. Pending MIDI updates wait; setMacroPanelOpen repaints on close.
     if (macroPanelOpen)
         return;
+
+    // Edit gate — polled rather than value-bound so it survives the backing
+    // property node being recreated. setEditMode no-ops when unchanged.
+    if (editModeProvider)
+        setEditMode (editModeProvider());
 
     const bool noMidiUpdates = noPendingUpdates.exchange (true);
 
@@ -1163,7 +1306,7 @@ void NewMidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, R
     Colour baseFill = findColour (whiteNoteColourId);
     if (custom)       baseFill = *custom;
     else if (stained) baseFill = baseFill.interpolatedWith (raw->withAlpha (1.0f), kWhiteStainTint);
-    else if (editMode && noteColourProvider)
+    else if (editVisualsActive() && noteColourProvider)
         baseFill = baseFill.interpolatedWith (Colour (kEditDimWhiteGreyArgb), kEditDimWhiteAmount);
 
     g.setColour (baseFill);
@@ -1280,7 +1423,7 @@ void NewMidiKeyboardComponent::drawBlackNote (int midiNoteNumber, Graphics& g, R
     Colour c;
     if (custom)       c = *custom;
     else if (stained) c = noteFillColour.brighter (kBlackStainLighten).interpolatedWith (raw->withAlpha (1.0f), kBlackStainTint);
-    else if (editMode && noteColourProvider)
+    else if (editVisualsActive() && noteColourProvider)
                       c = noteFillColour.interpolatedWith (Colour (kEditDimBlackGreyArgb), kEditDimBlackAmount);
     else              c = noteFillColour;
 
@@ -1543,24 +1686,16 @@ void NewMidiKeyboardComponent::handleNoteOff (MidiKeyboardState*, int /*midiChan
 }
 
 //==============================================================================
-bool NewMidiKeyboardComponent::mouseDownOnKey (int midiNoteNumber, const MouseEvent& e)
+bool NewMidiKeyboardComponent::mouseDownOnKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)
 {
-#if MAX_MIDI_TRIGGERS > 0
-    if (editMode)
-    {
-        // In edit mode a click opens the trigger menu instead of playing.
-        triggerEditor.showMenuForKey (midiNoteNumber, e.getScreenPosition());
-        return false;
-    }
-#endif
-
+    // Zone presses are consumed in mouseDown and never reach here, so a key
+    // press always plays.
     return true;
 }
 
 bool NewMidiKeyboardComponent::mouseDraggedToKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e)
 {
-    // Suppress drag-play while editing.
-    return ! editMode;
+    return true;
 }
 
 void NewMidiKeyboardComponent::mouseUpOnKey ([[maybe_unused]] int midiNoteNumber, [[maybe_unused]] const MouseEvent& e) {}
@@ -1579,11 +1714,35 @@ void NewMidiKeyboardComponent::setEditMode (bool shouldBeOn)
     if (! editMode)
     {
         setActiveEditNote (-1);
-        resizingRegion = false;
+        zonePressActive  = false;
+        dragConfirmed    = false;
+        pendingMenuNote  = -1;
+        resizingRegion   = false;
+        hoverRegionStart = -1;
+        hoverRegionEnd   = -1;
+        hoverZoneGaps    = false;
         triggerEditor.endEdgeResize();
         setMouseCursor (MouseCursor::NormalCursor);
     }
 
+    repaint();
+}
+
+void NewMidiKeyboardComponent::setEditModeProvider (std::function<bool()> provider)
+{
+    editModeProvider = std::move (provider);
+
+    if (editModeProvider)
+        setEditMode (editModeProvider());
+}
+
+void NewMidiKeyboardComponent::setEditZoneHeight (int pixels)
+{
+    pixels = jmax (1, pixels);
+    if (editZoneHeight == pixels)
+        return;
+
+    editZoneHeight = pixels;
     repaint();
 }
 
@@ -1779,30 +1938,73 @@ void NewMidiKeyboardComponent::setActiveEditNote (int note)
     repaint();
 }
 
-void NewMidiKeyboardComponent::drawEditOutlines (Graphics& g)
+void NewMidiKeyboardComponent::drawEditZoneOverlays (Graphics& g)
 {
-    if (! editMode || ! noteColourProvider)
+    if (! editMode || ! noteColourProvider || getOrientation() != horizontalKeyboard)
         return;
 
-    auto colourAt = [&] (int n) -> std::optional<Colour>
+    // Confirmed drag — stroke only the dragged region. Its current extent is
+    // the mouseDown extent plus the clamped delta the editor actually applied:
+    // both edges for a translate, the grabbed edge only for a resize.
+    if (resizingRegion && dragConfirmed)
     {
-        if (n < getRangeStart() || n > getRangeEnd())
-            return {};
-        return noteColourProvider (n);
-    };
+        int lo = dragRegionStart;
+        int hi = dragRegionEnd;
 
-    // Walk the range, grouping maximal runs of consecutive notes that share a
-    // colour. Each run is one zone; stroke its silhouette as a single path.
-    for (int n = getRangeStart(); n <= getRangeEnd(); )
+        if (dragIsRegionMove)      { lo += dragAppliedDelta; hi += dragAppliedDelta; }
+        else if (resizeLowEdge)      lo += dragAppliedDelta;
+        else                         hi += dragAppliedDelta;
+
+        lo = jmax (lo, getRangeStart());
+        hi = jmin (hi, getRangeEnd());
+        if (lo <= hi)
+            drawZoneOutline (g, lo, hi);
+
+        return;
+    }
+
+    // Edit menu open — stroke the active region (heavy, via the activeRun
+    // overlap test inside drawZoneOutline).
+    if (activeRunStart >= 0)
+        drawZoneOutline (g, jmax (activeRunStart, getRangeStart()),
+                            jmin (activeRunEnd,   getRangeEnd()));
+
+    // Hover affordances (mutually exclusive, mouse only).
+    const float zoneH = (float) editZoneHeight;
+
+    if (hoverRegionStart >= 0)
     {
-        const auto c = colourAt (n);
-        if (! c.has_value()) { ++n; continue; }
+        // Over a region: a flat strip across the region's zone, bounded by
+        // the visible silhouette edges (the strip lives in the black-key
+        // band, so y = 0 selects the notched/protruded top boundary — no
+        // overshooting a boundary white key's L-shape).
+        const float x1 = getVisibleEdgeX (jmax (hoverRegionStart, getRangeStart()), true,  0.0f);
+        const float x2 = getVisibleEdgeX (jmin (hoverRegionEnd,   getRangeEnd()),   false, 0.0f);
+        g.setColour (Colour (kZoneRegionHoverArgb));
+        g.fillRect (x1, 0.0f, x2 - x1, zoneH);
+    }
+    else if (hoverZoneGaps)
+    {
+        // Hovering the zone off-region: dim every uncoloured gap across the
+        // visible range, each strip ending on its neighbouring regions'
+        // visible edges so the gaps read as the available space.
+        auto coloured = [this] (int n)
+            { return noteColourProvider (n).has_value(); };
 
-        const int start = n;
-        while (n + 1 <= getRangeEnd() && colourAt (n + 1) == c)
+        g.setColour (findColour (editZoneHoverColourId));
+
+        for (int n = getRangeStart(); n <= getRangeEnd(); )
+        {
+            if (coloured (n)) { ++n; continue; }
+
+            const int lo = n;
+            while (n + 1 <= getRangeEnd() && ! coloured (n + 1)) ++n;
+
+            const float x1 = getVisibleEdgeX (lo, true,  0.0f);
+            const float x2 = getVisibleEdgeX (n,  false, 0.0f);
+            g.fillRect (x1, 0.0f, x2 - x1, zoneH);
             ++n;
-        drawZoneOutline (g, start, n);
-        ++n;
+        }
     }
 }
 
@@ -3352,10 +3554,10 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegi
     return true;
 }
 
-void NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
+int NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
 {
     if (! resizeActive)
-        return;
+        return 0;
 
     const int d  = jlimit (resizeMinDelta, resizeMaxDelta, delta);
     auto*     um = builder ? &builder->getUndoManager() : nullptr;
@@ -3364,6 +3566,7 @@ void NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
         b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), um);   // absolute from captured originals; followers saturate
 
     owner.repaint();
+    return d;
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::endEdgeResize()
@@ -3427,8 +3630,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     menu.addItem (miPaste, "Paste", hasClip);
 
     menu.addSeparator();
-    menu.addItem (miClear,    "Clear", hasNodes);
-    menu.addItem (miClearAll, "Clear All");
+    menu.addItem (miClear,    "Delete", hasNodes);
+    menu.addItem (miClearAll, "Delete All");
 
     // Easter egg: holding Alt/Option as the menu opens reveals Save As...,
     // which writes the key's stack to the Triggers folder using the same
@@ -3503,6 +3706,7 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result >= miPresetBase && (size_t) (result - miPresetBase) < presetFiles.size())
             applyPresetFile (note, presetFiles[(size_t) (result - miPresetBase)]);
 
+        kb->lastMenuDismissTime = Time::getMillisecondCounter();
         kb->setActiveEditNote (-1);
     });
 }
