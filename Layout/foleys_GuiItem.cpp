@@ -1245,7 +1245,7 @@ void GuiItem::itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSou
                 for (int i = 0; i < tree.getNumProperties(); ++i)
                 {
                     auto propName = tree.getPropertyName (i);
-                    if (propName.toString().endsWith ("-uid")
+                    if (propName.toString().endsWithIgnoreCase ("-uid")
                         && tree.getProperty (propName).toString() == destUid)
                     {
                         found = tree;

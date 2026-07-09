@@ -1017,6 +1017,7 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createMidiBufferUIDMenuLam
 
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLambda() const
 {
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
     auto* self = const_cast<MagicGUIBuilder*> (this);
 
     return [self] (juce::ComboBox& combo)
@@ -1048,7 +1049,7 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLa
                     if (propName.toString() == "destination-uid")
                         continue;
 
-                    if (propName.toString().endsWith ("-uid")
+                    if (propName.toString().endsWithIgnoreCase ("-uid")
                         && tree.getProperty (propName).toString() == targetUid)
                     {
                         found = tree;
@@ -1075,7 +1076,7 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLa
         for (auto& p : item->getSettableProperties())
         {
             auto name = p.name.toString();
-            if (name.endsWith ("-uid"))
+            if (name.endsWithIgnoreCase ("-uid"))
                 continue;
             combo.addItem (name, index++);
         }
@@ -1086,6 +1087,7 @@ std::function<void(juce::ComboBox&)> MagicGUIBuilder::createNodePropertiesMenuLa
             combo.showEditor();
         });
     };
+#endif
 }
 
 std::function<void(juce::ComboBox&)> MagicGUIBuilder::createTypeUIDMenuLambda (juce::Identifier type) const

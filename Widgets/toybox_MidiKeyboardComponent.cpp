@@ -58,7 +58,7 @@ namespace
     // (matching node id) trigger range edits — edge resize and paste/duplicate
     // transposition. Followers track the trigger-derived delta but saturate
     // individually rather than constraining it.
-    const StringArray kRangeFollowerTypes { "Mapper", "Arpeggiator", "LFO", "Envelope" };
+    const StringArray kRangeFollowerTypes { "Mapper", "Arpeggiator", "LFO", "Envelope", "Calculator" };
 
     // Every note-valued property — the range pairs above plus the transpose
     // root, which is a position inside the range and so shifts with it on
@@ -121,13 +121,18 @@ namespace
     // bindings with their source. The detection rules:
     //
     //   * Value refs    — property *value* contains ":", no whitespace, doesn't
-    //                     start with "http", and ends with -<8+ digits>. Standalone
-    //                     only — composite strings (anything with ",;/") are
-    //                     treated as opaque external references and left alone.
+    //                     start with "http", and ends with >=5 digits (any or no
+    //                     separator). Standalone only — composite strings
+    //                     (anything with ",;/") are treated as opaque external
+    //                     references and left alone.
     //   * UID refs      — property *name* ends with "-uid" and value ends with
     //                     5+ digits (timestamp stamps and hand-authored counters
     //                     like "View_uid-00003" alike). Fixed UIDs with no digit
     //                     suffix ("Playhead_root") are left verbatim.
+    //
+    // Minting drops the trailing digits and appends the new stamp, so the
+    // authored separator survives ("_" refs stay "_" — Calculator reads "-"
+    // as a minus).
     //
     // Two-pass: pass 1 discovers and mints new stamps, pass 2 substitutes by
     // exact-value lookup so cross-refs within the bundle land on the same new
@@ -137,6 +142,20 @@ namespace
     // matching suffix and so naturally fall through — they're stable identifiers
     // by convention.
 
+    // Count of trailing digits if the value ends in a >=5-digit stamp over a
+    // non-empty stem, else 0. The shared "is this a stamped value?" test for
+    // both -uid properties and ":"-style value refs. Fixed UIDs (e.g.
+    // "Playhead_root") and all-digit values return 0 and are never minted.
+    inline int trailingStampDigits (const String& value)
+    {
+        int digits = 0;
+        while (digits < value.length()
+               && CharacterFunctions::isDigit (value[value.length() - 1 - digits]))
+            ++digits;
+
+        return (digits >= 5 && digits < value.length()) ? digits : 0;
+    }
+
     inline bool isStandaloneUniquifiedValue (const String& value)
     {
         if (! value.contains (":"))                          return false;
@@ -144,29 +163,7 @@ namespace
         if (value.startsWithIgnoreCase ("http"))             return false;
         if (value.containsAnyOf (",;/"))                     return false;
 
-        const int lastDash = value.lastIndexOfChar ('-');
-        if (lastDash < 0)                                    return false;
-
-        const auto suffix = value.substring (lastDash + 1);
-        return suffix.length() >= 8 && suffix.containsOnly ("0123456789");
-    }
-
-    // Returns the stem of a remappable UID (value ends with >=5 digits), or an
-    // empty string for fixed UIDs (e.g. "Playhead_root") which must not be minted.
-    inline String remappableUIDStem (const String& value)
-    {
-        int digits = 0;
-        while (digits < value.length()
-               && CharacterFunctions::isDigit (value[value.length() - 1 - digits]))
-            ++digits;
-
-        if (digits < 5 || digits == value.length())
-            return {};
-
-        auto stem = value.dropLastCharacters (digits);
-        if (stem.endsWithChar ('_') || stem.endsWithChar ('-'))
-            stem = stem.dropLastCharacters (1);
-        return stem;
+        return trailingStampDigits (value) > 0;
     }
 
     inline void uniquifyPayloadRefs (Array<ValueTree>& payload, Array<ValueTree>& extras)
@@ -189,13 +186,14 @@ namespace
                 if (isUidProp)
                 {
                     if (uidMap.find (value) == uidMap.end())
-                        if (const auto stem = remappableUIDStem (value); stem.isNotEmpty())
-                            uidMap[value] = stem + "_" + String (baseStamp + counter++);
+                        if (const int n = trailingStampDigits (value); n > 0)
+                            uidMap[value] = value.dropLastCharacters (n)
+                                          + String (baseStamp + counter++);
                 }
                 else if (isStandaloneUniquifiedValue (value) && valueMap.find (value) == valueMap.end())
                 {
-                    const auto stem = value.upToLastOccurrenceOf ("-", false, false);
-                    valueMap[value] = stem + "-" + String (baseStamp + counter++);
+                    valueMap[value] = value.dropLastCharacters (trailingStampDigits (value))
+                                    + String (baseStamp + counter++);
                 }
             }
 
@@ -1791,6 +1789,68 @@ void NewMidiKeyboardComponent::setTriggerPresetFolder (const File& folder)
     triggerEditor.setPresetFolder (folder);
 }
 
+#if MAX_MIDI_TRIGGERS > 0
+namespace
+{
+    // Unpacks a BinaryData zip into destFolder, dropping the macOS Archive
+    // Utility sidecar and hoisting the redundant Triggers/Triggers/… nest a
+    // Finder-zipped folder leaves behind.
+    bool unpackTriggersZip (const char* resourceName, const File& destFolder)
+    {
+        int size = 0;
+        const char* data = BinaryData::getNamedResource (resourceName, size);
+
+        if (data == nullptr)
+            return false;
+
+        MemoryInputStream mis (data, (size_t) size, false);
+        ZipFile zip (mis);
+
+        if (const auto r = zip.uncompressTo (destFolder, /*shouldOverwriteFiles*/ false); r.failed())
+        {
+            DBG ("Could not unpack factory triggers: " + r.getErrorMessage());
+            jassertfalse;
+            return false;
+        }
+
+        destFolder.getChildFile ("__MACOSX").deleteRecursively();
+
+        if (auto nested = destFolder.getChildFile ("Triggers"); nested.isDirectory())
+        {
+            auto hoist = destFolder.getSiblingFile (destFolder.getFileName() + "Hoist");
+            hoist.deleteRecursively();
+            destFolder.moveFileTo (hoist);
+            hoist.getChildFile ("Triggers").moveFileTo (destFolder);
+            hoist.deleteRecursively();
+        }
+
+        return true;
+    }
+
+    // Recursively moves source's contents into dest, overwriting same-name
+    // files. Files present only in dest (user content) are left alone.
+    void mergeFolderInto (const File& source, const File& dest)
+    {
+        dest.createDirectory();
+
+        for (const auto& entry : source.findChildFiles (File::findFilesAndDirectories, false))
+        {
+            const auto target = dest.getChildFile (entry.getFileName());
+
+            if (entry.isDirectory())
+            {
+                mergeFolderInto (entry, target);
+            }
+            else
+            {
+                target.deleteFile();
+                entry.moveFileTo (target);
+            }
+        }
+    }
+}
+#endif
+
 void NewMidiKeyboardComponent::createFactoryTriggerPresets()
 {
 #if MAX_MIDI_TRIGGERS > 0
@@ -1833,39 +1893,51 @@ void NewMidiKeyboardComponent::createFactoryTriggerPresets()
     }
 
     //==========================================================================
-    // Base library: the zip is the bulk container, unpacked once on first run.
+    // Base library zip. Plain "Triggers.zip" unpacks once on first run only.
+    // "Triggers_Version_[n].zip" also updates an existing folder when n
+    // exceeds the installed Version.txt (missing/unreadable reads as 1):
+    // unpack to a temp folder, merge over the library, drop the temp.
     //==========================================================================
+    const char* versionedZip = nullptr;
+    int zipVersion = 0;
+
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const char*  resourceName = BinaryData::namedResourceList[i];
+        const String original     = BinaryData::getNamedResourceOriginalFilename (resourceName);
+
+        if (original.startsWithIgnoreCase ("Triggers_Version_") && original.endsWithIgnoreCase (".zip"))
+        {
+            const int v = original.fromFirstOccurrenceOf ("Triggers_Version_", false, true).getIntValue();
+
+            if (v > zipVersion)
+            {
+                zipVersion   = v;
+                versionedZip = resourceName;
+            }
+        }
+    }
+
     if (firstRun)
     {
-        int size = 0;
-        if (const char* data = BinaryData::getNamedResource ("Triggers_zip", size))  // "Triggers.zip" → "Triggers_zip"
+        unpackTriggersZip (versionedZip != nullptr ? versionedZip : "Triggers_zip", triggersFolder);
+    }
+    else if (versionedZip != nullptr)
+    {
+        const File versionFile      = triggersFolder.getChildFile ("Version.txt");
+        const int  installedVersion = versionFile.existsAsFile()
+                                          ? jmax (1, versionFile.loadFileAsString().trim().getIntValue())
+                                          : 0;   // no Version.txt: pre-versioning install, any versioned zip updates it
+
+        if (zipVersion > installedVersion)
         {
-            MemoryInputStream mis (data, (size_t) size, false);
-            ZipFile zip (mis);
+            auto temp = triggersFolder.getSiblingFile ("TriggersUpdateTemp");
+            temp.deleteRecursively();
 
-            if (const auto r = zip.uncompressTo (triggersFolder, /*shouldOverwriteFiles*/ false); r.failed())
-            {
-                DBG ("Could not unpack factory triggers: " + r.getErrorMessage());
-                jassertfalse;
-            }
-            else
-            {
-                // macOS Archive Utility sidecar — never wanted.
-                triggersFolder.getChildFile ("__MACOSX").deleteRecursively();
+            if (temp.createDirectory().wasOk() && unpackTriggersZip (versionedZip, temp))
+                mergeFolderInto (temp, triggersFolder);
 
-                // A Finder-zipped folder leaves a redundant Triggers/Triggers/… nest.
-                // Hoist: rename outer aside, lift inner up, drop the husk.
-                if (auto nested = triggersFolder.getChildFile (triggersFolder.getFileName());
-                    nested.isDirectory())
-                {
-                    auto temp = triggersFolder.getSiblingFile ("TriggersTemp");
-                    temp.deleteRecursively();
-                    triggersFolder.moveFileTo (temp);                       // Triggers -> TriggersTemp
-                    temp.getChildFile (triggersFolder.getFileName())
-                        .moveFileTo (triggersFolder);                       // TriggersTemp/Triggers -> Triggers
-                    temp.deleteRecursively();                               // drop empty TriggersTemp
-                }
-            }
+            temp.deleteRecursively();
         }
     }
 
