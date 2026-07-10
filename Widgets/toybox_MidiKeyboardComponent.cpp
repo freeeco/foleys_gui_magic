@@ -62,8 +62,9 @@ namespace
 
     // Every note-valued property — the range pairs above plus the transpose
     // root, which is a position inside the range and so shifts with it on
-    // paste. remapNoteRanges adds the (single, pre-clamped) delta to each of
-    // these that's present on a node.
+    // paste. remapNoteRanges adds the single bundle-wide delta to each of
+    // these that's present on a node; top overflow is handled by the
+    // pre-clamp pass in insertPayloadAtKey Step 6.
     const StringArray kTriggerNoteValuedProps
     {
         "select-low-note-value",    "select-high-note-value",
@@ -79,9 +80,9 @@ namespace
     // actually exist in the patch (Step 5 in insertPayloadAtKey checks getParameter),
     // so these just need to be >= the macro_select / macro_knob / macro_button counts
     // exposed by the RNBO patch.
-    static constexpr int kMaxSelectMacros = 32;
-    static constexpr int kMaxKnobMacros   = 32;
-    static constexpr int kMaxButtonMacros = 32;
+    static constexpr int kMaxSelectMacros = 64;
+    static constexpr int kMaxKnobMacros   = 64;
+    static constexpr int kMaxButtonMacros = 64;
 
     //==============================================================================
     // Group-id helpers — see insertPayloadAtKey / doClear.
@@ -2360,9 +2361,9 @@ void NewMidiKeyboardComponent::TriggerEditor::remapNoteRanges (ValueTree node, i
         return;
 
     // Pre-insert config on a detached copy — the appendChild is the undoable
-    // unit, so no UndoManager here. Delta is already clamped as a unit by the
-    // caller, so individual properties are never clamped (that would distort
-    // the spacing we're preserving).
+    // unit, so no UndoManager here. The shift is rigid; the caller pre-clamps
+    // top overflow (insertPayloadAtKey Step 6) so shifted values land at most
+    // on 127.
     for (const auto& p : kTriggerNoteValuedProps)
     {
         const Identifier prop (p);
@@ -2468,32 +2469,23 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
     // ── Step 2 — transpose delta from the trigger note-range props.
     // Computed on the payload triggers only (extras don't carry these); the
-    // delta is then applied to triggers via remapNoteRanges and to range-
-    // follower extras (Mapper / Arpeggiator / LFO / Envelope) in Step 7.
-    int lowest  = std::numeric_limits<int>::max();
-    int highest = std::numeric_limits<int>::min();
+    // delta pins the payload's lowest note on the clicked key. Every prop is
+    // >= lowest, so nothing can shift below 0 — no bottom clamp needed. Top
+    // overflow is clipped per-property by the pre-clamp pass in Step 6, so a
+    // wide (or full 0..127) snippet starts at the clicked key and squashes
+    // against 127. The delta is applied to triggers via remapNoteRanges and
+    // to range-follower extras (Mapper / Arpeggiator / LFO / Envelope) in
+    // Step 7.
+    int lowest = std::numeric_limits<int>::max();
     for (auto& n : payload)
         for (const auto& p : kTriggerNoteValuedProps)
         {
             const Identifier prop (p);
             if (n.hasProperty (prop))
-            {
-                const int v = (int) n.getProperty (prop);
-                lowest  = jmin (lowest, v);
-                highest = jmax (highest, v);
-            }
+                lowest = jmin (lowest, (int) n.getProperty (prop));
         }
 
-    int delta = 0;
-    if (lowest != std::numeric_limits<int>::max())
-    {
-        if (highest - lowest > 127)
-            return;
-
-        delta = note - lowest;
-        if (lowest  + delta < 0)   delta = -lowest;
-        if (highest + delta > 127) delta = 127 - highest;
-    }
+    const int delta = (lowest != std::numeric_limits<int>::max()) ? note - lowest : 0;
 
     // ── Step 3 — uniquify uniquified UIDs and ":" values across the whole
     // bundle. Standalone refs only; composites (e.g. a Playlist score string
@@ -2710,6 +2702,18 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (slots.size() < payload.size())
         return;
 
+    // Top clip: pre-clamp note props to 127 - delta so remapNoteRanges' rigid
+    // shift lands overflow exactly on 127. Same mechanism as
+    // DragToReorderComponent::insertSnippet.
+    if (delta > 0)
+        for (auto& n : payload)
+            for (const auto& p : kTriggerNoteValuedProps)
+            {
+                const Identifier prop (p);
+                if (n.hasProperty (prop))
+                    n.setProperty (prop, jmin ((int) n.getProperty (prop), 127 - delta), nullptr);
+            }
+
     auto* um = builder ? &builder->getUndoManager() : nullptr;
     if (um) um->beginNewTransaction ("Add trigger");
 
@@ -2723,12 +2727,13 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     // (no id); the collision scan walks each extra's subtree so a MidiEditor
     // nested inside a group-root View (e.g. wrapped with a Rectangle
     // background) still collides with one already in the container. Range-
-    // follower types get their input range shifted by delta, saturating at
-    // 0/127; a full 0..127 input range is the "no filter" sentinel and stays
-    // untouched. The shift walks each extra's subtree so followers nested
-    // inside a group-root View (e.g. Note_Repeat's LFO tucked inside the
-    // user-facing panel) follow the transpose along with their containing
-    // group.
+    // follower types keep their authored input bounds in sync with the
+    // triggers: each explicitly-authored input-low/high-note shifts by the
+    // trigger delta, saturating at 0/127 — same contract as edge-resize.
+    // Absent bounds are unauthored and stay unwritten. The shift walks each
+    // extra's subtree so followers nested inside a group-root View (e.g.
+    // Note_Repeat's LFO tucked inside the user-facing panel) follow the
+    // transpose along with their containing group.
     std::function<bool (const ValueTree&, int)> hasMidiEditorWithIndex =
         [&] (const ValueTree& tree, int index) -> bool
         {
@@ -2766,16 +2771,10 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     {
         if (kRangeFollowerTypes.contains (node.getType().toString()))
         {
-            const bool hasLo = node.hasProperty (followerLow);
-            const bool hasHi = node.hasProperty (followerHigh);
-            const int  loV   = hasLo ? (int) node.getProperty (followerLow)  : 0;
-            const int  hiV   = hasHi ? (int) node.getProperty (followerHigh) : 127;
-
-            if (! (loV == 0 && hiV == 127))
-            {
-                if (hasLo) node.setProperty (followerLow,  jlimit (0, 127, loV + delta), nullptr);
-                if (hasHi) node.setProperty (followerHigh, jlimit (0, 127, hiV + delta), nullptr);
-            }
+            if (node.hasProperty (followerLow))
+                node.setProperty (followerLow,  jlimit (0, 127, (int) node.getProperty (followerLow)  + delta), nullptr);
+            if (node.hasProperty (followerHigh))
+                node.setProperty (followerHigh, jlimit (0, 127, (int) node.getProperty (followerHigh) + delta), nullptr);
         }
 
         for (auto child : node)
