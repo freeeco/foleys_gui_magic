@@ -163,7 +163,15 @@ void GuiItem::configureComponent()
 {
     auto* component = getWrappedComponent();
     if (component == nullptr)
+    {
+        const auto opacityVar = magicBuilder.getStyleProperty (IDs::opacity, configNode);
+
+        float opacity = opacityVar.toString().isEmpty() ? 1.0f : static_cast<float> (opacityVar);
+        opacity += static_cast<float> (opacityValue.getValue());
+
+        setAlpha (opacity);
         return;
+    }
 
     component->setComponentID (configNode.getProperty (IDs::id, juce::String()).toString());
 
@@ -677,7 +685,7 @@ void GuiItem::valueTreeChildRemoved (juce::ValueTree& treeThatChanged, juce::Val
 void GuiItem::valueTreeChildOrderChanged (juce::ValueTree& treeThatChanged, int, int)
 {
     if (treeThatChanged == configNode)
-        createSubComponents();
+        reorderSubComponents();
 }
 
 void GuiItem::valueTreeParentChanged (juce::ValueTree& treeThatChanged)

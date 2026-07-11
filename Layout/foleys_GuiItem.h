@@ -133,6 +133,10 @@ public:
     virtual bool isContainer() const { return false; }
 
     virtual void createSubComponents() {}
+    
+    /** Order-change handler. The default rebuilds; Container overrides with a
+        non-destructive permute so a pure moveChild doesn't destroy children. */
+    virtual void reorderSubComponents() { createSubComponents(); }
 
     /**
      This will trigger a recalculation of the children layout regardless of resized
@@ -225,6 +229,9 @@ public:
 
     bool isInterestedInDragSource (const juce::DragAndDropTarget::SourceDetails &dragSourceDetails) override;
     void itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSourceDetails) override;
+    
+    /** The ValueTree node this item was built from. */
+    const juce::ValueTree& getConfigNode() const noexcept { return configNode; }
 
     MagicGUIBuilder& magicBuilder;
 

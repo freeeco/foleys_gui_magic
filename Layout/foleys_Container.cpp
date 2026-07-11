@@ -151,6 +151,56 @@ void Container::createSubComponents()
     updateContinuousRedraw();
 }
 
+void Container::reorderSubComponents()
+{
+    // Non-destructive companion to createSubComponents for a pure order
+    // change: permute the existing child items to match configNode's new
+    // order. No item is destroyed or created, so component pointers, value
+    // bindings, and the mouse-under-cursor cache all stay valid. Order change
+    // only — callers needing a property refresh must not rely on moveChild
+    // triggering a rebuild. Falls back to a full rebuild if the tree and item
+    // sets don't correspond 1:1 (an order change coalesced with an add/remove).
+    std::vector<std::unique_ptr<GuiItem>> reordered;
+    reordered.reserve (children.size());
+
+    for (auto childNode : configNode)
+    {
+        auto it = std::find_if (children.begin(), children.end(),
+                                [&] (const std::unique_ptr<GuiItem>& c)
+                                { return c != nullptr && c->getConfigNode() == childNode; });
+
+        if (it == children.end() || *it == nullptr)
+        {
+            DBG ("Container::reorderSubComponents FALLBACK - no item for node type '"
+                 << childNode.getType().toString()
+                 << "' id '" << childNode.getProperty ("id").toString() << "'");
+            createSubComponents();
+            return;
+        }
+
+        reordered.push_back (std::move (*it));
+    }
+
+    if (reordered.size() != children.size())
+    {
+        DBG ("Container::reorderSubComponents FALLBACK - size mismatch, matched "
+             << (int) reordered.size() << " of " << (int) children.size());
+        children = std::move (reordered);   // keep what we matched; rebuild refills
+        createSubComponents();
+        return;
+    }
+
+    children = std::move (reordered);
+
+    // Mirror the z-order: re-adding an existing child moves it to the top of
+    // the component child list without recreating it, so adding in sequence
+    // reproduces createSubComponents' ordering.
+    for (auto& child : children)
+        containerBox.addChildComponent (child.get());
+
+    updateLayout();
+}
+
 GuiItem* Container::findGuiItemWithId (const juce::String& name)
 {
     if (configNode.getProperty (IDs::id, juce::String()).toString() == name)

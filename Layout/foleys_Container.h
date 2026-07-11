@@ -118,6 +118,8 @@ public:
     void configureFlexBox (const juce::ValueTree& node);
 
     juce::Component* getWrappedComponent() override { return nullptr; }
+    
+    void reorderSubComponents() override;
 
     /**
      Lookup a Component through the tree. It will return the first with that id regardless if there is another one.
