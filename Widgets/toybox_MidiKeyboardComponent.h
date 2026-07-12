@@ -573,8 +573,7 @@ private:
         // Mapper, Arpeggiator) have their input-low/high-note
         // captured too, following the drag but saturating individually rather
         // than constraining it. Drag deltas (from the
-        // edge's original note) are applied absolutely so there's no drift,
-        // coalesced into a single undo transaction.
+        // edge's original note) are applied absolutely so there's no drift.
         bool beginEdgeResize  (int edgeNote, bool lowEdge);
         int  updateEdgeResize (int delta);   // returns the clamped delta actually applied
         void endEdgeResize();
@@ -615,10 +614,33 @@ private:
                               std::vector<File>& files, int baseId);
         static void remapNoteRanges (ValueTree node, int delta);
 
+        // Bypass — functional twin of DragToReorderComponent's panel bypass,
+        // operating on the id-group(s) of the triggers covering a key: swap
+        // every whole-property occurrence of the enable value for the
+        // sentinel (or back), rename exact-name `parameter` properties to
+        // `parameter-bypassed` (or back) so bindings release, dim top-level
+        // View group members. All writes land on a detached copy of the GUI
+        // tree, rebuilt once via a deferred swap. Deliberately duplicated
+        // rather than shared with DragToReorder: rename in both files if the
+        // values ever change.
+        enum class BypassState { none, active, bypassed };
+        Array<int>  groupChildIndices     (const Array<ValueTree>& seeds) const;
+        BypassState bypassStateOf         (const Array<int>& childIndices) const;
+        static void applyBypassToNode     (ValueTree node, bool bypassing);
+        void        bypassChildrenViaSwap (const Array<int>& childIndices, bool shouldBypass);
+        void        setBypassForKey       (int note);
+        void        bypassAll             (bool shouldBypass);
+        Viewport*   findContainerViewport () const;
+
         NewMidiKeyboardComponent& owner;
         foleys::MagicGUIBuilder*  builder = nullptr;
         String                    containerID;
         File                      presetFolder;
+
+        // Framework-wide panel enable value and its bypass sentinel — must
+        // match DragToReorderComponent's pair (deliberately not shared).
+        static inline const String kPanelEnableValue   { "panel:enable" };
+        static inline const String kPanelBypassedValue { "panel:bypassed" };
 
         // Held as a member so the chooser outlives its async dialog —
         // juce::FileChooser requires the instance to stay alive until the

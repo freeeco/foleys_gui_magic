@@ -297,7 +297,7 @@ namespace
     // brightness-spread variants of T. Each Background gets the same 3-stop
     // fill-gradient (shadow at 0%, panel from 64%-100%) driven by P and S.
     // Called from autoColourSnippet (off-tree, nullptr um) and from
-    // TriggerEditor::setColourForKey (live, with the keyboard's UM).
+    // TriggerEditor::setColourForKey (live).
     // triggersSortedByLowestNote must already be in the order the spread should
     // ramp; backgrounds may be empty.
     inline void writeAutoColourPalette (const Array<ValueTree>& triggersSortedByLowestNote,
@@ -348,6 +348,7 @@ namespace
     enum
     {
         miCopy = 1, miCut, miPaste, miClear, miClearAll, miSaveAs,
+        miBypass, miBypassAll, miEnableAll,
         miColourBase  = 100,    // + index into kTriggerColours
         miPresetBase  = 1000    // + index into the captured preset-files vector
     };
@@ -2360,8 +2361,8 @@ void NewMidiKeyboardComponent::TriggerEditor::remapNoteRanges (ValueTree node, i
     if (delta == 0)
         return;
 
-    // Pre-insert config on a detached copy — the appendChild is the undoable
-    // unit, so no UndoManager here. The shift is rigid; the caller pre-clamps
+    // Pre-insert config on a detached copy — off-tree writes, so no
+    // UndoManager here. The shift is rigid; the caller pre-clamps
     // top overflow (insertPayloadAtKey Step 6) so shifted values land at most
     // on 127.
     for (const auto& p : kTriggerNoteValuedProps)
@@ -2714,13 +2715,10 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
                     n.setProperty (prop, jmin ((int) n.getProperty (prop), 127 - delta), nullptr);
             }
 
-    auto* um = builder ? &builder->getUndoManager() : nullptr;
-    if (um) um->beginNewTransaction ("Add trigger");
-
     for (int i = 0; i < payload.size(); ++i)
     {
         remapNoteRanges (payload.getReference (i), delta);
-        fillSlot (slots.getReference (i), payload.getReference (i), um);
+        fillSlot (slots.getReference (i), payload.getReference (i), nullptr);
     }
 
     // ── Step 7 — append extras. MidiEditor still de-dupes by midi-state-index
@@ -2789,7 +2787,7 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
         if (delta != 0)
             shiftFollowers (extra);
 
-        container.appendChild (extra, um);
+        container.appendChild (extra, nullptr);
     }
 
     owner.repaint();
@@ -3104,9 +3102,6 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
     if (nodes.isEmpty())
         return;
 
-    auto* um = builder ? &builder->getUndoManager() : nullptr;
-    if (um) um->beginNewTransaction ("Clear key");
-
     // Group-by-id: nodes sharing an id form a logical bundle (e.g. a MidiTrigger
     // paired with a ListBox shown in the macro panel). Capture ids first —
     // clearPropertiesOfNode strips the id property too, so we need them now if
@@ -3122,7 +3117,7 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
     // Clear, don't delete — mirrors clearSelected. The slot stays alive with
     // its trigger-index; only its contents go.
     for (auto& node : nodes)
-        clearPropertiesOfNode (node, um);
+        clearPropertiesOfNode (node, nullptr);
 
     // Sweep the rest of the bank for siblings sharing one of those ids and
     // dispose of them too. MidiTriggers stay in the slot pool (cleared in
@@ -3148,11 +3143,11 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
         }
 
         for (auto& n : linkedTriggers)
-            clearPropertiesOfNode (n, um);
+            clearPropertiesOfNode (n, nullptr);
 
         for (auto& n : linkedExtras)
             if (n.isValid() && n.getParent() == container)
-                container.removeChild (n, um);
+                container.removeChild (n, nullptr);
 
         if (! linkedExtras.isEmpty() && builder != nullptr)
             toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
@@ -3202,9 +3197,9 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
             for (auto& g : globalsToRemove)
             {
                 if (g.getType() == midiTriggerType)
-                    clearPropertiesOfNode (g, um);
+                    clearPropertiesOfNode (g, nullptr);
                 else if (g.isValid() && g.getParent() == container)
-                    container.removeChild (g, um);
+                    container.removeChild (g, nullptr);
             }
 
             if (! globalsToRemove.isEmpty() && builder != nullptr)
@@ -3223,9 +3218,6 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
 
     static const Identifier midiTriggerType ("MidiTrigger");
 
-    auto* um = builder ? &builder->getUndoManager() : nullptr;
-    if (um) um->beginNewTransaction ("Clear all triggers");
-
     // Mirrors clearAllTriggers: MidiTrigger slots keep their slot (index
     // preserved, contents cleared); other node types are removed entirely.
     // Snapshot first — removing extras shifts child indices mid-iteration.
@@ -3236,9 +3228,9 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
     for (auto& node : children)
     {
         if (node.getType() == midiTriggerType)
-            clearPropertiesOfNode (node, um);
+            clearPropertiesOfNode (node, nullptr);
         else if (node.isValid() && node.getParent() == container)
-            container.removeChild (node, um);
+            container.removeChild (node, nullptr);
     }
     
     toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
@@ -3259,9 +3251,6 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
     static const Identifier midiTriggerType ("MidiTrigger");
     static const Identifier idProp          ("id");
     static const String     backgroundID    ("Background");
-
-    auto* um = builder ? &builder->getUndoManager() : nullptr;
-    if (um) um->beginNewTransaction ("Set trigger colour");
 
     // Sort key inside a group: lowest range note ascending, ties broken by
     // descending file order. Same rule autoColourSnippet uses so a manually
@@ -3357,7 +3346,7 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
     // Write each id-group through the shared writer, then each id-less loner.
     // Same call shape autoColourSnippet uses — visually identical results.
     for (const auto& g : groups)
-        writeAutoColourPalette (g.triggers, g.backgrounds, colour, um);
+        writeAutoColourPalette (g.triggers, g.backgrounds, colour, nullptr);
 
     if (! idlessTriggers.isEmpty())
     {
@@ -3366,7 +3355,7 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
         {
             Array<ValueTree> one;
             one.add (solo);
-            writeAutoColourPalette (one, noBackgrounds, colour, um);
+            writeAutoColourPalette (one, noBackgrounds, colour, nullptr);
         }
     }
 
@@ -3507,10 +3496,6 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
         resizeMaxDelta = ceilNote - maxHighVal;  // extend right only into free space
     }
 
-    if (auto* um = builder ? &builder->getUndoManager() : nullptr)
-        um->beginNewTransaction (lowEdge ? "Resize trigger (lower note)"
-                                         : "Resize trigger (upper note)");
-
     resizeActive = true;
     return true;
 }
@@ -3618,9 +3603,6 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegi
     resizeMinDelta = floorNote - minLowVal;
     resizeMaxDelta = ceilNote  - maxHighVal;
 
-    if (auto* um = builder ? &builder->getUndoManager() : nullptr)
-        um->beginNewTransaction ("Move trigger region");
-
     resizeActive = true;
     return true;
 }
@@ -3631,10 +3613,9 @@ int NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
         return 0;
 
     const int d  = jlimit (resizeMinDelta, resizeMaxDelta, delta);
-    auto*     um = builder ? &builder->getUndoManager() : nullptr;
 
     for (auto& b : resizeBounds)
-        b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), um);   // absolute from captured originals; followers saturate
+        b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), nullptr);   // absolute from captured originals; followers saturate
 
     owner.repaint();
     return d;
@@ -3644,6 +3625,298 @@ void NewMidiKeyboardComponent::TriggerEditor::endEdgeResize()
 {
     resizeActive = false;
     resizeBounds.clear();
+}
+
+//==============================================================================
+// Bypass — functional twin of DragToReorderComponent's panel bypass. The
+// clicked key resolves to the MidiTriggers covering it; their id-group(s)
+// (top-level container nodes sharing an id — a trigger plus the panel View
+// it fronts, say) are the unit the state read and the toggle both operate
+// on. Deliberately duplicated rather than shared with DragToReorder: if the
+// enable value or sentinel ever change, rename in both files.
+//==============================================================================
+
+// Group expansion — the union of the seeds' id-groups: every top-level
+// container node that is a seed or shares a seed's id (case-insensitive).
+// Top level only; nested nodes with a matching id are never collected.
+// Returned as child indices because the swap path applies them to a detached
+// copy, where child positions match the live tree at copy time.
+Array<int> NewMidiKeyboardComponent::TriggerEditor::groupChildIndices (const Array<ValueTree>& seeds) const
+{
+    Array<int> indices;
+    auto container = getContainer();
+    if (! container.isValid() || seeds.isEmpty())
+        return indices;
+
+    StringArray ids;
+    for (const auto& seed : seeds)
+        if (const auto id = seed.getProperty ("id").toString(); id.isNotEmpty())
+            ids.addIfNotAlreadyThere (id);
+
+    for (int i = 0; i < container.getNumChildren(); ++i)
+    {
+        auto child = container.getChild (i);
+        if (seeds.contains (child)
+            || ids.contains (child.getProperty ("id").toString(), true))
+            indices.add (i);
+    }
+    return indices;
+}
+
+// Whole-value scan of the given children's subtrees. Any enable ref present
+// → active (a hand-mixed group converges to fully bypassed in one toggle);
+// else any sentinel → bypassed; else none and the menu item greys.
+NewMidiKeyboardComponent::TriggerEditor::BypassState
+NewMidiKeyboardComponent::TriggerEditor::bypassStateOf (const Array<int>& childIndices) const
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return BypassState::none;
+
+    bool sawActive = false, sawBypassed = false;
+
+    std::function<void (const ValueTree&)> visit = [&] (const ValueTree& node)
+    {
+        for (int i = 0; i < node.getNumProperties(); ++i)
+        {
+            const auto v = node.getProperty (node.getPropertyName (i)).toString();
+            if      (v == kPanelEnableValue)   sawActive   = true;
+            else if (v == kPanelBypassedValue) sawBypassed = true;
+        }
+        for (auto child : node)
+            visit (child);
+    };
+
+    for (int idx : childIndices)
+        visit (container.getChild (idx));
+
+    if (sawActive)   return BypassState::active;
+    if (sawBypassed) return BypassState::bypassed;
+    return BypassState::none;
+}
+
+// Per-node worker. Swaps every whole-value enable ref for the sentinel (or
+// back), renames every exact-name `parameter` property to
+// `parameter-bypassed` (or back) so bindings release their target parameters
+// while bypassed, and dims / restores top-level Views: opacity 0.5 on
+// bypass, property removed again on enable (Views aren't authored with one,
+// so removal restores the authored state exactly). Runs on nodes inside the
+// detached copy — the writes fire no listeners there; the rebuild at swap
+// time is what makes them visible.
+void NewMidiKeyboardComponent::TriggerEditor::applyBypassToNode (ValueTree target, bool bypassing)
+{
+    const auto& from = bypassing ? kPanelEnableValue   : kPanelBypassedValue;
+    const auto& to   = bypassing ? kPanelBypassedValue : kPanelEnableValue;
+
+    static const Identifier opacityProp       ("opacity");
+    static const Identifier paramProp         ("parameter");
+    static const Identifier paramBypassedProp ("parameter-bypassed");
+    static const Identifier viewType          ("View");
+
+    const auto& renameFrom = bypassing ? paramProp         : paramBypassedProp;
+    const auto& renameTo   = bypassing ? paramBypassedProp : paramProp;
+
+    std::function<void (ValueTree)> visit = [&] (ValueTree node)
+    {
+        for (int i = 0; i < node.getNumProperties(); ++i)
+        {
+            const auto name = node.getPropertyName (i);
+            if (node.getProperty (name).toString() == from)
+                node.setProperty (name, to, nullptr);
+        }
+
+        // After the index loop — remove/set shifts property indices.
+        if (node.hasProperty (renameFrom))
+        {
+            const auto v = node.getProperty (renameFrom);
+            node.removeProperty (renameFrom, nullptr);
+            node.setProperty (renameTo, v, nullptr);
+        }
+
+        for (auto child : node)
+            visit (child);
+    };
+    visit (target);
+
+    // Dim only top-level Views — MidiTriggers and any other node type riding
+    // in the group get the value swap and parameter rename but no opacity.
+    if (target.getType() == viewType)
+    {
+        if (bypassing)
+            target.setProperty (opacityProp, "0.5", nullptr);
+        else
+            target.removeProperty (opacityProp, nullptr);
+    }
+}
+
+// The container's Viewport (or first Viewport descendant of its component),
+// for scroll bracketing across the swap rebuild. Nullptr when the container
+// isn't scrollable — the bracket then just no-ops.
+Viewport* NewMidiKeyboardComponent::TriggerEditor::findContainerViewport() const
+{
+    if (builder == nullptr) return nullptr;
+
+    auto container = getContainer();
+    if (! container.isValid()) return nullptr;
+
+    auto* comp = builder->findGuiItem (container);
+    if (comp == nullptr) return nullptr;
+
+    if (auto* vp = dynamic_cast<Viewport*> (comp))
+        return vp;
+
+    std::function<Viewport* (Component*)> find = [&] (Component* c) -> Viewport*
+    {
+        for (int i = 0; i < c->getNumChildComponents(); ++i)
+        {
+            auto* child = c->getChildComponent (i);
+            if (auto* vp = dynamic_cast<Viewport*> (child))
+                return vp;
+            if (auto* found = find (child))
+                return found;
+        }
+        return nullptr;
+    };
+    return find (comp);
+}
+
+// Copy-and-swap, same shape as DragToReorderComponent's: all property writes
+// land on a detached copy of the GUI tree (in-place, each write fires the
+// builder's listeners — seconds for a big group), then one deferred swap
+// rebuilds the GUI. The rebuild also settles the parameter renames: every
+// item is constructed from the already-mutated tree, so attachments release
+// / rebind without relying on live rename handling.
+void NewMidiKeyboardComponent::TriggerEditor::bypassChildrenViaSwap (const Array<int>& childIndices,
+                                                                     bool shouldBypass)
+{
+    if (childIndices.isEmpty() || builder == nullptr)
+        return;
+
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    auto& state    = builder->getMagicState();
+    auto  liveTree = state.getGuiTree();
+    if (! liveTree.isValid())
+        return;
+
+    // Locate the container within the copy by index-path (id-independent).
+    Array<int> path;
+    for (auto node = container; node.isValid() && node != liveTree; )
+    {
+        auto parent = node.getParent();
+        if (! parent.isValid()) return;
+        path.insert (0, parent.indexOf (node));
+        node = parent;
+    }
+
+    auto treeCopy      = liveTree.createCopy();
+    auto containerCopy = treeCopy;
+    for (int idx : path)
+        containerCopy = containerCopy.getChild (idx);
+    if (! containerCopy.isValid())
+        return;
+
+    for (int idx : childIndices)
+        if (auto child = containerCopy.getChild (idx); child.isValid())
+            applyBypassToNode (child, shouldBypass);
+
+    // Seed the sentinel value itself: consumers that resolve panel:bypassed
+    // (the keyboard's own range dim reading a trigger's enabled ref, say)
+    // need it to read as an explicit 0 — a never-written PGM value reads as
+    // void, which bound consumers can treat as "no opinion" rather than
+    // disabled. Idempotent, so re-seeding on every bypass is harmless.
+    if (shouldBypass)
+        state.getPropertyAsValue (kPanelBypassedValue).setValue (0.0);
+
+    // One deferred swap. Captures the builder and magic-state pointers by
+    // value — both objects are processor-owned and outlive the swap — never
+    // `this` or the keyboard: prepareForTreeSwap's rebuild destroys both
+    // mid-callback. Scroll bracketed across the rebuild, restored by
+    // re-finding the viewport by container id in the rebuilt tree.
+    auto* b           = builder;
+    auto* magic       = &state;
+    auto  containerId = containerID;   // string survives the swap
+
+    Point<int> savedScroll;
+    if (auto* vp = findContainerViewport())
+        savedScroll = vp->getViewPosition();
+
+    MessageManager::callAsync (
+        [b, magic, containerId, tree = std::move (treeCopy), savedScroll]
+    {
+        if (b == nullptr || magic == nullptr)
+            return;
+
+        b->prepareForTreeSwap();
+        magic->setGuiValueTree (tree);
+        b->completeTreeSwap();
+
+        if (auto node = findNodeByID (b->getGuiRootNode(), containerId); node.isValid())
+        {
+            if (auto* comp = b->findGuiItem (node))
+            {
+                Viewport* vp = dynamic_cast<Viewport*> (comp);
+                if (vp == nullptr)
+                {
+                    std::function<Viewport* (Component*)> find =
+                        [&] (Component* c) -> Viewport*
+                        {
+                            for (int i = 0; i < c->getNumChildComponents(); ++i)
+                            {
+                                auto* ch = c->getChildComponent (i);
+                                if (auto* v = dynamic_cast<Viewport*> (ch)) return v;
+                                if (auto* f = find (ch)) return f;
+                            }
+                            return nullptr;
+                        };
+                    vp = find (comp);
+                }
+                if (vp != nullptr)
+                    vp->setViewPosition (savedScroll);
+            }
+        }
+    });
+}
+
+// Menu toggle for the clicked key's group(s). Re-reads state at execution so
+// a tick that went stale while the menu was open still toggles correctly.
+void NewMidiKeyboardComponent::TriggerEditor::setBypassForKey (int note)
+{
+    const auto indices = groupChildIndices (findNodesForKey (note));
+    const auto state   = bypassStateOf (indices);
+    if (state == BypassState::none)
+        return;
+
+    bypassChildrenViaSwap (indices, state == BypassState::active);
+}
+
+// Bypass All / Enable All. Collect the top-level children whose group state
+// matches the sweep direction — the group-aware read is what pulls in a View
+// whose enable refs sit on its MidiTrigger sibling (so it still dims) — and
+// swap them all in one copy/rebuild. Each child is added once by its own
+// index, so shared-id groups don't double-apply. Children with no group
+// value anywhere read none and drop out.
+void NewMidiKeyboardComponent::TriggerEditor::bypassAll (bool shouldBypass)
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    Array<int> indices;
+    for (int i = 0; i < container.getNumChildren(); ++i)
+    {
+        Array<ValueTree> seed;
+        seed.add (container.getChild (i));
+
+        const auto state = bypassStateOf (groupChildIndices (seed));
+        if (shouldBypass ? state == BypassState::active
+                         : state == BypassState::bypassed)
+            indices.add (i);
+    }
+
+    bypassChildrenViaSwap (indices, shouldBypass);
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::buildPresetMenu (PopupMenu& menu, const File& folder,
@@ -3695,14 +3968,55 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     const bool hasNodes  = ! nodesHere.isEmpty();
     const bool hasClip   = ValueTree::fromXml (SystemClipboard::getTextFromClipboard()).isValid();
 
+    // Bypass state of the clicked key's id-group(s): none greys the item (no
+    // enable value or sentinel anywhere in the group); bypassed drives the
+    // tick. The container sweep greys Bypass All / Enable All when no group
+    // is in the state they'd change.
+    const auto bypassState = hasNodes ? bypassStateOf (groupChildIndices (nodesHere))
+                                      : BypassState::none;
+
+    bool anyActive = false, anyBypassed = false;
+    if (auto container = getContainer(); container.isValid())
+        for (auto child : container)
+        {
+            Array<ValueTree> seed;
+            seed.add (child);
+
+            const auto s = bypassStateOf (groupChildIndices (seed));
+            anyActive   = anyActive   || s == BypassState::active;
+            anyBypassed = anyBypassed || s == BypassState::bypassed;
+            if (anyActive && anyBypassed)
+                break;
+        }
+
+    // Menu layout — mirrors DragToReorderComponent's:
+    //   Bypass
+    //   ---
+    //   Edit (Cut / Copy / Paste | Delete / Delete All | Bypass All / Enable All)
+    //   ---
+    //   Save As...   (Alt-gated; secret)
+    //   ---
+    //   Colour
+    //   ---
+    //   Add Trigger
     PopupMenu menu;
-    menu.addItem (miCut,   "Cut",   hasNodes);
-    menu.addItem (miCopy,  "Copy",  hasNodes);
-    menu.addItem (miPaste, "Paste", hasClip);
+    menu.addItem (miBypass, "Bypass",
+                  bypassState != BypassState::none,
+                  bypassState == BypassState::bypassed);
 
     menu.addSeparator();
-    menu.addItem (miClear,    "Delete", hasNodes);
-    menu.addItem (miClearAll, "Delete All");
+
+    PopupMenu editMenu;
+    editMenu.addItem (miCut,   "Cut",   hasNodes);
+    editMenu.addItem (miCopy,  "Copy",  hasNodes);
+    editMenu.addItem (miPaste, "Paste", hasClip);
+    editMenu.addSeparator();
+    editMenu.addItem (miClear,    "Delete", hasNodes);
+    editMenu.addItem (miClearAll, "Delete All");
+    editMenu.addSeparator();
+    editMenu.addItem (miBypassAll, "Bypass All", anyActive);
+    editMenu.addItem (miEnableAll, "Enable All", anyBypassed);
+    menu.addSubMenu ("Edit", editMenu);
 
     // Easter egg: holding Alt/Option as the menu opens reveals Save As...,
     // which writes the key's stack to the Triggers folder using the same
@@ -3766,6 +4080,9 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         if      (result == miCopy)     copyKeys (nodesHere);
         else if (result == miCut)    { copyKeys (nodesHere); clearKey (note); }
         else if (result == miPaste)    pasteToKey (note);
+        else if (result == miBypass)    setBypassForKey (note);
+        else if (result == miBypassAll) bypassAll (true);
+        else if (result == miEnableAll) bypassAll (false);
         else if (result == miClear)    clearKey (note);
         else if (result == miClearAll) clearAll();
         else if (result == miSaveAs)   saveKeyAs (note);
