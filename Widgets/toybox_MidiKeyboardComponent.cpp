@@ -348,9 +348,10 @@ namespace
     enum
     {
         miCopy = 1, miCut, miPaste, miClear, miClearAll, miSaveAs,
-        miBypass, miBypassAll, miEnableAll,
-        miColourBase  = 100,    // + index into kTriggerColours
-        miPresetBase  = 1000    // + index into the captured preset-files vector
+        miBypass, miBypassAll, miEnableAll, miReset,
+        miColourBase      = 100,    // + index into kTriggerColours
+        miPanelPresetBase = 300,    // + preset column index (Preset submenu)
+        miPresetBase      = 1000    // + index into the captured preset-files vector
     };
 
     //==============================================================================
@@ -3919,6 +3920,304 @@ void NewMidiKeyboardComponent::TriggerEditor::bypassAll (bool shouldBypass)
     bypassChildrenViaSwap (indices, shouldBypass);
 }
 
+//==============================================================================
+// Reset To Default / Preset — duplicated from DragToReorderComponent (deadline
+// pragmatism; a shared header is the follow-up). Both operate on the clicked
+// key's id-group(s) so PropertyControls in a fronted panel View are reached.
+// Live parameter / property writes only — no tree structure changes, no swap.
+//==============================================================================
+
+// 0-based index of `def` within `definitions` (PropertyControl menu seed):
+// token between the first '[' and the last ']' of each '|'-separated entry.
+int NewMidiKeyboardComponent::TriggerEditor::menuIndexOfDefault (const String& definitions, const String& def)
+{
+    if (definitions.isEmpty() || def.isEmpty())
+        return -1;
+
+    int index = 0;
+    for (auto entry : StringArray::fromTokens (definitions, "|", ""))
+    {
+        entry = entry.trim();
+        if (entry.isEmpty()) continue;
+
+        const int i = entry.indexOfChar ('[');
+        const int j = entry.lastIndexOfChar (']');
+        const auto val = (i >= 0 && j > i) ? entry.substring (i + 1, j).trim() : entry;
+        if (val == def) return index;
+        ++index;
+    }
+    return -1;
+}
+
+// True if any node in the given group members carries a `default` property,
+// at any depth — gates Reset To Default in the menu (a bare trigger group
+// has nothing to reseed).
+bool NewMidiKeyboardComponent::TriggerEditor::groupHasDefault (const Array<int>& childIndices) const
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return false;
+
+    static const Identifier defaultProp ("default");
+
+    std::function<bool (const ValueTree&)> visit = [&] (const ValueTree& node) -> bool
+    {
+        if (node.hasProperty (defaultProp))
+            return true;
+        for (auto child : node)
+            if (visit (child)) return true;
+        return false;
+    };
+
+    for (int idx : childIndices)
+        if (visit (container.getChild (idx)))
+            return true;
+
+    return false;
+}
+
+// Walk every group member's subtree. For each PropertyControl, reseed from
+// its `default` (control-type aware); for each catalog match, push the
+// parameter's own default via setValueNotifyingHost.
+void NewMidiKeyboardComponent::TriggerEditor::resetKey (int note)
+{
+    auto container = getContainer();
+    if (! container.isValid() || builder == nullptr)
+        return;
+
+    auto& magic = builder->getMagicState();
+
+    std::function<void (ValueTree)> visit = [&] (ValueTree node)
+    {
+        const auto type = node.getType().toString();
+
+        if (type == "PropertyControl")
+        {
+            resetPropertyControlNode (node);
+        }
+        else
+        {
+            for (const auto& entry : kParameterPropertyCatalog)
+            {
+                if (entry.first != type) continue;
+
+                for (const auto& propName : entry.second)
+                {
+                    const auto paramId = node.getProperty (propName).toString();
+                    if (paramId.isEmpty()) continue;
+
+                    if (auto* param = magic.getParameter (paramId))
+                        param->setValueNotifyingHost (param->getDefaultValue());
+                }
+                break;
+            }
+        }
+
+        for (auto child : node)
+            visit (child);
+    };
+
+    for (int idx : groupChildIndices (findNodesForKey (note)))
+        visit (container.getChild (idx));
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::resetPropertyControlNode (ValueTree node)
+{
+    const auto def = node.getProperty ("default").toString();
+    if (def.isEmpty()) return;
+
+    const auto macroID = node.getProperty ("parameter").toString();
+
+    // Property-stored control (no bound macro): write `default` straight to
+    // property-variable, the same target the item's gesture handlers write.
+    if (macroID.isEmpty())
+    {
+        node.setProperty ("property-variable", def, nullptr);
+        return;
+    }
+
+    // Macro-bound: convert the string `default` per control-type, push into
+    // the bound macro via convertTo0to1.
+    auto& magic = builder->getMagicState();
+    auto seed = [&] (float plainValue)
+    {
+        if (auto* p = magic.getParameter (macroID))
+            p->setValueNotifyingHost (p->convertTo0to1 (plainValue));
+    };
+
+    const auto ctype = node.getProperty ("control-type").toString();
+
+    if (ctype == "menu")
+    {
+        const int idx = menuIndexOfDefault (node.getProperty ("definitions").toString(), def);
+        if (idx >= 0)
+            seed ((float) idx);
+    }
+    else if (ctype == "slider")
+    {
+        seed (def.getFloatValue());
+    }
+    else if (ctype == "button")
+    {
+        seed (def == "1" ? 1.0f : 0.0f);
+    }
+}
+
+// First PropertyControl in the group carrying a `presets` string defines the
+// preset count — every control in the group is expected to ship the same
+// number of columns (one column = one coherent preset).
+int NewMidiKeyboardComponent::TriggerEditor::presetCountForGroup (const Array<int>& childIndices) const
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return 0;
+
+    int count = 0;
+    std::function<bool (ValueTree)> visit = [&] (ValueTree node) -> bool
+    {
+        {
+            const auto presets = node.getProperty ("presets").toString();
+            if (presets.isNotEmpty())
+            {
+                count = StringArray::fromTokens (presets, ",", "").size();
+                return true;
+            }
+        }
+
+        for (auto child : node)
+            if (visit (child)) return true;
+
+        return false;
+    };
+
+    for (int idx : childIndices)
+        if (visit (container.getChild (idx)))
+            break;
+
+    return count;
+}
+
+// Optional per-column names: the text outside the bracket ("Fast Arp[1.0]" →
+// "Fast Arp"). Columns of the first control that names anything; a
+// values-only group yields an empty array and the menu falls back to
+// "Preset N". Unnamed columns inside a named string come back empty.
+StringArray NewMidiKeyboardComponent::TriggerEditor::presetNamesForGroup (const Array<int>& childIndices) const
+{
+    StringArray names;
+    auto container = getContainer();
+    if (! container.isValid())
+        return names;
+
+    std::function<bool (ValueTree)> visit = [&] (ValueTree node) -> bool
+    {
+        {
+            const auto presets = node.getProperty ("presets").toString();
+            if (presets.isNotEmpty())
+            {
+                StringArray parsed;
+                bool hasAny = false;
+
+                for (auto tok : StringArray::fromTokens (presets, ",", ""))
+                {
+                    const int  br   = tok.indexOfChar ('[');
+                    const auto name = (br >= 0) ? tok.substring (0, br).trim() : String();
+                    parsed.add (name);
+                    hasAny = hasAny || name.isNotEmpty();
+                }
+
+                if (hasAny) { names = parsed; return true; }
+            }
+        }
+
+        for (auto child : node)
+            if (visit (child)) return true;
+
+        return false;
+    };
+
+    for (int idx : childIndices)
+        if (visit (container.getChild (idx)))
+            break;
+
+    return names;
+}
+
+// Preset column → bound macro. Menu values are the bracket [value]s, same
+// grammar as `default` / `definitions`. Out-of-range indices are clamped
+// out, so a short presets string on one control leaves it untouched.
+void NewMidiKeyboardComponent::TriggerEditor::applyPresetToNode (ValueTree node, int index)
+{
+    auto tokens = StringArray::fromTokens (node.getProperty ("presets").toString(), ",", "");
+    tokens.trim();
+    if (index < 0 || index >= tokens.size()) return;
+
+    // Value lives in the bracket, name outside — no bracket means the whole
+    // token is the value, so values-only presets work unchanged.
+    const auto raw = tokens[index];
+    const int  br  = raw.indexOfChar ('[');
+    const int  bre = raw.lastIndexOfChar (']');
+    const auto val = (br >= 0 && bre > br) ? raw.substring (br + 1, bre).trim() : raw;
+    if (val.isEmpty()) return;
+
+    const auto macroID = node.getProperty ("parameter").toString();
+
+    // Property-stored control (no bound macro): write the raw value straight
+    // to property-variable, the same target the item's gesture handlers
+    // write. No undo manager: runtime gesture, not an edit.
+    if (macroID.isEmpty())
+    {
+        node.setProperty ("property-variable", val, nullptr);
+        return;
+    }
+
+    auto& magic = builder->getMagicState();
+    auto seed = [&] (float plainValue)
+    {
+        if (auto* p = magic.getParameter (macroID))
+            p->setValueNotifyingHost (p->convertTo0to1 (plainValue));
+    };
+
+    const auto ctype = node.getProperty ("control-type").toString();
+
+    if (ctype == "menu")
+    {
+        const int idx = menuIndexOfDefault (node.getProperty ("definitions").toString(), val);
+        if (idx >= 0)
+            seed ((float) idx);
+    }
+    else if (ctype == "slider")
+    {
+        seed (val.getFloatValue());
+    }
+    else if (ctype == "button")
+    {
+        seed (val == "1" ? 1.0f : 0.0f);
+    }
+}
+
+// Push preset column `index` into every PropertyControl in the group.
+// NOTE: EnvelopeEditor preset columns are NOT applied here — DTR's
+// applyEnvelopePresetToNode needs the processor's envelope generators, and
+// this TU doesn't see the processor type. Goes with the shared-header pass.
+void NewMidiKeyboardComponent::TriggerEditor::applyPresetToGroup (const Array<int>& childIndices, int index)
+{
+    auto container = getContainer();
+    if (! container.isValid())
+        return;
+
+    std::function<void (ValueTree)> visit = [&] (ValueTree node)
+    {
+        if (node.getType().toString() == "PropertyControl")
+            applyPresetToNode (node, index);
+
+        for (auto child : node)
+            visit (child);
+    };
+
+    for (int idx : childIndices)
+        visit (container.getChild (idx));
+}
+
 void NewMidiKeyboardComponent::TriggerEditor::buildPresetMenu (PopupMenu& menu, const File& folder,
                                                                std::vector<File>& files, int baseId)
 {
@@ -3972,8 +4271,21 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     // enable value or sentinel anywhere in the group); bypassed drives the
     // tick. The container sweep greys Bypass All / Enable All when no group
     // is in the state they'd change.
-    const auto bypassState = hasNodes ? bypassStateOf (groupChildIndices (nodesHere))
-                                      : BypassState::none;
+    const auto groupIdx    = hasNodes ? groupChildIndices (nodesHere) : Array<int>();
+    const auto bypassState = hasNodes ? bypassStateOf (groupIdx) : BypassState::none;
+
+    // Preset state for the key's group (0 when the key is empty): count from
+    // the first PropertyControl carrying presets, tick from the stored
+    // per-group index, keyed by the group's id (note number as fallback).
+    const int  panelPresetCount = hasNodes ? presetCountForGroup (groupIdx) : 0;
+    const bool hasDefaults      = hasNodes && groupHasDefault (groupIdx);
+    const auto presetMapKey     = [&]
+    {
+        for (const auto& n : nodesHere)
+            if (const auto id = n.getProperty ("id").toString(); id.isNotEmpty())
+                return id;
+        return String (note);
+    }();
 
     bool anyActive = false, anyBypassed = false;
     if (auto container = getContainer(); container.isValid())
@@ -3990,6 +4302,7 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         }
 
     // Menu layout — mirrors DragToReorderComponent's:
+    //   Reset To Default
     //   Bypass
     //   ---
     //   Edit (Cut / Copy / Paste | Delete / Delete All | Bypass All / Enable All)
@@ -3998,8 +4311,13 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     //   ---
     //   Colour
     //   ---
+    //   Preset
+    //   ---
     //   Add Trigger
     PopupMenu menu;
+    // Reset greyed when no node in the group carries a `default` property —
+    // a bare trigger group has nothing to reseed.
+    menu.addItem (miReset, "Reset To Default", hasDefaults);
     menu.addItem (miBypass, "Bypass",
                   bypassState != BypassState::none,
                   bypassState == BypassState::bypassed);
@@ -4044,6 +4362,29 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
 
     menu.addSeparator();
 
+    // Preset — hard-coded per-PropertyControl preset columns (comma-separated
+    // `presets` strings; column N is "preset N" across the group). Greyed
+    // when the key's group carries no presets. The current column, if one was
+    // chosen before, is ticked.
+    PopupMenu panelPresetMenu;
+    if (panelPresetCount > 0)
+    {
+        const auto it      = presetIndexByPanel.find (presetMapKey);
+        const int  current = (it == presetIndexByPanel.end()) ? -1 : it->second;
+        const auto names   = presetNamesForGroup (groupIdx);
+
+        for (int i = 0; i < panelPresetCount; ++i)
+        {
+            const auto label = (i < names.size() && names[i].isNotEmpty())
+                                   ? names[i]
+                                   : "Preset " + String (i + 1);
+            panelPresetMenu.addItem (miPanelPresetBase + i, label, true, i == current);
+        }
+    }
+    menu.addSubMenu ("Preset", panelPresetMenu, panelPresetCount > 0);
+
+    menu.addSeparator();
+
     // Add Trigger — insert a preset node/stack from disk onto this key.
     std::vector<File> presetFiles;
     PopupMenu addTriggerMenu;
@@ -4071,7 +4412,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     // Single guarded callback. The keyboard owns this editor, so a live owner
     // implies a live `this`; the SafePointer check protects both.
     Component::SafePointer<NewMidiKeyboardComponent> safe (&owner);
-    menu.showMenuAsync (opts, [this, safe, note, nodesHere, presetFiles] (int result)
+    menu.showMenuAsync (opts, [this, safe, note, nodesHere, presetFiles,
+                               panelPresetCount, presetMapKey] (int result)
     {
         auto* kb = safe.getComponent();
         if (kb == nullptr)
@@ -4086,6 +4428,13 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result == miClear)    clearKey (note);
         else if (result == miClearAll) clearAll();
         else if (result == miSaveAs)   saveKeyAs (note);
+        else if (result == miReset)    resetKey (note);
+        else if (result >= miPanelPresetBase && result < miPanelPresetBase + panelPresetCount)
+        {
+            const int chosen = result - miPanelPresetBase;
+            presetIndexByPanel[presetMapKey] = chosen;
+            applyPresetToGroup (groupChildIndices (nodesHere), chosen);
+        }
         else if (result >= miColourBase && result < miColourBase + (int) kTriggerColours.size())
         {
             const auto& tc = kTriggerColours[(size_t) (result - miColourBase)];

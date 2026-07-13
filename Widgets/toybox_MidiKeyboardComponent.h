@@ -632,6 +632,37 @@ private:
         void        bypassAll             (bool shouldBypass);
         Viewport*   findContainerViewport () const;
 
+        // Reset To Default / Preset — duplicated from DragToReorderComponent
+        // (deadline pragmatism; a shared header is the follow-up), operating
+        // on the clicked key's id-group(s) so PropertyControls in a fronted
+        // panel View are reached. Live parameter / property writes only — no
+        // tree structure changes, so no swap.
+        static int  menuIndexOfDefault       (const String& definitions, const String& def);
+        bool        groupHasDefault          (const Array<int>& childIndices) const;
+        void        resetKey                 (int note);
+        void        resetPropertyControlNode (ValueTree node);
+        int         presetCountForGroup      (const Array<int>& childIndices) const;
+        StringArray presetNamesForGroup      (const Array<int>& childIndices) const;
+        void        applyPresetToGroup       (const Array<int>& childIndices, int index);
+        void        applyPresetToNode        (ValueTree node, int index);
+
+        // Catalog: node type → property names that hold parameter IDs, for
+        // Reset To Default. PropertyControl is handled separately via
+        // resetPropertyControlNode. Duplicated from DragToReorderComponent.
+        static inline const std::vector<std::pair<String, StringArray>>
+            kParameterPropertyCatalog
+        {
+            { "ImageButton",     { "parameter" } },
+            { "PopupMenu",       { "parameter", "alt-param-1" } },
+            { "Slider",          { "parameter" } },
+            { "ComboBox",        { "parameter" } },
+            { "TextButton",      { "parameter" } },
+            { "ToggleButton",    { "parameter" } },
+            { "XYDragComponent", { "parameter-x", "parameter-y", "parameter-z",
+                                   "right-click", "wheel-parameter" } },
+            { "ListBox",         { "parameter" } },
+        };
+
         NewMidiKeyboardComponent& owner;
         foleys::MagicGUIBuilder*  builder = nullptr;
         String                    containerID;
@@ -641,6 +672,11 @@ private:
         // match DragToReorderComponent's pair (deliberately not shared).
         static inline const String kPanelEnableValue   { "panel:enable" };
         static inline const String kPanelBypassedValue { "panel:bypassed" };
+
+        // Per-group preset column position, keyed by the group's id (first
+        // non-empty id among the key's nodes; note number as fallback).
+        // Absent means no column chosen yet.
+        std::map<String, int> presetIndexByPanel;
 
         // Held as a member so the chooser outlives its async dialog —
         // juce::FileChooser requires the instance to stay alive until the
