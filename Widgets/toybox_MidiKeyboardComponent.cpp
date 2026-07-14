@@ -2953,7 +2953,9 @@ void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root
 
 void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
 {
-    insertPayloadAtKey (ValueTree::fromXml (SystemClipboard::getTextFromClipboard()), note);
+    auto root = ValueTree::fromXml (SystemClipboard::getTextFromClipboard());
+    autoColourSnippet (root);
+    insertPayloadAtKey (root, note);
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const File& file)
@@ -3442,13 +3444,17 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
             {
                 if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
                 {
-                    const int loV = node.hasProperty (followerLow)  ? (int) node.getProperty (followerLow)  : 0;
-                    const int hiV = node.hasProperty (followerHigh) ? (int) node.getProperty (followerHigh) : 127;
+                    // Guard: Only follow the drag if the node already authors these properties
+                    if (node.hasProperty (followerLow) && node.hasProperty (followerHigh))
+                    {
+                        const int loV = (int) node.getProperty (followerLow);
+                        const int hiV = (int) node.getProperty (followerHigh);
 
-                    if (lowEdge)
-                        resizeBounds.push_back ({ node, followerLow,  loV, 0,   hiV });  // can't rise past its high
-                    else
-                        resizeBounds.push_back ({ node, followerHigh, hiV, loV, 127 }); // can't fall past its low
+                        if (lowEdge)
+                            resizeBounds.push_back ({ node, followerLow,  loV, 0,   hiV });  // can't rise past its high
+                        else
+                            resizeBounds.push_back ({ node, followerHigh, hiV, loV, 127 }); // can't fall past its low
+                    }
                 }
 
                 for (auto child : node)
@@ -3562,11 +3568,15 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegi
             {
                 if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
                 {
-                    const int loV = node.hasProperty (followerLow)  ? (int) node.getProperty (followerLow)  : 0;
-                    const int hiV = node.hasProperty (followerHigh) ? (int) node.getProperty (followerHigh) : 127;
+                    // Guard: Only follow the drag if the node already authors these properties
+                    if (node.hasProperty (followerLow) && node.hasProperty (followerHigh))
+                    {
+                        const int loV = (int) node.getProperty (followerLow);
+                        const int hiV = (int) node.getProperty (followerHigh);
 
-                    resizeBounds.push_back ({ node, followerLow,  loV });
-                    resizeBounds.push_back ({ node, followerHigh, hiV });
+                        resizeBounds.push_back ({ node, followerLow,  loV });
+                        resizeBounds.push_back ({ node, followerHigh, hiV });
+                    }
                 }
 
                 for (auto child : node)
