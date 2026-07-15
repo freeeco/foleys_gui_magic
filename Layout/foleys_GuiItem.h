@@ -51,6 +51,25 @@ class MagicGUIState;
 
 enum class LayoutType;
 
+//==============================================================================
+/**
+ Drag sources implement this to translate the parameter id a dragParamAssign
+ drop would write. GuiItem's drag handlers query it via dynamic_cast on the
+ source component: only parameter ids the source can translate highlight as
+ targets, and the translated value is what gets written on drop. Sources
+ with translation inactive behave exactly as plain param-assign draggers.
+*/
+struct ParamAssignTranslator
+{
+    virtual ~ParamAssignTranslator() = default;
+
+    /** Returns the value to write for this parameter id; empty = not a valid target. */
+    virtual juce::String translateParamAssign (const juce::String& parameterID) const = 0;
+
+    /** False = pass-through mode, the plain parameter id is written unchanged. */
+    virtual bool isTranslationActive() const = 0;
+};
+
 /**
  The GuiItem class will draw borders and descriptions around widgets, if defined.
  It also owns the Component and the Attachment, in case the Component is connected

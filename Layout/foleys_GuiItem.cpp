@@ -707,9 +707,20 @@ void GuiItem::itemDragEnter (const juce::DragAndDropTarget::SourceDetails& detai
         || desc.startsWith (IDs::dragParamAssign.toString()))
     {
         auto paramID = getControlledParameterID (details.localPosition);
-        if (paramID.isNotEmpty())
+
+        if (auto* translator = dynamic_cast<ParamAssignTranslator*> (details.sourceComponent.get());
+            translator != nullptr && translator->isTranslationActive())
+        {
+            // Translating source: map membership is the validity test. Only
+            // parameters the source can translate light up as drop targets.
+            if (paramID.isNotEmpty() && translator->translateParamAssign (paramID).isNotEmpty())
+                highlight = paramID;
+        }
+        else if (paramID.isNotEmpty())
+        {
             if (auto* parameter = magicBuilder.getMagicState().getParameter (paramID))
                 highlight = parameter->getName (64);
+        }
 
         repaint();
     }
@@ -1239,9 +1250,15 @@ void GuiItem::itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSou
         const int  sep  = rest.indexOfChar (':');
         if (sep < 0) { repaint(); return; }
 
-        const auto destUid     = rest.substring (0, sep);
-        const auto destProp    = rest.substring (sep + 1);
-        const auto parameterID = getControlledParameterID (dragSourceDetails.localPosition);
+        const auto destUid  = rest.substring (0, sep);
+        const auto destProp = rest.substring (sep + 1);
+        auto parameterID    = getControlledParameterID (dragSourceDetails.localPosition);
+
+        // Translating source: rewrite the parameter id through the source's
+        // map before the write. Unmapped (empty) result drops the assign.
+        if (auto* translator = dynamic_cast<ParamAssignTranslator*> (dragSourceDetails.sourceComponent.get());
+            translator != nullptr && translator->isTranslationActive() && parameterID.isNotEmpty())
+            parameterID = translator->translateParamAssign (parameterID);
 
         if (destUid.isNotEmpty() && destProp.isNotEmpty() && parameterID.isNotEmpty())
         {
