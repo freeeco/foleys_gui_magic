@@ -4406,13 +4406,9 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     // component, so we read it from there. Set before showing.
     if (auto* parent = owner.getParentComponent())
         menu.setLookAndFeel (&parent->getLookAndFeel());
-
-    // Item height — mirror the L&Fs' getOptionsForComboBoxPopupMenu: when
-    // MENU_HEIGHT is defined the menus use it as the item height. That hook only
-    // fires for ComboBox popups, so a standalone menu sets the same height
-    // itself. Without the define, leave it to the L&F's font-based default
-    // (with an iOS tappability floor).
-    auto opts = PopupMenu::Options().withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 });
+    
+    auto opts = PopupMenu::Options().withTargetComponent (&owner)
+                                    .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 });
    #if defined (MENU_HEIGHT)
     opts = opts.withStandardItemHeight (MENU_HEIGHT);
    #elif JUCE_IOS
