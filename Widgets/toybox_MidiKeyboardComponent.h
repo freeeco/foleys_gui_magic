@@ -705,12 +705,26 @@ private:
     
     juce::String getTooltip() override
     {
-        if (! noteTooltipProvider)
-            return {};
-
         const auto pos = getMouseXYRelative();
 
         if (! getLocalBounds().contains (pos))
+            return {};
+
+        if (macroPanelOpen || macroButtonVisible)
+        {
+            const auto buttonBounds = macroPanelOpen ? getMacroCloseButtonBounds()
+                                                     : getMacroButtonBounds();
+
+            if (buttonBounds.expanded (4.0f).contains (pos.toFloat()))
+            {
+                if (macroPanelOpen)
+                    return "Show Keyboard View: Click this button to show the MIDI Strip's Keyboard View";
+                else
+                    return "Show Panel View: Click this button to show the MIDI Strip's Panel View";
+            }
+        }
+        
+        if (! noteTooltipProvider)
             return {};
 
         const int note = getNoteAndVelocityAtPosition (pos.toFloat()).note;
