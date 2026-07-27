@@ -53,9 +53,11 @@ XYDragComponent::XYDragComponent()
     setColour (xyVerticalColourId,       juce::Colours::orange.darker());
     setColour (xyVerticalOverColourId,   juce::Colours::orange);
 
-    xAttachment.onParameterChangedAsync = [&] { repaint(); };
-    yAttachment.onParameterChangedAsync = [&] { repaint(); };
-    zAttachment.onParameterChangedAsync = [&] { repaint(); };
+    // Republish on every parameter change, not just mouse gestures, so consumers
+    // of the output values follow host automation and snapshot recall too.
+    xAttachment.onParameterChangedAsync = [&] { valueX = xAttachment.getNormalisedValue(); repaint(); };
+    yAttachment.onParameterChangedAsync = [&] { valueY = yAttachment.getNormalisedValue(); repaint(); };
+    zAttachment.onParameterChangedAsync = [&] { valueZ = zAttachment.getNormalisedValue(); repaint(); };
     
     startTimerHz(20);
 }
@@ -193,6 +195,13 @@ void XYDragComponent::referValueZ (juce::Value &value)
 void XYDragComponent::referTouched (juce::Value &value)
 {
     valueTouched.referTo(value);
+}
+
+void XYDragComponent::publishValues()
+{
+    valueX = xAttachment.getNormalisedValue();
+    valueY = yAttachment.getNormalisedValue();
+    valueZ = zAttachment.getNormalisedValue();
 }
 
 void XYDragComponent::updateWhichToDrag (juce::Point<float> pos)

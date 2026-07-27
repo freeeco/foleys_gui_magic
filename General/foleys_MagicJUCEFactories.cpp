@@ -1045,6 +1045,10 @@ public:
             valueTouched.referTo(getMagicState().getPropertyAsValue (propertyID));
             dragger.referTouched(valueTouched);
         }
+
+        // Seed the output values from the attachments now the referrals are live,
+        // so consumers are correct at load without waiting for a first gesture.
+        dragger.publishValues();
     }
 
     std::vector<SettableProperty> getSettableProperties() const override

@@ -89,6 +89,9 @@ public:
     void referTouched (juce::Value &value);
     void setTouchedIndex (int index) {touchedIndex = index; };
 
+    /** Pushes the current attachment positions out to the referred values. */
+    void publishValues();
+
     bool hitTest (int x, int y) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
