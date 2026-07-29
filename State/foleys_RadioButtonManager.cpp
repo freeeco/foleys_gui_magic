@@ -49,6 +49,8 @@ RadioButtonHandler::RadioButtonHandler (juce::Button& buttonToControl, RadioButt
 
 RadioButtonHandler::~RadioButtonHandler()
 {
+    cancelPendingUpdate();
+
     if (parameter)
         parameter->removeListener (this);
 
@@ -94,12 +96,22 @@ void RadioButtonHandler::parameterValueChanged (int parameterIndex, float newVal
 {
     juce::ignoreUnused (parameterIndex);
 
+    // may be called from the audio thread: latch and defer to the message thread
+    pendingNormalisedValue.store (newValue, std::memory_order_relaxed);
+    triggerAsyncUpdate();
+}
+
+void RadioButtonHandler::handleAsyncUpdate()
+{
     if (!parameter)
         return;
 
-    auto value = parameter->convertFrom0to1 (newValue);
-    if (value == static_cast<float>(radioButtonValue))
-        button.setToggleState (true, juce::dontSendNotification);
+    auto value = parameter->convertFrom0to1 (pendingNormalisedValue.load (std::memory_order_relaxed));
+    bool selected = (value == static_cast<float>(radioButtonValue));
+    button.setToggleState (selected, juce::dontSendNotification);
+
+    if (selected && onSelected)
+        onSelected();
 }
 
 // ==============================================================================

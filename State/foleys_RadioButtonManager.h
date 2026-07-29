@@ -58,7 +58,8 @@ private:
 // ==============================================================================
 
 class RadioButtonHandler  : private juce::Button::Listener,
-                            private juce::RangedAudioParameter::Listener
+                            private juce::RangedAudioParameter::Listener,
+                            private juce::AsyncUpdater
 {
 public:
     RadioButtonHandler (juce::Button& buttonToControl, RadioButtonManager& manager);
@@ -66,17 +67,22 @@ public:
 
     void setRadioGroupValue (juce::var value, juce::RangedAudioParameter* parameter);
 
+    // called on the message thread when a parameter change selects this button
+    std::function<void()> onSelected;
+
 private:
 
     void buttonClicked (juce::Button *) override;
     void parameterValueChanged (int parameterIndex, float newValue) override;
     void parameterGestureChanged (int /*parameterIndex*/, bool /*gestureIsStarting*/) override {}
+    void handleAsyncUpdate() override;
 
     juce::Button& button;
     RadioButtonManager& radioButtonManager;
 
     juce::var radioButtonValue;
     juce::RangedAudioParameter* parameter = nullptr;
+    std::atomic<float> pendingNormalisedValue { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RadioButtonHandler)
 };
