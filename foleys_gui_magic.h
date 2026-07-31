@@ -87,6 +87,20 @@
 #include <juce_cryptography/juce_cryptography.h>
 #include <juce_dsp/juce_dsp.h>
 
+#ifndef MENU_HEIGHT_DESKTOP
+#define MENU_HEIGHT_DESKTOP 37
+#endif
+
+#ifndef MENU_HEIGHT_IOS
+#define MENU_HEIGHT_IOS 44
+#endif
+
+#if JUCE_IOS
+#define MENU_HEIGHT MENU_HEIGHT_IOS
+#else
+#define MENU_HEIGHT MENU_HEIGHT_DESKTOP
+#endif
+
 #if JUCE_MODULE_AVAILABLE_juce_opengl && FOLEYS_ENABLE_OPEN_GL_CONTEXT
 #include <juce_opengl/juce_opengl.h>
 #endif

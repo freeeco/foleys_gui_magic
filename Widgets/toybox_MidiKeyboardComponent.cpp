@@ -396,6 +396,14 @@ namespace
 #else
     constexpr int kZoneDragSlop = 4;
 #endif
+
+#if JUCE_IOS
+    // Touch has no hover, so the edit zone can't announce itself on approach.
+    // Instead it's signposted permanently: a faint wash over the band with a
+    // stronger 1px line on its lower edge marking the menu/play boundary.
+    constexpr uint32 kZoneTouchBandArgb = 0x2a808080;
+    constexpr uint32 kZoneTouchEdgeArgb = 0x60808080;
+#endif
 }
 
 //==============================================================================
@@ -646,16 +654,13 @@ void NewMidiKeyboardComponent::paint (Graphics& g)
         g.drawEllipse (b, 1.0f);
 
         const auto  area = b.reduced (b.getWidth() * 0.35f).toNearestInt().toFloat();
-        const float barW = jmax (2.0f, b.getWidth() * 0.12f);
-        const float gap  = b.getWidth() * 0.20f;
-        const float cx   = b.getCentreX();
+        const float barW = jmax (2.0f, std::round (b.getWidth() * 0.12f));
+        const float gap  = jmax (1.0f, std::round (b.getWidth() * 0.08f));
+        const float x0   = std::round (b.getCentreX() - (barW * 1.5f + gap));
         g.setColour (Colour (0xff6a6a6a));
 
-        for (int i = -1; i <= 1; ++i)
-        {
-            const float bx = std::floor (cx + (float) i * gap - barW * 0.5f);
-            g.fillRect (bx, area.getY(), barW, area.getHeight());
-        }
+        for (int i = 0; i < 3; ++i)
+            g.fillRect (x0 + (float) i * (barW + gap), area.getY(), barW, area.getHeight());
     }
 }
 
@@ -2017,6 +2022,19 @@ void NewMidiKeyboardComponent::drawEditZoneOverlays (Graphics& g)
 {
     if (! editMode || ! noteColourProvider || getOrientation() != horizontalKeyboard)
         return;
+
+#if JUCE_IOS
+    // Static touch affordance for the zone, under everything else drawn here.
+    // Hidden while a drag or an open menu is showing its own visuals.
+    if (! editVisualsActive())
+    {
+        g.setColour (Colour (kZoneTouchBandArgb));
+        g.fillRect (0.0f, 0.0f, (float) getWidth(), (float) editZoneHeight);
+
+        g.setColour (Colour (kZoneTouchEdgeArgb));
+        g.fillRect (0.0f, (float) editZoneHeight - 1.0f, (float) getWidth(), 1.0f);
+    }
+#endif
 
     // Confirmed drag — stroke only the dragged region. Its current extent is
     // the mouseDown extent plus the clamped delta the editor actually applied:
@@ -4513,18 +4531,14 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     menu.addSubMenu ("Add Trigger", addTriggerMenu, presetFolder.isDirectory());
     
     // Theme the menu (submenus inherit it) with the look & feel assigned to
-    // the keyboard item in the PGM editor — that L&F lives on our parent
+    // the keyboard item     in the PGM editor — that L&F lives on our parent
     // component, so we read it from there. Set before showing.
     if (auto* parent = owner.getParentComponent())
         menu.setLookAndFeel (&parent->getLookAndFeel());
     
     auto opts = PopupMenu::Options().withTargetComponent (&owner)
                                     .withTargetScreenArea ({ screenPos.x, screenPos.y, 1, 1 });
-   #if defined (MENU_HEIGHT)
     opts = opts.withStandardItemHeight (MENU_HEIGHT);
-   #elif JUCE_IOS
-    opts = opts.withStandardItemHeight (36);
-   #endif
 
     // Single guarded callback. The keyboard owns this editor, so a live owner
     // implies a live `this`; the SafePointer check protects both.
