@@ -608,6 +608,8 @@ private:
         void setColourForKey (int note, Colour colour);
         void saveKeyAs       (int note);
         void applyPresetFile (int note, const File& file);
+        void confirmAndInsert (ValueTree root, int note);
+        bool payloadOverlapsExistingTriggers (const ValueTree& payloadRoot, int note) const;
         void insertPayloadAtKey (ValueTree payloadRoot, int note);
         void autoColourSnippet  (ValueTree& root);
         void buildPresetMenu (PopupMenu& menu, const File& folder,

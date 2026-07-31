@@ -2953,16 +2953,122 @@ void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root
 
 void NewMidiKeyboardComponent::TriggerEditor::pasteToKey (int note)
 {
-    auto root = ValueTree::fromXml (SystemClipboard::getTextFromClipboard());
-    autoColourSnippet (root);
-    insertPayloadAtKey (root, note);
+    confirmAndInsert (ValueTree::fromXml (SystemClipboard::getTextFromClipboard()), note);
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::applyPresetFile (int note, const File& file)
 {
-    auto root = ValueTree::fromXml (file.loadFileAsString());
-    autoColourSnippet (root);
-    insertPayloadAtKey (root, note);
+    confirmAndInsert (ValueTree::fromXml (file.loadFileAsString()), note);
+}
+
+bool NewMidiKeyboardComponent::TriggerEditor::payloadOverlapsExistingTriggers (const ValueTree& payloadRoot, int note) const
+{
+    auto container = getContainer();
+    if (! container.isValid() || ! payloadRoot.isValid())
+        return false;
+
+    static const Identifier midiTriggerType   ("MidiTrigger");
+    static const Identifier triggerColourProp ("trigger-colour");
+
+    // Same payload split as insertPayloadAtKey Step 1, triggers only.
+    Array<ValueTree> triggers;
+    auto take = [&] (const ValueTree& src)
+    {
+        if (src.getType() == midiTriggerType)
+            triggers.add (src);
+    };
+
+    if (payloadRoot.getType().toString() == "_multiCopy")
+        for (auto child : payloadRoot)
+            take (child);
+    else
+        take (payloadRoot);
+
+    if (triggers.isEmpty())
+        return false;
+
+    // Same delta as insertPayloadAtKey Step 2 — lowest across ALL payload
+    // triggers (invisible switches included), so coverage lands exactly where
+    // the real insert will place it.
+    int lowest = std::numeric_limits<int>::max();
+    for (const auto& n : triggers)
+        for (const auto& p : kTriggerNoteValuedProps)
+        {
+            const Identifier prop (p);
+            if (n.hasProperty (prop))
+                lowest = jmin (lowest, (int) n.getProperty (prop));
+        }
+
+    const int delta = (lowest != std::numeric_limits<int>::max()) ? note - lowest : 0;
+
+    // Coverage and occupancy consider only visible triggers (carrying
+    // trigger-colour) on both sides — invisible switch triggers can span the
+    // whole keyboard and would warn on every insert. The shift-and-clamp
+    // mirrors Step 6's pre-clamp followed by remapNoteRanges: values land at
+    // most on 127; lows can't go below 0 (every prop >= lowest, note >= 0).
+    bool covered[128] = {};
+    for (const auto& n : triggers)
+    {
+        if (! n.hasProperty (triggerColourProp))
+            continue;
+
+        for (const auto& pair : kTriggerRangePairs)
+        {
+            const Identifier lo (pair.lo), hi (pair.hi);
+            if (! n.hasProperty (lo) || ! n.hasProperty (hi))
+                continue;
+
+            const int lv = jmin ((int) n.getProperty (lo) + delta, 127);
+            const int hv = jmin ((int) n.getProperty (hi) + delta, 127);
+            for (int k = jmax (0, lv); k <= hv; ++k)
+                covered[k] = true;
+        }
+    }
+
+    for (auto child : container)
+    {
+        if (child.getType() != midiTriggerType || ! child.hasProperty (triggerColourProp))
+            continue;
+
+        for (int k = 0; k < 128; ++k)
+            if (covered[k] && nodeCoversKey (child, k))
+                return true;
+    }
+
+    return false;
+}
+
+void NewMidiKeyboardComponent::TriggerEditor::confirmAndInsert (ValueTree root, int note)
+{
+    if (! root.isValid())
+        return;
+
+    if (! payloadOverlapsExistingTriggers (root, note))
+    {
+        autoColourSnippet (root);
+        insertPayloadAtKey (root, note);
+        return;
+    }
+
+    // Async — modal loops are off on iOS/AUv3. autoColourSnippet runs only on
+    // OK: it advances the shared auto-colour cycle index in the magic state,
+    // which a cancelled insert must not touch. The keyboard owns this editor,
+    // so a live owner implies a live `this`; root is ref-counted and off-tree,
+    // so it survives in the capture.
+    Component::SafePointer<NewMidiKeyboardComponent> safe (&owner);
+    NativeMessageBox::showOkCancelBox (MessageBoxIconType::QuestionIcon,
+                                       "Overlapping Triggers",
+                                       "This trigger overlaps existing triggers, load it anyway?",
+                                       &owner,
+                                       ModalCallbackFunction::create ([this, safe, root, note] (int result)
+                                       {
+                                           if (safe.getComponent() == nullptr || result == 0)
+                                               return;
+
+                                           auto payload = root;   // non-const alias for the by-ref call; shares the same tree
+                                           autoColourSnippet (payload);
+                                           insertPayloadAtKey (payload, note);
+                                       }));
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
@@ -3719,10 +3825,11 @@ void NewMidiKeyboardComponent::TriggerEditor::applyBypassToNode (ValueTree targe
     const auto& from = bypassing ? kPanelEnableValue   : kPanelBypassedValue;
     const auto& to   = bypassing ? kPanelBypassedValue : kPanelEnableValue;
 
-    static const Identifier opacityProp       ("opacity");
-    static const Identifier paramProp         ("parameter");
-    static const Identifier paramBypassedProp ("parameter-bypassed");
-    static const Identifier viewType          ("View");
+    static const Identifier opacityProp         ("opacity");
+    static const Identifier paramProp           ("parameter");
+    static const Identifier paramBypassedProp   ("parameter-bypassed");
+    static const Identifier viewType            ("View");
+    static const Identifier propertyControlType ("PropertyControl");
 
     const auto& renameFrom = bypassing ? paramProp         : paramBypassedProp;
     const auto& renameTo   = bypassing ? paramBypassedProp : paramProp;
@@ -3737,7 +3844,11 @@ void NewMidiKeyboardComponent::TriggerEditor::applyBypassToNode (ValueTree targe
         }
 
         // After the index loop — remove/set shifts property indices.
-        if (node.hasProperty (renameFrom))
+        // PropertyControl's parameter is a structural macro binding, not a
+        // modulator output — it never pins a target, so it keeps its binding
+        // (and its display) across bypass.
+        if (node.getType() != propertyControlType
+            && node.hasProperty (renameFrom))
         {
             const auto v = node.getProperty (renameFrom);
             node.removeProperty (renameFrom, nullptr);
