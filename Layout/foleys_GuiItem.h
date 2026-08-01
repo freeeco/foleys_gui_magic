@@ -151,11 +151,39 @@ public:
 
     virtual bool isContainer() const { return false; }
 
+    /** Batch-edit gate: while true, GuiItem tree callbacks (property changed,
+        child added/removed) return immediately. Value bindings are unaffected.
+        The batching caller is responsible for one explicit reconcile/refresh
+        after clearing it. */
+    static inline bool treeEditGate = false;
+
+    /** RAII form of treeEditGate. close() ends the batch early (before the
+        caller's explicit reconcile/refresh); the destructor re-clears
+        harmlessly and guards any exit path against leaving the gate open. */
+    struct ScopedTreeEditGate
+    {
+        ScopedTreeEditGate()  { treeEditGate = true; }
+        ~ScopedTreeEditGate() { treeEditGate = false; }
+        void close()          { treeEditGate = false; }
+    };
+
     virtual void createSubComponents() {}
     
     /** Order-change handler. The default rebuilds; Container overrides with a
         non-destructive permute so a pure moveChild doesn't destroy children. */
     virtual void reorderSubComponents() { createSubComponents(); }
+
+    /** Membership-change handler (child added/removed). The default rebuilds;
+        Container overrides with a diff that keeps matched items alive and
+        creates/destroys only the changed ones. */
+    virtual void reconcileSubComponents() { createSubComponents(); }
+
+    /** Rebuild the items for the given child nodes only, keeping all others
+        alive. For batch edits whose property writes require the item to be
+        constructed fresh from the mutated node (e.g. parameter renames, where
+        attachments only release/rebind on construction). The default rebuilds
+        everything. */
+    virtual void rebuildChildItems (const juce::Array<juce::ValueTree>&) { createSubComponents(); }
 
     /**
      This will trigger a recalculation of the children layout regardless of resized

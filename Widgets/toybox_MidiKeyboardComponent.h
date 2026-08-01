@@ -629,7 +629,7 @@ private:
         Array<int>  groupChildIndices     (const Array<ValueTree>& seeds) const;
         BypassState bypassStateOf         (const Array<int>& childIndices) const;
         static void applyBypassToNode     (ValueTree node, bool bypassing);
-        void        bypassChildrenViaSwap (const Array<int>& childIndices, bool shouldBypass);
+        void        bypassChildrenInPlace (const Array<int>& childIndices, bool shouldBypass);
         void        setBypassForKey       (int note);
         void        bypassAll             (bool shouldBypass);
         Viewport*   findContainerViewport () const;

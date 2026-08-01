@@ -401,8 +401,8 @@ namespace
     // Touch has no hover, so the edit zone can't announce itself on approach.
     // Instead it's signposted permanently: a faint wash over the band with a
     // stronger 1px line on its lower edge marking the menu/play boundary.
-    constexpr uint32 kZoneTouchBandArgb = 0x2a808080;
-    constexpr uint32 kZoneTouchEdgeArgb = 0x60808080;
+    constexpr uint32 kZoneTouchBandArgb = 0x3a808080;
+    constexpr uint32 kZoneTouchEdgeArgb = 0x40808080;
 #endif
 }
 
@@ -2722,6 +2722,12 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (slots.size() < payload.size())
         return;
 
+    // Mutation phase. The gate silences GuiItem tree reactions (Value bindings
+    // still fire); the flag dismounts TriggerBankEditor property components.
+    // No returns between here and the gate clear at the tail.
+    builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
+    foleys::GuiItem::ScopedTreeEditGate treeGate;
+
     // Top clip: pre-clamp note props to 127 - delta so remapNoteRanges' rigid
     // shift lands overflow exactly on 127. Same mechanism as
     // DragToReorderComponent::insertSnippet.
@@ -2808,6 +2814,28 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
         container.appendChild (extra, nullptr);
     }
+
+    treeGate.close();
+    builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
+
+    // ── Make the result visible: one reconcile builds items for the appended
+    // extras; the filled slots' items then refresh individually — their writes
+    // happened under the gate, and syncStaticValues' one-shot latches need a
+    // pass against the complete tree (calc-driven trigger props resolve only
+    // after the extras' items exist). Scroll bracketed across the layout pass.
+    juce::Point<int> savedScroll;
+    if (auto* vp = findContainerViewport())
+        savedScroll = vp->getViewPosition();
+
+    if (auto* containerComp = builder->findGuiItem (container))
+        containerComp->reconcileSubComponents();
+
+    for (auto& slot : slots)
+        if (auto* item = builder->findGuiItem (slot))
+            item->updateInternal();
+
+    if (auto* vp = findContainerViewport())
+        vp->setViewPosition (savedScroll);
 
     owner.repaint();
 }
@@ -3241,10 +3269,20 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
             groupIDs.addIfNotAlreadyThere (id);
     }
 
+    // Mutation phases run under the gate — un-gated, each property removal
+    // fires a full container sweep (dozens per cleared trigger). Cleared
+    // triggers are collected for the explicit re-sync at the tail; there are
+    // no returns between here and the gate clear there.
+    Array<ValueTree> clearedTriggers;
+    foleys::GuiItem::ScopedTreeEditGate treeGate;
+
     // Clear, don't delete — mirrors clearSelected. The slot stays alive with
     // its trigger-index; only its contents go.
     for (auto& node : nodes)
+    {
         clearPropertiesOfNode (node, nullptr);
+        clearedTriggers.add (node);
+    }
 
     // Sweep the rest of the bank for siblings sharing one of those ids and
     // dispose of them too. MidiTriggers stay in the slot pool (cleared in
@@ -3270,7 +3308,10 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
         }
 
         for (auto& n : linkedTriggers)
+        {
             clearPropertiesOfNode (n, nullptr);
+            clearedTriggers.add (n);
+        }
 
         for (auto& n : linkedExtras)
             if (n.isValid() && n.getParent() == container)
@@ -3324,7 +3365,10 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
             for (auto& g : globalsToRemove)
             {
                 if (g.getType() == midiTriggerType)
+                {
                     clearPropertiesOfNode (g, nullptr);
+                    clearedTriggers.add (g);
+                }
                 else if (g.isValid() && g.getParent() == container)
                     container.removeChild (g, nullptr);
             }
@@ -3332,6 +3376,21 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
             if (! globalsToRemove.isEmpty() && builder != nullptr)
                 toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
         }
+    }
+
+    treeGate.close();
+
+    // One reconcile destroys the removed extras' items; the cleared trigger
+    // slots' items then re-sync so their bare nodes read as de-configured on
+    // the audio side.
+    if (builder != nullptr)
+    {
+        if (auto* containerComp = builder->findGuiItem (container))
+            containerComp->reconcileSubComponents();
+
+        for (auto& node : clearedTriggers)
+            if (auto* item = builder->findGuiItem (node))
+                item->updateInternal();
     }
 
     owner.repaint();
@@ -3352,14 +3411,40 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
     for (auto child : container)
         children.add (child);
 
-    for (auto& node : children)
+    Point<int> savedScroll;
+    if (auto* vp = findContainerViewport())
+        savedScroll = vp->getViewPosition();
+
+    builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
+
     {
-        if (node.getType() == midiTriggerType)
-            clearPropertiesOfNode (node, nullptr);
-        else if (node.isValid() && node.getParent() == container)
-            container.removeChild (node, nullptr);
+        foleys::GuiItem::ScopedTreeEditGate gate;
+
+        for (auto& node : children)
+        {
+            if (node.getType() == midiTriggerType)
+                clearPropertiesOfNode (node, nullptr);
+            else if (node.isValid() && node.getParent() == container)
+                container.removeChild (node, nullptr);
+        }
     }
-    
+
+    builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
+
+    // One reconcile destroys the removed extras' items; the surviving slot
+    // items then re-sync so their bare nodes read as de-configured on the
+    // audio side (syncStaticValues stores false across the board).
+    if (auto* containerComp = builder->findGuiItem (container))
+        containerComp->reconcileSubComponents();
+
+    for (auto& node : children)
+        if (node.getType() == midiTriggerType)
+            if (auto* item = builder->findGuiItem (node))
+                item->updateInternal();
+
+    if (auto* vp = findContainerViewport())
+        vp->setViewPosition (savedScroll);
+
     toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
 
     owner.repaint();
@@ -3749,8 +3834,29 @@ int NewMidiKeyboardComponent::TriggerEditor::updateEdgeResize (int delta)
 
     const int d  = jlimit (resizeMinDelta, resizeMaxDelta, delta);
 
-    for (auto& b : resizeBounds)
-        b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), nullptr);   // absolute from captured originals; followers saturate
+    // Writes under the gate: without it each setProperty fires a full
+    // container sweep, so a drag on a big strip costs seconds per move. The
+    // keyboard's visual doesn't need the sweeps (paint reads the tree); the
+    // audio-side range sync is done explicitly below, per touched item only.
+    {
+        foleys::GuiItem::ScopedTreeEditGate gate;
+
+        for (auto& b : resizeBounds)
+            b.node.setProperty (b.prop, jlimit (b.minV, b.maxV, b.orig + d), nullptr);   // absolute from captured originals; followers saturate
+    }
+
+    // Re-sync exactly the touched items (dedupe — low/high entries share a
+    // node) so the engine's ranges track the drag in realtime.
+    if (builder != nullptr)
+    {
+        Array<ValueTree> touched;
+        for (auto& b : resizeBounds)
+            touched.addIfNotAlreadyThere (b.node);
+
+        for (auto& node : touched)
+            if (auto* item = builder->findGuiItem (node))
+                item->updateInternal();
+    }
 
     owner.repaint();
     return d;
@@ -3920,13 +4026,14 @@ Viewport* NewMidiKeyboardComponent::TriggerEditor::findContainerViewport() const
     return find (comp);
 }
 
-// Copy-and-swap, same shape as DragToReorderComponent's: all property writes
-// land on a detached copy of the GUI tree (in-place, each write fires the
-// builder's listeners — seconds for a big group), then one deferred swap
-// rebuilds the GUI. The rebuild also settles the parameter renames: every
-// item is constructed from the already-mutated tree, so attachments release
-// / rebind without relying on live rename handling.
-void NewMidiKeyboardComponent::TriggerEditor::bypassChildrenViaSwap (const Array<int>& childIndices,
+// In-place, same shape as DragToReorderComponent's bypassChildrenInPlace:
+// property writes land on the live children under the edit gate (no GuiItem
+// reactions), then the touched children alone are rebuilt from their mutated
+// nodes via rebuildChildItems. Construction-from-mutated-tree is what settles
+// the `parameter` ↔ `parameter-bypassed` renames — attachments release /
+// rebind on item construction; live rename handling was never built.
+// Everything outside the group stays alive.
+void NewMidiKeyboardComponent::TriggerEditor::bypassChildrenInPlace (const Array<int>& childIndices,
                                                                      bool shouldBypass)
 {
     if (childIndices.isEmpty() || builder == nullptr)
@@ -3936,88 +4043,46 @@ void NewMidiKeyboardComponent::TriggerEditor::bypassChildrenViaSwap (const Array
     if (! container.isValid())
         return;
 
-    auto& state    = builder->getMagicState();
-    auto  liveTree = state.getGuiTree();
-    if (! liveTree.isValid())
+    auto& state = builder->getMagicState();
+
+    Array<ValueTree> nodes;
+    for (int idx : childIndices)
+        if (auto child = container.getChild (idx); child.isValid())
+            nodes.add (child);
+    if (nodes.isEmpty())
         return;
 
-    // Locate the container within the copy by index-path (id-independent).
-    Array<int> path;
-    for (auto node = container; node.isValid() && node != liveTree; )
+    Point<int> savedScroll;
+    if (auto* vp = findContainerViewport())
+        savedScroll = vp->getViewPosition();
+
+    state.getPropertyAsValue ("flag:tree_edit_in_progress").setValue (true);
+
     {
-        auto parent = node.getParent();
-        if (! parent.isValid()) return;
-        path.insert (0, parent.indexOf (node));
-        node = parent;
+        foleys::GuiItem::ScopedTreeEditGate gate;
+
+        for (auto& node : nodes)
+            applyBypassToNode (node, shouldBypass);
     }
 
-    auto treeCopy      = liveTree.createCopy();
-    auto containerCopy = treeCopy;
-    for (int idx : path)
-        containerCopy = containerCopy.getChild (idx);
-    if (! containerCopy.isValid())
-        return;
-
-    for (int idx : childIndices)
-        if (auto child = containerCopy.getChild (idx); child.isValid())
-            applyBypassToNode (child, shouldBypass);
+    state.getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
 
     // Seed the sentinel value itself: consumers that resolve panel:bypassed
     // (the keyboard's own range dim reading a trigger's enabled ref, say)
     // need it to read as an explicit 0 — a never-written PGM value reads as
     // void, which bound consumers can treat as "no opinion" rather than
     // disabled. Idempotent, so re-seeding on every bypass is harmless.
+    // Before the rebuild, so fresh items resolve it during construction.
     if (shouldBypass)
         state.getPropertyAsValue (kPanelBypassedValue).setValue (0.0);
 
-    // One deferred swap. Captures the builder and magic-state pointers by
-    // value — both objects are processor-owned and outlive the swap — never
-    // `this` or the keyboard: prepareForTreeSwap's rebuild destroys both
-    // mid-callback. Scroll bracketed across the rebuild, restored by
-    // re-finding the viewport by container id in the rebuilt tree.
-    auto* b           = builder;
-    auto* magic       = &state;
-    auto  containerId = containerID;   // string survives the swap
+    if (auto* containerComp = builder->findGuiItem (container))
+        containerComp->rebuildChildItems (nodes);
 
-    Point<int> savedScroll;
     if (auto* vp = findContainerViewport())
-        savedScroll = vp->getViewPosition();
+        vp->setViewPosition (savedScroll);
 
-    MessageManager::callAsync (
-        [b, magic, containerId, tree = std::move (treeCopy), savedScroll]
-    {
-        if (b == nullptr || magic == nullptr)
-            return;
-
-        b->prepareForTreeSwap();
-        magic->setGuiValueTree (tree);
-        b->completeTreeSwap();
-
-        if (auto node = findNodeByID (b->getGuiRootNode(), containerId); node.isValid())
-        {
-            if (auto* comp = b->findGuiItem (node))
-            {
-                Viewport* vp = dynamic_cast<Viewport*> (comp);
-                if (vp == nullptr)
-                {
-                    std::function<Viewport* (Component*)> find =
-                        [&] (Component* c) -> Viewport*
-                        {
-                            for (int i = 0; i < c->getNumChildComponents(); ++i)
-                            {
-                                auto* ch = c->getChildComponent (i);
-                                if (auto* v = dynamic_cast<Viewport*> (ch)) return v;
-                                if (auto* f = find (ch)) return f;
-                            }
-                            return nullptr;
-                        };
-                    vp = find (comp);
-                }
-                if (vp != nullptr)
-                    vp->setViewPosition (savedScroll);
-            }
-        }
-    });
+    owner.repaint();
 }
 
 // Menu toggle for the clicked key's group(s). Re-reads state at execution so
@@ -4029,7 +4094,7 @@ void NewMidiKeyboardComponent::TriggerEditor::setBypassForKey (int note)
     if (state == BypassState::none)
         return;
 
-    bypassChildrenViaSwap (indices, state == BypassState::active);
+    bypassChildrenInPlace (indices, state == BypassState::active);
 }
 
 // Bypass All / Enable All. Collect the top-level children whose group state
@@ -4056,7 +4121,7 @@ void NewMidiKeyboardComponent::TriggerEditor::bypassAll (bool shouldBypass)
             indices.add (i);
     }
 
-    bypassChildrenViaSwap (indices, shouldBypass);
+    bypassChildrenInPlace (indices, shouldBypass);
 }
 
 //==============================================================================

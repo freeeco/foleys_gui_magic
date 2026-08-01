@@ -650,6 +650,9 @@ void GuiItem::valueChanged (juce::Value& source)
 
 void GuiItem::valueTreePropertyChanged (juce::ValueTree& treeThatChanged, const juce::Identifier&)
 {
+    if (treeEditGate)
+        return;
+
     if (treeThatChanged == configNode)
     {
         if (auto* parent = findParentComponentOfClass<GuiItem>())
@@ -672,14 +675,20 @@ void GuiItem::valueTreePropertyChanged (juce::ValueTree& treeThatChanged, const 
 
 void GuiItem::valueTreeChildAdded (juce::ValueTree& treeThatChanged, juce::ValueTree&)
 {
+    if (treeEditGate)
+        return;
+
     if (treeThatChanged == configNode)
-        createSubComponents();
+        reconcileSubComponents();
 }
 
 void GuiItem::valueTreeChildRemoved (juce::ValueTree& treeThatChanged, juce::ValueTree&, int)
 {
+    if (treeEditGate)
+        return;
+
     if (treeThatChanged == configNode)
-        createSubComponents();
+        reconcileSubComponents();
 }
 
 void GuiItem::valueTreeChildOrderChanged (juce::ValueTree& treeThatChanged, int, int)
@@ -690,6 +699,9 @@ void GuiItem::valueTreeChildOrderChanged (juce::ValueTree& treeThatChanged, int,
 
 void GuiItem::valueTreeParentChanged (juce::ValueTree& treeThatChanged)
 {
+    if (treeEditGate)
+        return;
+
     if (treeThatChanged == configNode)
     {
         if (auto* parent = dynamic_cast<GuiItem*>(getParentComponent()))

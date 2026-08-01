@@ -121,6 +121,10 @@ public:
     
     void reorderSubComponents() override;
 
+    void reconcileSubComponents() override;
+
+    void rebuildChildItems (const juce::Array<juce::ValueTree>& nodes) override;
+
     /**
      Lookup a Component through the tree. It will return the first with that id regardless if there is another one.
      We discourage using that function, because that Component can be deleted and recreated at any time without notice.

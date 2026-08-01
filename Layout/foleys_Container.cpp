@@ -201,6 +201,86 @@ void Container::reorderSubComponents()
     updateLayout();
 }
 
+void Container::reconcileSubComponents()
+{
+    // Membership diff: keep every item whose node survives (identity match,
+    // as reorderSubComponents), create items only for new nodes. Items whose
+    // nodes were removed are orphaned in the old vector and destruct on the
+    // move-assign. createGuiItem self-configures new items, so no extra
+    // update pass is needed.
+    std::vector<std::unique_ptr<GuiItem>> reconciled;
+    reconciled.reserve ((size_t) configNode.getNumChildren());
+
+    for (auto childNode : configNode)
+    {
+        auto it = std::find_if (children.begin(), children.end(),
+                                [&] (const std::unique_ptr<GuiItem>& c)
+                                { return c != nullptr && c->getConfigNode() == childNode; });
+
+        if (it != children.end() && *it != nullptr)
+        {
+            reconciled.push_back (std::move (*it));
+        }
+        else if (auto childItem = magicBuilder.createGuiItem (childNode))
+        {
+            containerBox.addChildComponent (childItem.get());
+            reconciled.push_back (std::move (childItem));
+        }
+    }
+
+    children = std::move (reconciled);
+
+    // Z-order: re-adding an existing child moves it to the top without
+    // recreating it, so adding in sequence reproduces createSubComponents'
+    // ordering.
+    for (auto& child : children)
+        containerBox.addChildComponent (child.get());
+
+    updateLayout();
+    updateContinuousRedraw();
+}
+
+void Container::rebuildChildItems (const juce::Array<juce::ValueTree>& nodes)
+{
+    // Destroy-and-recreate for the named nodes only; every other item stays
+    // alive. Fresh items are constructed from the (already mutated) node, so
+    // attachments and bindings settle exactly as a full rebuild would.
+    bool changed = false;
+
+    for (const auto& node : nodes)
+    {
+        auto it = std::find_if (children.begin(), children.end(),
+                                [&] (const std::unique_ptr<GuiItem>& c)
+                                { return c != nullptr && c->getConfigNode() == node; });
+        if (it == children.end())
+            continue;
+
+        if (auto fresh = magicBuilder.createGuiItem (node))
+        {
+            containerBox.addChildComponent (fresh.get());
+            *it = std::move (fresh);   // old item destructs here
+        }
+        else
+        {
+            *it = nullptr;             // node no longer creatable — drop it
+        }
+        changed = true;
+    }
+
+    if (! changed)
+        return;
+
+    children.erase (std::remove (children.begin(), children.end(), nullptr),
+                    children.end());
+
+    // Z-order: same re-add sequence as reconcileSubComponents.
+    for (auto& child : children)
+        containerBox.addChildComponent (child.get());
+
+    updateLayout();
+    updateContinuousRedraw();
+}
+
 GuiItem* Container::findGuiItemWithId (const juce::String& name)
 {
     if (configNode.getProperty (IDs::id, juce::String()).toString() == name)
