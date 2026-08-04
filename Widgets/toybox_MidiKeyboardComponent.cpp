@@ -401,8 +401,8 @@ namespace
     // Touch has no hover, so the edit zone can't announce itself on approach.
     // Instead it's signposted permanently: a faint wash over the band with a
     // stronger 1px line on its lower edge marking the menu/play boundary.
-    constexpr uint32 kZoneTouchBandArgb = 0x3a808080;
-    constexpr uint32 kZoneTouchEdgeArgb = 0x40808080;
+    constexpr uint32 kZoneTouchBandArgb = 0x2a808080;
+    constexpr uint32 kZoneTouchEdgeArgb = 0x30808080;
 #endif
 }
 
