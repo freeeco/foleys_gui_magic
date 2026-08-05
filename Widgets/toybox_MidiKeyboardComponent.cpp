@@ -75,6 +75,35 @@ namespace
         "transpose-root-note-value",
         "trigger-low-note-value",   "trigger-high-note-value",
     };
+
+    // A note-valued property is transposable only when it holds a plain
+    // integer. Bound values ("panel:rn_839267710892", "gui:foo") convert to 0
+    // through var's int cast, so every read site must test first: an unguarded
+    // read drags the paste delta down to 0, and an unguarded write replaces
+    // the binding with a literal. Returns false for absent props too, so call
+    // sites collapse to a single test.
+    inline bool getLiteralNoteValue (const ValueTree& node, const Identifier& prop, int& out)
+    {
+        if (! node.hasProperty (prop))
+            return false;
+
+        const auto value = node.getProperty (prop);
+
+        if (value.isInt() || value.isInt64() || value.isDouble())
+        {
+            out = (int) value;
+            return true;
+        }
+
+        const auto text   = value.toString().trim();
+        const auto digits = text.startsWithChar ('-') ? text.substring (1) : text;
+
+        if (digits.isEmpty() || ! digits.containsOnly ("0123456789"))
+            return false;
+
+        out = text.getIntValue();
+        return true;
+    }
     
     // Macro pool sizes — upper bounds only. The allocator self-limits to params that
     // actually exist in the patch (Step 5 in insertPayloadAtKey checks getParameter),
@@ -2262,11 +2291,17 @@ ValueTree NewMidiKeyboardComponent::TriggerEditor::getContainer() const
 
 bool NewMidiKeyboardComponent::TriggerEditor::nodeCoversKey (const ValueTree& node, int note)
 {
+    // A pair with either end bound isn't hit-testable from the authored tree —
+    // the key it paints is only settled once the binding resolves. Such
+    // triggers still travel with their group on copy / cut / clear, which
+    // expand by matching id rather than by coverage.
     for (const auto& pair : kTriggerRangePairs)
     {
         const Identifier lo (pair.lo), hi (pair.hi);
-        if (node.hasProperty (lo) && node.hasProperty (hi))
-            if (note >= (int) node.getProperty (lo) && note <= (int) node.getProperty (hi))
+        int loV = 0, hiV = 0;
+
+        if (getLiteralNoteValue (node, lo, loV) && getLiteralNoteValue (node, hi, hiV))
+            if (note >= loV && note <= hiV)
                 return true;
     }
     return false;
@@ -2383,12 +2418,15 @@ void NewMidiKeyboardComponent::TriggerEditor::remapNoteRanges (ValueTree node, i
     // Pre-insert config on a detached copy — off-tree writes, so no
     // UndoManager here. The shift is rigid; the caller pre-clamps
     // top overflow (insertPayloadAtKey Step 6) so shifted values land at most
-    // on 127.
+    // on 127. Bound props are left verbatim — writing an int would destroy
+    // the binding.
     for (const auto& p : kTriggerNoteValuedProps)
     {
         const Identifier prop (p);
-        if (node.hasProperty (prop))
-            node.setProperty (prop, (int) node.getProperty (prop) + delta, nullptr);
+        int value = 0;
+
+        if (getLiteralNoteValue (node, prop, value))
+            node.setProperty (prop, value + delta, nullptr);
     }
 }
 
@@ -2496,13 +2534,19 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     // against 127. The delta is applied to triggers via remapNoteRanges and
     // to range-follower extras (Mapper / Arpeggiator / LFO / Envelope) in
     // Step 7.
+    //
+    // Bound props are excluded: their runtime value is unknown here, so they
+    // can neither pin the delta nor be shifted. A payload whose ranges are all
+    // bound leaves lowest untouched and inserts with delta 0.
     int lowest = std::numeric_limits<int>::max();
     for (auto& n : payload)
         for (const auto& p : kTriggerNoteValuedProps)
         {
             const Identifier prop (p);
-            if (n.hasProperty (prop))
-                lowest = jmin (lowest, (int) n.getProperty (prop));
+            int value = 0;
+
+            if (getLiteralNoteValue (n, prop, value))
+                lowest = jmin (lowest, value);
         }
 
     const int delta = (lowest != std::numeric_limits<int>::max()) ? note - lowest : 0;
@@ -2736,8 +2780,10 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
             for (const auto& p : kTriggerNoteValuedProps)
             {
                 const Identifier prop (p);
-                if (n.hasProperty (prop))
-                    n.setProperty (prop, jmin ((int) n.getProperty (prop), 127 - delta), nullptr);
+                int value = 0;
+
+                if (getLiteralNoteValue (n, prop, value))
+                    n.setProperty (prop, jmin (value, 127 - delta), nullptr);
             }
 
     for (int i = 0; i < payload.size(); ++i)
@@ -2794,10 +2840,12 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     {
         if (kRangeFollowerTypes.contains (node.getType().toString()))
         {
-            if (node.hasProperty (followerLow))
-                node.setProperty (followerLow,  jlimit (0, 127, (int) node.getProperty (followerLow)  + delta), nullptr);
-            if (node.hasProperty (followerHigh))
-                node.setProperty (followerHigh, jlimit (0, 127, (int) node.getProperty (followerHigh) + delta), nullptr);
+            int lowValue = 0, highValue = 0;
+
+            if (getLiteralNoteValue (node, followerLow, lowValue))
+                node.setProperty (followerLow,  jlimit (0, 127, lowValue  + delta), nullptr);
+            if (getLiteralNoteValue (node, followerHigh, highValue))
+                node.setProperty (followerHigh, jlimit (0, 127, highValue + delta), nullptr);
         }
 
         for (auto child : node)
@@ -2879,15 +2927,18 @@ void NewMidiKeyboardComponent::TriggerEditor::autoColourSnippet (ValueTree& root
     // ── Step 2 — sort by lowest range note ascending, file-order descending on
     // ties. Sort index 0 is the anchor (gets the unmodified T); the descending
     // tiebreak means the later trigger wins when ranges coincide — "last in the
-    // file" as agreed.
+    // file" as agreed. A wholly bound trigger has no literal note to sort on
+    // and sorts last, where the file-order tiebreak still separates it.
     auto lowestNoteOf = [] (const ValueTree& n)
     {
         int lowest = std::numeric_limits<int>::max();
         for (const auto& p : kTriggerNoteValuedProps)
         {
             const Identifier prop (p);
-            if (n.hasProperty (prop))
-                lowest = jmin (lowest, (int) n.getProperty (prop));
+            int value = 0;
+
+            if (getLiteralNoteValue (n, prop, value))
+                lowest = jmin (lowest, value);
         }
         return lowest;
     };
@@ -3041,8 +3092,10 @@ bool NewMidiKeyboardComponent::TriggerEditor::payloadOverlapsExistingTriggers (c
         for (const auto& p : kTriggerNoteValuedProps)
         {
             const Identifier prop (p);
-            if (n.hasProperty (prop))
-                lowest = jmin (lowest, (int) n.getProperty (prop));
+            int value = 0;
+
+            if (getLiteralNoteValue (n, prop, value))
+                lowest = jmin (lowest, value);
         }
 
     const int delta = (lowest != std::numeric_limits<int>::max()) ? note - lowest : 0;
@@ -3061,11 +3114,15 @@ bool NewMidiKeyboardComponent::TriggerEditor::payloadOverlapsExistingTriggers (c
         for (const auto& pair : kTriggerRangePairs)
         {
             const Identifier lo (pair.lo), hi (pair.hi);
-            if (! n.hasProperty (lo) || ! n.hasProperty (hi))
+            int loV = 0, hiV = 0;
+
+            // A bound pair lands somewhere unknowable pre-insert, so it
+            // contributes no coverage and never raises the overlap warning.
+            if (! getLiteralNoteValue (n, lo, loV) || ! getLiteralNoteValue (n, hi, hiV))
                 continue;
 
-            const int lv = jmin ((int) n.getProperty (lo) + delta, 127);
-            const int hv = jmin ((int) n.getProperty (hi) + delta, 127);
+            const int lv = jmin (loV + delta, 127);
+            const int hv = jmin (hiV + delta, 127);
             for (int k = jmax (0, lv); k <= hv; ++k)
                 covered[k] = true;
         }
@@ -3473,8 +3530,10 @@ void NewMidiKeyboardComponent::TriggerEditor::setColourForKey (int note, Colour 
         for (const auto& p : kTriggerNoteValuedProps)
         {
             const Identifier prop (p);
-            if (n.hasProperty (prop))
-                lowest = jmin (lowest, (int) n.getProperty (prop));
+            int value = 0;
+
+            if (getLiteralNoteValue (n, prop, value))
+                lowest = jmin (lowest, value);
         }
         return lowest;
     };
@@ -3595,11 +3654,13 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
         for (const auto& pair : kTriggerRangePairs)
         {
             const Identifier lo (pair.lo), hi (pair.hi);
-            if (! (n.hasProperty (lo) && n.hasProperty (hi)))
+            int loV = 0, hiV = 0;
+
+            // Bound bounds are excluded from the drag: the edge moves only the
+            // literal members of the group, leaving bindings intact.
+            if (! getLiteralNoteValue (n, lo, loV) || ! getLiteralNoteValue (n, hi, hiV))
                 continue;
 
-            const int loV = (int) n.getProperty (lo);
-            const int hiV = (int) n.getProperty (hi);
             minGap = jmin (minGap, hiV - loV);
 
             if (lowEdge)
@@ -3653,12 +3714,13 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginEdgeResize (int edgeNote, boo
             {
                 if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
                 {
-                    // Guard: Only follow the drag if the node already authors these properties
-                    if (node.hasProperty (followerLow) && node.hasProperty (followerHigh))
-                    {
-                        const int loV = (int) node.getProperty (followerLow);
-                        const int hiV = (int) node.getProperty (followerHigh);
+                    // Guard: Only follow the drag if the node authors both
+                    // properties as literals — a bound bound doesn't move.
+                    int loV = 0, hiV = 0;
 
+                    if (getLiteralNoteValue (node, followerLow,  loV)
+                        && getLiteralNoteValue (node, followerHigh, hiV))
+                    {
                         if (lowEdge)
                             resizeBounds.push_back ({ node, followerLow,  loV, 0,   hiV });  // can't rise past its high
                         else
@@ -3739,11 +3801,11 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegi
         for (const auto& pair : kTriggerRangePairs)
         {
             const Identifier lo (pair.lo), hi (pair.hi);
-            if (! (n.hasProperty (lo) && n.hasProperty (hi)))
-                continue;
+            int loV = 0, hiV = 0;
 
-            const int loV = (int) n.getProperty (lo);
-            const int hiV = (int) n.getProperty (hi);
+            // As in beginEdgeResize — bound bounds don't move.
+            if (! getLiteralNoteValue (n, lo, loV) || ! getLiteralNoteValue (n, hi, hiV))
+                continue;
 
             resizeBounds.push_back ({ n, lo, loV });
             resizeBounds.push_back ({ n, hi, hiV });
@@ -3777,12 +3839,13 @@ bool NewMidiKeyboardComponent::TriggerEditor::beginRegionDrag (int anyNoteInRegi
             {
                 if (kRangeFollowerTypes.contains (node.getType().toString()) && ! nodes.contains (node))
                 {
-                    // Guard: Only follow the drag if the node already authors these properties
-                    if (node.hasProperty (followerLow) && node.hasProperty (followerHigh))
-                    {
-                        const int loV = (int) node.getProperty (followerLow);
-                        const int hiV = (int) node.getProperty (followerHigh);
+                    // Guard: Only follow the drag if the node authors both
+                    // properties as literals — a bound bound doesn't move.
+                    int loV = 0, hiV = 0;
 
+                    if (getLiteralNoteValue (node, followerLow,  loV)
+                        && getLiteralNoteValue (node, followerHigh, hiV))
+                    {
                         resizeBounds.push_back ({ node, followerLow,  loV });
                         resizeBounds.push_back ({ node, followerHigh, hiV });
                     }
