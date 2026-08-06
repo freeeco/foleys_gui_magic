@@ -1282,6 +1282,14 @@ void GuiItem::itemDropped (const juce::DragAndDropTarget::SourceDetails &dragSou
                 for (int i = 0; i < tree.getNumProperties(); ++i)
                 {
                     auto propName = tree.getPropertyName (i);
+
+                    // "destination-uid" is a reference to a UID, never an
+                    // owner of one — without this skip, a dragger/chooser
+                    // node preceding the real destination in document order
+                    // matches first and the assign lands on the wrong node.
+                    if (propName.toString().equalsIgnoreCase ("destination-uid"))
+                        continue;
+
                     if (propName.toString().endsWithIgnoreCase ("-uid")
                         && tree.getProperty (propName).toString() == destUid)
                     {
