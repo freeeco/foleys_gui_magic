@@ -73,7 +73,17 @@ public:
 
     void timerCallback() override;
     
-    bool getPadDownStatus(int index) { if (pads[index]) return pads[index]->getDownStatus(); else return 0; }
+    bool getPadDownStatus(std::size_t index) {
+    if (index >= pads.size()) {
+        return false;
+    }
+
+    if (pads[index]) {
+        return pads[index]->getDownStatus();
+    }
+
+    return false;
+}
     
     int getLastClicked (){ return lastClicked; };
     
