@@ -377,7 +377,7 @@ namespace
     enum
     {
         miCopy = 1, miCut, miPaste, miClear, miClearAll, miSaveAs,
-        miBypass, miBypassAll, miEnableAll, miReset,
+        miBypass, miBypassAll, miEnableAll, miReset, miRename,
         miColourBase      = 100,    // + index into kTriggerColours
         miPanelPresetBase = 300,    // + preset column index (Preset submenu)
         miPresetBase      = 1000    // + index into the captured preset-files vector
@@ -4526,6 +4526,168 @@ void NewMidiKeyboardComponent::TriggerEditor::buildPresetMenu (PopupMenu& menu, 
     }
 }
 
+//-- Rename -------------------------------------------------------------------
+// Rewrites the value of an existing trigger-label property; never creates the
+// property (its presence is meaningful — the label provider renders keys
+// differently and snippets are authored deliberately with or without it).
+// The clicked key's first covering node in file order that already carries
+// the property is the target; label-less stacks grey the menu item.
+
+ValueTree NewMidiKeyboardComponent::TriggerEditor::renameTargetForKey (int note) const
+{
+    static const Identifier labelProp ("trigger-label");
+
+    for (const auto& n : findNodesForKey (note))
+        if (n.hasProperty (labelProp))
+            return n;
+
+    return {};
+}
+
+namespace
+{
+    // Duplicated from DragToReorderComponent's RenameCallOutLookAndFeel
+    // (distinct name — deliberately not shared; edit both if the styling
+    // changes). Static instance at the call site outlives the async box.
+    struct TriggerRenameCallOutLookAndFeel : public LookAndFeel_V4
+    {
+        static inline const Colour boxFill    { 0xf02a2a2a };
+        static inline const Colour boxOutline { 0xff4a4a4a };
+
+        void drawCallOutBoxBackground (CallOutBox&, Graphics& g,
+                                       const Path& path, Image&) override
+        {
+            g.setColour (boxFill);
+            g.fillPath (path);
+            g.setColour (boxOutline);
+            g.strokePath (path, PathStrokeType (1.0f));
+        }
+    };
+}
+
+// Inline rename via CallOutBox — a bare TextEditor anchored above the middle
+// of the clicked trigger's range, arrow pointing down at the keyboard's top
+// edge, pre-filled and pre-selected. Return commits, Escape or clicking away
+// cancels. The target node is captured by value (refcounted), so a tree swap
+// while the box is open degrades to a write on a detached node — harmless.
+// An empty result commits: trigger-label="" is a valid blank label, and the
+// property's continued presence keeps the node renameable.
+void NewMidiKeyboardComponent::TriggerEditor::promptRenameTrigger (int note)
+{
+    auto target = renameTargetForKey (note);
+    if (! target.isValid())
+        return;
+
+    static const Identifier labelProp ("trigger-label");
+
+    struct RenameEditor : public Component
+    {
+        explicit RenameEditor (ValueTree node)
+            : labelNode (std::move (node))
+        {
+            editor.setText (labelNode.getProperty ("trigger-label").toString(),
+                            dontSendNotification);
+            editor.selectAll();
+            editor.setSelectAllWhenFocused (true);
+
+            editor.onReturnKey = [this]
+            {
+                // Empty commits too — trigger-label="" is a deliberate blank
+                // label (the property survives, so Rename stays reachable).
+                labelNode.setProperty ("trigger-label", editor.getText().trim(), nullptr);
+                dismiss();
+            };
+            editor.onEscapeKey = [this] { dismiss(); };
+
+            addAndMakeVisible (editor);
+            setSize (180, 26);
+        }
+
+        void resized() override { editor.setBounds (getLocalBounds()); }
+
+        void dismiss()
+        {
+            if (auto* box = findParentComponentOfClass<CallOutBox>())
+                box->dismiss();
+        }
+
+        ValueTree  labelNode;
+        TextEditor editor;
+    };
+
+    auto content = std::make_unique<RenameEditor> (target);
+
+    // L&F from the keyboard's parent (the GuiItem wrapping it), same source
+    // showMenuForKey uses, so the editor matches the panel styling.
+    if (auto* parent = owner.getParentComponent())
+        content->editor.setLookAndFeel (&parent->getLookAndFeel());
+
+    // Per-component colours override the L&F: editor background matches the
+    // callout fill (reads as one surface), outline knocked back, mid-grey
+    // selection, light-grey caret.
+    {
+        auto& ed = content->editor;
+        ed.setColour (TextEditor::backgroundColourId,     Colours::lightgrey.withAlpha (0.06f));
+        ed.setColour (TextEditor::outlineColourId,        Colours::lightgrey.withAlpha (0.0f));
+        ed.setColour (TextEditor::focusedOutlineColourId, Colours::lightgrey.withAlpha (0.0f));
+        ed.setColour (TextEditor::highlightColourId,      Colour (0xff707070));
+        ed.setColour (CaretComponent::caretColourId,      Colours::lightgrey);
+
+#ifdef DEFAULT_FONT_NAME
+        {
+            int dataSize = 0;
+            if (auto* data = BinaryData::getNamedResource (DEFAULT_FONT_NAME, dataSize))
+                if (auto tf = Typeface::createSystemTypefaceFor (data, (size_t) dataSize))
+                {
+                    const Font font (FontOptions (tf).withHeight (16.0f));
+                    ed.setFont (font);
+                    ed.applyFontToAllText (font);
+                }
+        }
+#endif
+    }
+
+    // Anchor: arrow tip on the keyboard's top edge, horizontally centred on
+    // the target's note range (literal range-pair values, clamped to the
+    // visible range; a fully bound range degrades to the clicked key).
+    int lo = std::numeric_limits<int>::max();
+    int hi = std::numeric_limits<int>::min();
+    for (const auto& pair : kTriggerRangePairs)
+    {
+        int v = 0;
+        if (getLiteralNoteValue (target, Identifier (pair.lo), v)) lo = jmin (lo, v);
+        if (getLiteralNoteValue (target, Identifier (pair.hi), v)) hi = jmax (hi, v);
+    }
+    if (lo > hi) { lo = note; hi = note; }
+    lo = jlimit (owner.getRangeStart(), owner.getRangeEnd(), lo);
+    hi = jlimit (owner.getRangeStart(), owner.getRangeEnd(), hi);
+
+    const auto rangeLocal  = owner.getRectangleForKey (lo)
+                                  .getUnion (owner.getRectangleForKey (hi))
+                                  .getSmallestIntegerContainer();
+    const auto rangeScreen = owner.localAreaToGlobal (rangeLocal);
+    const juce::Rectangle<int> anchor { rangeScreen.getCentreX(), rangeScreen.getY(), 1, 1 };
+
+    auto& box = CallOutBox::launchAsynchronously (std::move (content), anchor, nullptr);
+
+    static TriggerRenameCallOutLookAndFeel renameCallOutLnf;
+    box.setLookAndFeel (&renameCallOutLnf);
+
+    // Slack below the keyboard top for the arrow itself: updatePosition fits
+    // the whole component (body + arrow) inside the area, so an area ending
+    // flush at the anchor's y squashes the arrow to nothing.
+    constexpr int kArrowSlack = 24;
+    const auto screenArea = Desktop::getInstance().getDisplays()
+                                .getDisplayForRect (rangeScreen)->userArea;
+    const auto aboveArea  = screenArea.withBottom (rangeScreen.getY() + kArrowSlack);
+
+    if (aboveArea.getHeight() > 60)
+        box.updatePosition (anchor, aboveArea);
+
+    box.grabKeyboardFocus();
+    box.setDismissalMouseClicksAreAlwaysConsumed (true);
+}
+
 void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<int> screenPos)
 {
     owner.setActiveEditNote (note);
@@ -4601,6 +4763,8 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
     editMenu.addSeparator();
     editMenu.addItem (miBypassAll, "Bypass All", anyActive);
     editMenu.addItem (miEnableAll, "Enable All", anyBypassed);
+    editMenu.addSeparator();
+    editMenu.addItem (miRename, "Rename", renameTargetForKey (note).isValid());
     menu.addSubMenu ("Edit", editMenu);
 
     // Easter egg: holding Alt/Option as the menu opens reveals Save As...,
@@ -4688,6 +4852,7 @@ void NewMidiKeyboardComponent::TriggerEditor::showMenuForKey (int note, Point<in
         else if (result == miClearAll) clearAll();
         else if (result == miSaveAs)   saveKeyAs (note);
         else if (result == miReset)    resetKey (note);
+        else if (result == miRename)   promptRenameTrigger (note);
         else if (result >= miPanelPresetBase && result < miPanelPresetBase + panelPresetCount)
         {
             const int chosen = result - miPanelPresetBase;

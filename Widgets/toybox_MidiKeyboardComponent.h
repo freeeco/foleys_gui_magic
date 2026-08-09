@@ -607,6 +607,16 @@ private:
         void clearAll();
         void setColourForKey (int note, Colour colour);
         void saveKeyAs       (int note);
+
+        // Rename — Edit submenu. Rewrites the value of an existing
+        // trigger-label property only; never creates one. Target = first node
+        // in file order among the key's covering nodes that already carries
+        // the property (invalid when none does, greying the item). The write
+        // is a single live setProperty; the keyboard's 20Hz label poll picks
+        // it up.
+        ValueTree renameTargetForKey  (int note) const;
+        void      promptRenameTrigger (int note);
+
         void applyPresetFile (int note, const File& file);
         void confirmAndInsert (ValueTree root, int note);
         bool payloadOverlapsExistingTriggers (const ValueTree& payloadRoot, int note) const;
