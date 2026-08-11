@@ -39,6 +39,27 @@
 namespace foleys
 {
 
+/**
+ Declares the patching direction of a value-carrying property for the node editor.
+ none means the property is not rendered as a port.
+ */
+enum class PortRole
+{
+    none,
+    in,
+    out,
+    both
+};
+
+/**
+ Declares whether a port is in its box's default visible set.
+ hidden ports live behind the + menu and appear only when connected or user-added.
+ */
+enum class PortVisibility
+{
+    hidden,
+    shown
+};
 
 /**
  A SettableProperty is a value that can be selected by the designer and will be
@@ -63,6 +84,8 @@ struct SettableProperty
     const std::function<void(juce::ComboBox&)> menuCreationLambda;
     const juce::String     tooltip    = {};
     const juce::String     uidPrefix  = {};
+    const PortRole         portRole   = PortRole::none;
+    const PortVisibility   portVisibility = PortVisibility::hidden;
 };
 
 } // namespace foleys
