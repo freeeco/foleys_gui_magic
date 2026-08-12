@@ -86,6 +86,7 @@ struct SettableProperty
     const juce::String     uidPrefix  = {};
     const PortRole         portRole   = PortRole::none;
     const PortVisibility   portVisibility = PortVisibility::hidden;
+    const juce::String     portName   = {};   /*< Display label for the node editor port; falls back to the property name */
 };
 
 } // namespace foleys

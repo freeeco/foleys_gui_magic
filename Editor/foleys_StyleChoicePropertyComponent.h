@@ -55,6 +55,8 @@ public:
     juce::ValueTree getNode() const { return node; }
     bool isPropertiesMenu (juce::ComboBox& combo);
 
+    static juce::String             clipboard;
+    
 private:
 
     struct RefreshableComboBox : public juce::ComboBox
@@ -86,8 +88,6 @@ private:
     bool                            hasCopyPaste = false;
     juce::TextButton                copyButton  { juce::String (juce::CharPointer_UTF8 ("\xe2\x86\xa6")) };  // ↦
     juce::TextButton                pasteButton { juce::String (juce::CharPointer_UTF8 ("\xe2\x87\xa5")) };  // ⇥
-
-    static juce::String             clipboard;
 
     bool                            updating = false;
 

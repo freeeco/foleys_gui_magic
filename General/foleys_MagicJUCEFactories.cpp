@@ -1058,13 +1058,27 @@ public:
         props.push_back ({ configNode, IDs::parameterX, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by horizontal drag" });
         props.push_back ({ configNode, IDs::parameterY, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by vertical drag" });
         props.push_back ({ configNode, IDs::parameterZ, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by the Z axis (mouse wheel)" });
-        props.push_back ({ configNode, pOutputValueX, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised X position to" });
-        props.push_back ({ configNode, pOutputValueXInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted X position to" });
-        props.push_back ({ configNode, pOutputValueY, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised Y position to" });
-        props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted Y position to" });
-        props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the normalised Z position to" });
-        props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write the inverted Z position to" });
-        props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while a drag handle is being touched" });
+        props.push_back ({ configNode, pOutputValueX, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the normalised X position to",
+                            {}, PortRole::out, PortVisibility::shown, "Output X" });
+        props.push_back ({ configNode, pOutputValueXInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the inverted X position to",
+                            {}, PortRole::out, PortVisibility::hidden, "X Inverted" });
+        props.push_back ({ configNode, pOutputValueY, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the normalised Y position to",
+                            {}, PortRole::out, PortVisibility::shown, "Output Y" });
+        props.push_back ({ configNode, pOutputValueYInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the inverted Y position to",
+                            {}, PortRole::out, PortVisibility::hidden, "Y Inverted" });
+        props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the normalised Z position to",
+                            {}, PortRole::out, PortVisibility::hidden, "Output Z" });
+        props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value to write the inverted Z position to",
+                            {}, PortRole::out, PortVisibility::hidden, "Z Inverted" });
+        props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while a drag handle is being touched",
+                            {}, PortRole::out, PortVisibility::hidden, "Touched" });
         props.push_back ({ configNode, pTouchedIndex, SettableProperty::Number, {}, {}, "Index of the drag handle that reports touch state" });
         props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by right-click drag" });
         props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by mouse wheel" });
@@ -1280,11 +1294,13 @@ public:
         props.push_back ({ configNode, pEditMode, SettableProperty::Toggle, {}, {},
                            "Forces the edit zone on (edit-mode-value can also enable it)" });
         props.push_back ({ configNode, pEditModeValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
-                           "Property that gates the edit zone, polled at 20Hz (or a literal 1/0)" });
+                           "Property that gates the edit zone, polled at 20Hz (or a literal 1/0)",
+                           {}, PortRole::in, PortVisibility::hidden, "Edit Mode" });
         props.push_back ({ configNode, pEditZoneHeight, SettableProperty::Number, {}, {},
                            "Height in pixels of the edit zone along the top of the keys (default 41)" });
         props.push_back ({ configNode, pMacroPanelValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
-                           "Value toggled by the macro-panel button (bind to a button/parameter/property)" });
+                           "Value toggled by the macro-panel button (bind to a button/parameter/property)",
+                           {}, PortRole::out, PortVisibility::hidden, "Macro Panel" });
         
         return props;
     }
@@ -1484,25 +1500,63 @@ public:
         props.push_back ({ configNode, pColumns,  SettableProperty::Number,  3, {}, "Number of pad columns in the grid" });
         props.push_back ({ configNode, pRows,     SettableProperty::Number,  3, {}, "Number of pad rows in the grid" });
         props.push_back ({ configNode, pRootNote, SettableProperty::Number, 64, {}, "MIDI note number for the first pad" });
-        props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 1 is held down" });
-        props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 2 is held down" });
-        props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 3 is held down" });
-        props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 4 is held down" });
-        props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 5 is held down" });
-        props.push_back ({ configNode, pDownValue_6, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 6 is held down" });
-        props.push_back ({ configNode, pDownValue_7, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 7 is held down" });
-        props.push_back ({ configNode, pDownValue_8, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 8 is held down" });
-        props.push_back ({ configNode, pDownValue_9, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 9 is held down" });
-        props.push_back ({ configNode, pDownValue_10, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 10 is held down" });
-        props.push_back ({ configNode, pDownValue_11, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 11 is held down" });
-        props.push_back ({ configNode, pDownValue_12, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 12 is held down" });
-        props.push_back ({ configNode, pDownValue_13, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 13 is held down" });
-        props.push_back ({ configNode, pDownValue_14, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 14 is held down" });
-        props.push_back ({ configNode, pDownValue_15, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 15 is held down" });
-        props.push_back ({ configNode, pDownValue_16, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 while pad 16 is held down" });
-        props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value updated with the note number of the last pad triggered" });
-        props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value that enables tracking of mouse-clicked pads" });
-        props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value that enables tracking of MIDI-played pads" });
+        props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 1 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 1 Down" });
+        props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 2 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 2 Down" });
+        props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 3 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 3 Down" });
+        props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 4 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 4 Down" });
+        props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 5 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 5 Down" });
+        props.push_back ({ configNode, pDownValue_6, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 6 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 6 Down" });
+        props.push_back ({ configNode, pDownValue_7, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 7 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 7 Down" });
+        props.push_back ({ configNode, pDownValue_8, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 8 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 8 Down" });
+        props.push_back ({ configNode, pDownValue_9, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 9 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 9 Down" });
+        props.push_back ({ configNode, pDownValue_10, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 10 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 10 Down" });
+        props.push_back ({ configNode, pDownValue_11, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 11 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 11 Down" });
+        props.push_back ({ configNode, pDownValue_12, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 12 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 12 Down" });
+        props.push_back ({ configNode, pDownValue_13, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 13 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 13 Down" });
+        props.push_back ({ configNode, pDownValue_14, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 14 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 14 Down" });
+        props.push_back ({ configNode, pDownValue_15, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 15 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 15 Down" });
+        props.push_back ({ configNode, pDownValue_16, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value set to 1 while pad 16 is held down",
+                            {}, PortRole::out, PortVisibility::hidden, "Pad 16 Down" });
+        props.push_back ({ configNode, pLastPadValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value updated with the note number of the last pad triggered",
+                            {}, PortRole::out, PortVisibility::shown, "Last Pad" });
+        props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value that enables tracking of mouse-clicked pads",
+                            {}, PortRole::in, PortVisibility::hidden, "Follows Clicked" });
+        props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                            "Value that enables tracking of MIDI-played pads",
+                            {}, PortRole::in, PortVisibility::hidden, "Follows Played" });
         props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}, "Order MIDI notes starting from the bottom row (MPC layout)" });
         props.push_back ({ configNode, pInvisible, foleys::SettableProperty::Toggle, {}, {}, "Hide the drum pads visually while keeping them functional" });
         
