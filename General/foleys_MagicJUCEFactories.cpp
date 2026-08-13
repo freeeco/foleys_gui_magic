@@ -282,10 +282,10 @@ public:
         props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} , "Allow mouse clicks to pass through to components behind" });
         props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                            "Value set to 1 when the mouse is over the slider",
-                           {}, PortRole::out, PortVisibility::hidden, "Over" });
+                           {}, PortRole::out, PortVisibility::shown, "Over" });
         props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                            "Value set to 1 when the mouse is pressed on the slider",
-                           {}, PortRole::out, PortVisibility::hidden, "Down" });
+                           {}, PortRole::out, PortVisibility::shown, "Down" });
 
         return props;
     }
@@ -661,7 +661,7 @@ public:
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this toggle button" });
         props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                            "Value to read or write the toggle state",
-                           {}, PortRole::both, PortVisibility::shown, "Vaue" });
+                           {}, PortRole::both, PortVisibility::shown, "Value" });
         props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} , "Radio group ID so only one button in the group is active" });
         props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} , "Number written to the value output when this radio button is selected" });
         return props;
@@ -680,7 +680,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToggleButtonItem)
 };
 const juce::Identifier ToggleButtonItem::pText     { "text" };
-const juce::Identifier ToggleButtonItem::pProperty { "vaue" };
+const juce::Identifier ToggleButtonItem::pProperty { "value" };
 
 
 //==============================================================================
@@ -1084,13 +1084,13 @@ public:
                             {}, PortRole::out, PortVisibility::hidden, "Y Inverted" });
         props.push_back ({ configNode, pOutputValueZ, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                             "Value to write the normalised Z position to",
-                            {}, PortRole::out, PortVisibility::hidden, "Output Z" });
+                            {}, PortRole::out, PortVisibility::shown, "Output Z" });
         props.push_back ({ configNode, pOutputValueZInverted, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                             "Value to write the inverted Z position to",
                             {}, PortRole::out, PortVisibility::hidden, "Z Inverted" });
         props.push_back ({ configNode, pTouchedValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while a drag handle is being touched",
-                            {}, PortRole::out, PortVisibility::hidden, "Touched" });
+                            {}, PortRole::out, PortVisibility::shown, "Touched" });
         props.push_back ({ configNode, pTouchedIndex, SettableProperty::Number, {}, {}, "Index of the drag handle that reports touch state" });
         props.push_back ({ configNode, pContextParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by right-click drag" });
         props.push_back ({ configNode, pWheelParameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter controlled by mouse wheel" });
@@ -1307,12 +1307,12 @@ public:
                            "Forces the edit zone on (edit-mode-value can also enable it)" });
         props.push_back ({ configNode, pEditModeValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
                            "Property that gates the edit zone, polled at 20Hz (or a literal 1/0)",
-                           {}, PortRole::in, PortVisibility::hidden, "Edit Mode" });
+                           {}, PortRole::in, PortVisibility::shown, "Edit Mode" });
         props.push_back ({ configNode, pEditZoneHeight, SettableProperty::Number, {}, {},
                            "Height in pixels of the edit zone along the top of the keys (default 41)" });
         props.push_back ({ configNode, pMacroPanelValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda(),
                            "Value toggled by the macro-panel button (bind to a button/parameter/property)",
-                           {}, PortRole::out, PortVisibility::hidden, "Macro Panel" });
+                           {}, PortRole::out, PortVisibility::shown, "Macro Panel" });
         
         return props;
     }
@@ -1514,16 +1514,16 @@ public:
         props.push_back ({ configNode, pRootNote, SettableProperty::Number, 64, {}, "MIDI note number for the first pad" });
         props.push_back ({ configNode, pDownValue_1, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while pad 1 is held down",
-                            {}, PortRole::out, PortVisibility::hidden, "Pad 1 Down" });
+                            {}, PortRole::out, PortVisibility::shown, "Pad 1 Down" });
         props.push_back ({ configNode, pDownValue_2, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while pad 2 is held down",
-                            {}, PortRole::out, PortVisibility::hidden, "Pad 2 Down" });
+                            {}, PortRole::out, PortVisibility::shown, "Pad 2 Down" });
         props.push_back ({ configNode, pDownValue_3, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while pad 3 is held down",
-                            {}, PortRole::out, PortVisibility::hidden, "Pad 3 Down" });
+                            {}, PortRole::out, PortVisibility::shown, "Pad 3 Down" });
         props.push_back ({ configNode, pDownValue_4, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while pad 4 is held down",
-                            {}, PortRole::out, PortVisibility::hidden, "Pad 4 Down" });
+                            {}, PortRole::out, PortVisibility::shown, "Pad 4 Down" });
         props.push_back ({ configNode, pDownValue_5, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value set to 1 while pad 5 is held down",
                             {}, PortRole::out, PortVisibility::hidden, "Pad 5 Down" });
@@ -1565,10 +1565,10 @@ public:
                             {}, PortRole::out, PortVisibility::shown, "Last Pad" });
         props.push_back ({ configNode, pFollowsClicked, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value that enables tracking of mouse-clicked pads",
-                            {}, PortRole::in, PortVisibility::hidden, "Follows Clicked" });
+                            {}, PortRole::in, PortVisibility::shown, "Follows Clicked" });
         props.push_back ({ configNode, pFollowsPlayed, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
                             "Value that enables tracking of MIDI-played pads",
-                            {}, PortRole::in, PortVisibility::hidden, "Follows Played" });
+                            {}, PortRole::in, PortVisibility::shown, "Follows Played" });
         props.push_back ({ configNode, pMPCStylePads, foleys::SettableProperty::Toggle, {}, {}, "Order MIDI notes starting from the bottom row (MPC layout)" });
         props.push_back ({ configNode, pInvisible, foleys::SettableProperty::Toggle, {}, {}, "Hide the drum pads visually while keeping them functional" });
         
