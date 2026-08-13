@@ -234,10 +234,13 @@ public:
 
     void drawPopupMenuBackground (juce::Graphics& g, int width, int height) override
     {
-        // Fill full rect first to eliminate white corner artifacts on macOS
+        auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
+
         g.setColour (ToolBoxColours::bgLight);
-        g.fillRect (0, 0, width, height);
-        g.fillRoundedRectangle (0, 0, (float) width, (float) height, popupCornerSize);
+        g.fillRoundedRectangle (bounds, popupCornerSize);
+
+        g.setColour (ToolBoxColours::border);
+        g.drawRoundedRectangle (bounds.reduced (0.5f), popupCornerSize, 1.0f);
     }
 
     void drawPopupMenuItem (juce::Graphics& g,
@@ -321,7 +324,10 @@ public:
         auto textX = area.getX() + (int) (popupPadding * (area.getHeight() * 0.03f)) + 4;
         auto textR = juce::Rectangle<int> (textX, area.getY(),
                                            area.getWidth() - textX, area.getHeight());
-
+        if (hasSubMenu)
+            textR.removeFromRight (28);
+        else if (shortcutKeyText.isNotEmpty())
+            textR.removeFromRight ((int) (popupPadding * 0.8f));
         
         // Shortcut key text on the right
         if (shortcutKeyText.isNotEmpty())
@@ -339,13 +345,23 @@ public:
 
         g.drawText (text, textR, juce::Justification::centredLeft, true);
     }
+    
+    int getPopupMenuBorderSize() override
+    {
+        return 4;
+    }
+    
+    void preparePopupMenuWindow (juce::Component& newWindow) override
+    {
+        newWindow.setOpaque (false);
+    }
 
     // Popup menu styling constants
     static constexpr float popupPadding          = 24.0f;
     static constexpr float popupHighlightPadding = 3.0f;
     static constexpr float popupCornerSize       = 5.0f;
     static constexpr float popupFontSize         = 15.0f;
-    static constexpr float popupItemHeight       = 26;   // default is 20
+    static constexpr float popupItemHeight       = 26;
 
     //==============================================================================
     // PROPERTY COMPONENTS — clean dark rows
@@ -512,8 +528,10 @@ public:
                                     int standardMenuItemHeight, int& idealWidth, int& idealHeight) override
     {
         juce::LookAndFeel_V4::getIdealPopupMenuItemSize (text, isSeparator, standardMenuItemHeight, idealWidth, idealHeight);
-        if (!isSeparator)
+        if (!isSeparator){
             idealHeight = popupItemHeight;
+            idealWidth += 24;
+        }
     }
 };
 

@@ -66,6 +66,36 @@ StylePropertyComponent* StylePropertyComponent::createComponent (MagicGUIBuilder
 
 //==============================================================================
 
+// "midi-state-index" → "MIDI State Index": dashes to spaces, words capitalised,
+// with special cases for acronyms and units. Only applied when no explicit
+// display name (portName) has been set.
+static juce::String makeDisplayName (const juce::String& propertyName)
+{
+    static const std::map<juce::String, juce::String> specials
+    {
+        { "uid",  "UID"  }, { "id",   "ID"   }, { "midi", "MIDI" },
+        { "cc",   "CC"   }, { "lfo",  "LFO"  }, { "xml",  "XML"  },
+        { "gui",  "GUI"  }, { "dsp",  "DSP"  }, { "rnbo", "RNBO" },
+        { "bpm",  "BPM"  }, { "hz",   "Hz"   }, { "ms",   "ms"   }
+    };
+
+    auto words = juce::StringArray::fromTokens (propertyName.replaceCharacter ('-', ' '), " ", {});
+
+    for (auto& w : words)
+    {
+        if (w.isEmpty())
+            continue;
+
+        const auto it = specials.find (w.toLowerCase());
+        if (it != specials.end())
+            w = it->second;
+        else
+            w = w.substring (0, 1).toUpperCase() + w.substring (1);
+    }
+
+    return words.joinIntoString (" ");
+}
+
 StylePropertyComponent::StylePropertyComponent (MagicGUIBuilder& builderToUse, juce::Identifier propertyToUse, juce::ValueTree& nodeToUse)
   : juce::PropertyComponent (propertyToUse.toString()),
     builder (builderToUse),
@@ -126,14 +156,19 @@ juce::var StylePropertyComponent::lookupValue()
 
 void StylePropertyComponent::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().reduced (1).withWidth (getWidth() / 2);
+    auto b = getLocalBounds().reduced (1).withWidth (getWidth() / 2).withTrimmedLeft (4);
 
     g.fillAll (EditorColours::background);
     g.setColour (EditorColours::outline);
     g.drawHorizontalLine (0, 0.0f, static_cast<float>(getRight()));
     g.drawHorizontalLine (getBottom() - 1, 0.0f, static_cast<float>(getRight()));
     g.setColour (node == inheritedFrom ? EditorColours::text : EditorColours::disabledText);
-    g.drawFittedText (property.toString(), b, juce::Justification::left, 1);
+
+    auto label = getName();
+    if (label == property.toString())
+        label = makeDisplayName (label);
+
+    g.drawFittedText (label, b, juce::Justification::left, 1);
 }
 
 void StylePropertyComponent::resized()

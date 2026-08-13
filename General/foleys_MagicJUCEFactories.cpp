@@ -261,7 +261,9 @@ public:
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this slider" });
         props.push_back ({ configNode, pSliderType, SettableProperty::Choice, pSliderTypes [0], magicBuilder.createChoicesMenuLambda (pSliderTypes) , "Slider style: auto, linear-horizontal, linear-vertical, rotary, rotary-horizontal-vertical, inc-dec-buttons" });
         props.push_back ({ configNode, pSliderTextBox, SettableProperty::Choice, pTextBoxPositions [2], magicBuilder.createChoicesMenuLambda (pTextBoxPositions) , "Position of the text box: no-textbox, above, below, left, right" });
-        props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the slider position" });
+        props.push_back ({ configNode, pValue, SettableProperty::Choice, 1.0f, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value to read or write the slider position",
+                           {}, PortRole::both, PortVisibility::shown, "Value" });
         props.push_back ({ configNode, pValueSetsParameter, SettableProperty::Toggle, {}, {} , "Use the value to set the parameter directly" });
         props.push_back ({ configNode, pNormalized, SettableProperty::Toggle, {}, {} , "Output the slider position as a normalized 0-1 value" });
         props.push_back ({ configNode, pMinValue, SettableProperty::Number, 0.0f, {} , "Minimum slider range value" });
@@ -278,8 +280,12 @@ public:
         props.push_back ({ configNode, pDisableScrollWheel, SettableProperty::Toggle, {}, {} , "Disable mouse scroll wheel control of this slider" });
         props.push_back ({ configNode, pAltKeyHides, SettableProperty::Toggle, {}, {} , "Hide the slider when the Alt key is held down" });
         props.push_back ({ configNode, pPassMouseClicks, SettableProperty::Toggle, {}, {} , "Allow mouse clicks to pass through to components behind" });
-        props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 when the mouse is over the slider" });
-        props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value set to 1 when the mouse is pressed on the slider" });
+        props.push_back ({ configNode, pOverValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value set to 1 when the mouse is over the slider",
+                           {}, PortRole::out, PortVisibility::hidden, "Over" });
+        props.push_back ({ configNode, pDownValue, foleys::SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value set to 1 when the mouse is pressed on the slider",
+                           {}, PortRole::out, PortVisibility::hidden, "Down" });
 
         return props;
     }
@@ -567,7 +573,9 @@ public:
 
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this button" });
         props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} , "Text label displayed on the button" });
-        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to write to when the button is clicked" });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value to write to when the button is clicked",
+                           {}, PortRole::out, PortVisibility::shown, "Value" });
         props.push_back ({ configNode, pOnClick, SettableProperty::Choice, {}, magicBuilder.createTriggerMenuLambda() , "Trigger to fire when the button is clicked" });
         props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} , "Radio group ID so only one button in the group is active" });
         props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} , "Number written to the value output when this radio button is selected" });
@@ -651,7 +659,9 @@ public:
         std::vector<SettableProperty> props;
         props.push_back ({ configNode, pText, SettableProperty::Text, {}, {} , "Text label displayed next to the toggle" });
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to attach to this toggle button" });
-        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the toggle state" });
+        props.push_back ({ configNode, pProperty, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value to read or write the toggle state",
+                           {}, PortRole::both, PortVisibility::shown, "Vaue" });
         props.push_back ({ configNode, IDs::buttonRadioGroup, SettableProperty::Number, {}, {} , "Radio group ID so only one button in the group is active" });
         props.push_back ({ configNode, IDs::buttonRadioValue, SettableProperty::Number, {}, {} , "Number written to the value output when this radio button is selected" });
         return props;
@@ -753,7 +763,9 @@ public:
         props.push_back ({ configNode, pFontSize, SettableProperty::Number, {}, {} , "Font size in pixels" });
         props.push_back ({ configNode, pEditable, SettableProperty::Toggle, {}, {} , "Allow the user to edit the label text by clicking" });
         props.push_back ({ configNode, IDs::parameter, SettableProperty::Choice, {}, magicBuilder.createParameterMenuLambda() , "Parameter to display and edit as text" });
-        props.push_back ({ configNode, pValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() , "Value to read or write the label text" });
+        props.push_back ({ configNode, pValue, SettableProperty::Choice, {}, magicBuilder.createPropertiesMenuLambda() ,
+                           "Value to read or write the label text",
+                           {}, PortRole::both, PortVisibility::shown, "Value" });
         return props;
     }
 
