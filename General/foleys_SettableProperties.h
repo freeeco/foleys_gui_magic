@@ -62,6 +62,26 @@ enum class PortVisibility
 };
 
 /**
+ Declares what a port accepts, for the node editor's connection validation and
+ for port and label colour. This is the port's declaration, not the domain of
+ whatever is currently plugged into it — audioValue is a legal port but never a
+ legal wire, since a wire always carries exactly one domain.
+
+ audioValue is an input-side relaxation only: a value may drive an audioValue
+ input, but audio may never drive a plain value input, and an audioValue output
+ behaves as a plain audio output. Use it for audio inputs where a constant is
+ meaningful — filter cutoff, VCA gain, FM depth — and plain audio for signal
+ path inputs and outputs, where DC does nothing useful.
+ */
+enum class PortType
+{
+    value,
+    midi,
+    audio,
+    audioValue
+};
+
+/**
  A SettableProperty is a value that can be selected by the designer and will be
  set for the Component each time the ValueTree is loaded.
  */
@@ -87,6 +107,7 @@ struct SettableProperty
     const PortRole         portRole   = PortRole::none;
     const PortVisibility   portVisibility = PortVisibility::hidden;
     const juce::String     portName   = {};   /*< Display label for the node editor port; falls back to the property name */
+    const PortType         portType   = PortType::value;   /*< What the port accepts; uidPrefix carries no type meaning */
 };
 
 } // namespace foleys
