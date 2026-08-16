@@ -730,9 +730,9 @@ private:
             if (buttonBounds.expanded (4.0f).contains (pos.toFloat()))
             {
                 if (macroPanelOpen)
-                    return "Show Keyboard View: Click this button to show the MIDI Strip's Keyboard View";
+                    return "Show Keyboard View: Click this button to show the Utility Strip's Keyboard View";
                 else
-                    return "Show Panel View: Click this button to show the MIDI Strip's Panel View";
+                    return "Show Panel View: Click this button to show the Utility Strip's Panel View";
             }
         }
         
