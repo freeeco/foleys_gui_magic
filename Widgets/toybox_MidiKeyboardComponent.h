@@ -591,14 +591,10 @@ private:
                                        Identifier excludeType = {});
         static bool      nodeCoversKey (const ValueTree& node, int note);
 
-        // Fixed-slot model — mirrors TriggerBankEditorComponent. The bank is a
-        // pool of MidiTrigger slots (trigger-index 0..N); we fill empty slots
-        // in place and clear them in place, never adding or removing slots.
-        static bool      isEmptySlot        (const ValueTree& node);
-        Array<ValueTree> findEmptySlots     (const ValueTree& container, int count) const;
+        // Trigger copies keep their miditrigger-uid — the paste-side
+        // uniquify pass re-stamps it, so clipboard and files stay
+        // byte-compatible across the keyboard, bank editor, and DTRO.
         static ValueTree propertiesOnlyCopy (const ValueTree& node);
-        void             clearPropertiesOfNode (ValueTree node, UndoManager* um);
-        void             fillSlot           (ValueTree slot, const ValueTree& payload, UndoManager* um);
 
         void copyKeys        (const Array<ValueTree>& nodes);
         void pasteToKey      (int note);

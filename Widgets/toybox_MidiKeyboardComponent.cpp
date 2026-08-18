@@ -266,6 +266,25 @@ namespace
         for (auto& n : extras)  substitute (n);
     }
 
+    // Stamp a fresh miditrigger-uid onto any payload trigger that ships
+    // without one. Runs BEFORE uniquifyPayloadRefs, whose single shared
+    // counter then re-stamps every uid in the bundle — mints included — so
+    // a mint can't collide with a re-stamped uid from the same paste.
+    inline void mintMissingTriggerUids (Array<ValueTree>& payload)
+    {
+        static const Identifier midiTriggerType ("MidiTrigger");
+        static const Identifier uidProp ("miditrigger-uid");
+
+        const auto baseStamp = (int64) (Time::getCurrentTime()
+                                        - Time (2000, 0, 1, 0, 0, 0)).inMilliseconds();
+        int counter = 0;
+
+        for (auto& n : payload)
+            if (n.getType() == midiTriggerType
+                && n.getProperty (uidProp).toString().isEmpty())
+                n.setProperty (uidProp, "MidiTrigger_" + String (baseStamp + counter++), nullptr);
+    }
+
     // 20 distinguishable colours offered in the key menu's Colour submenu. The
     // names describe how each reads once applied at its `brightness` factor (see
     // the menu handler), not the bright base hue. Most are halved; a couple that
@@ -2318,96 +2337,12 @@ Array<ValueTree> NewMidiKeyboardComponent::TriggerEditor::findNodesForKey (int n
     return result;
 }
 
-bool NewMidiKeyboardComponent::TriggerEditor::isEmptySlot (const ValueTree& node)
-{
-    static const Identifier midiTriggerType ("MidiTrigger");
-    static const Identifier indexProp ("trigger-index");
-
-    // Free == a MidiTrigger carrying nothing but its trigger-index, i.e.
-    // exactly what clearPropertiesOfNode leaves behind. (Order-independent.)
-    if (node.getType() != midiTriggerType)
-        return false;
-
-    for (int i = 0; i < node.getNumProperties(); ++i)
-        if (node.getPropertyName (i) != indexProp)
-            return false;
-
-    return true;
-}
-
-Array<ValueTree> NewMidiKeyboardComponent::TriggerEditor::findEmptySlots (const ValueTree& container, int count) const
-{
-    // Fill the lowest free trigger-index slots first, regardless of child order.
-    int maxIdx = -1;
-    for (auto child : container)
-        if (child.hasProperty ("trigger-index"))
-            maxIdx = jmax (maxIdx, (int) child.getProperty ("trigger-index"));
-
-    Array<ValueTree> result;
-    for (int idx = 0; idx <= maxIdx && result.size() < count; ++idx)
-        for (auto child : container)
-            if ((int) child.getProperty ("trigger-index", -1) == idx && isEmptySlot (child))
-            {
-                result.add (child);
-                break;
-            }
-
-    return result;
-}
-
 ValueTree NewMidiKeyboardComponent::TriggerEditor::propertiesOnlyCopy (const ValueTree& node)
 {
-    // Mirrors TriggerBankEditorComponent::copySelected: a fresh node of the
-    // same type carrying every property except trigger-index (the destination
-    // slot supplies its own). A single bare node is byte-compatible with the
-    // bank editor's clipboard, so the two interoperate.
-    static const Identifier indexProp ("trigger-index");
-
-    ValueTree out (node.getType());
-    for (int i = 0; i < node.getNumProperties(); ++i)
-    {
-        const auto name = node.getPropertyName (i);
-        if (name != indexProp)
-            out.setProperty (name, node.getProperty (name), nullptr);
-    }
-    return out;
-}
-
-void NewMidiKeyboardComponent::TriggerEditor::clearPropertiesOfNode (ValueTree node, UndoManager* um)
-{
-    // Identical to TriggerBankEditorComponent::clearPropertiesOfNode: strip
-    // everything but trigger-index, building the list before removing (you
-    // can't remove-by-index while iterating). Children are left untouched.
-    if (! node.isValid())
-        return;
-
-    static const Identifier indexProp ("trigger-index");
-
-    Array<Identifier> toRemove;
-    for (int i = 0; i < node.getNumProperties(); ++i)
-    {
-        const auto name = node.getPropertyName (i);
-        if (name != indexProp)
-            toRemove.add (name);
-    }
-
-    for (auto& name : toRemove)
-        node.removeProperty (name, um);
-}
-
-void NewMidiKeyboardComponent::TriggerEditor::fillSlot (ValueTree slot, const ValueTree& payload, UndoManager* um)
-{
-    // Replace semantics, mirroring pasteToSelected: clear the slot's
-    // properties (trigger-index survives) then copy the payload's in.
-    clearPropertiesOfNode (slot, um);
-
-    static const Identifier indexProp ("trigger-index");
-    for (int i = 0; i < payload.getNumProperties(); ++i)
-    {
-        const auto name = payload.getPropertyName (i);
-        if (name != indexProp)
-            slot.setProperty (name, payload.getProperty (name), um);
-    }
+    // Full copy — the miditrigger-uid travels with it and is re-stamped by
+    // the paste-side uniquify pass. A single bare node is byte-compatible
+    // with the bank editor's clipboard, so the two interoperate.
+    return node.createCopy();
 }
 
 void NewMidiKeyboardComponent::TriggerEditor::remapNoteRanges (ValueTree node, int delta)
@@ -2443,7 +2378,7 @@ void NewMidiKeyboardComponent::TriggerEditor::copyKeys (const Array<ValueTree>& 
     // controls), clicking the SPEED key would otherwise hand us just the one
     // trigger. Expand the selection by group id — same sweep doClear runs on
     // the way out — so Copy / Cut grab the whole group. MidiTrigger siblings
-    // use propertiesOnlyCopy (slot index dropped, no children to worry about);
+    // use propertiesOnlyCopy (uid travels, re-stamped on paste);
     // non-trigger siblings use a full createCopy so View / nested LFO content
     // survives.
     StringArray groupIDs;
@@ -2506,9 +2441,9 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     static const Identifier midiStateIdxProp ("midi-state-index");
     static const Identifier idProp           ("id");
 
-    // ── Step 1 — split the payload into triggers (slot-pooled) and extras
-    // (appended). MidiTriggers always go through findEmptySlots; everything
-    // else (LFOs, Mappers, ListBoxes, ...) lands at the end of the container.
+    // ── Step 1 — split the payload into triggers and extras. Both are
+    // appended; the split keeps the transpose delta (Step 2) computed on
+    // triggers only and preserves triggers-first ordering in the container.
     Array<ValueTree> payload, extras;
     auto take = [&] (const ValueTree& src)
     {
@@ -2551,10 +2486,12 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
 
     const int delta = (lowest != std::numeric_limits<int>::max()) ? note - lowest : 0;
 
-    // ── Step 3 — uniquify uniquified UIDs and ":" values across the whole
-    // bundle. Standalone refs only; composites (e.g. a Playlist score string
-    // carrying clip UIDs) reach outside the bundle and stay verbatim. See
+    // ── Step 3 — mint identity for uid-less triggers, then uniquify
+    // uniquified UIDs and ":" values across the whole bundle. Standalone
+    // refs only; composites (e.g. a Playlist score string carrying clip
+    // UIDs) reach outside the bundle and stay verbatim. See
     // uniquifyPayloadRefs for the detection rules.
+    mintMissingTriggerUids (payload);
     uniquifyPayloadRefs (payload, extras);
 
     // ── Step 4 — group-id collision policy.
@@ -2761,10 +2698,9 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
         for (auto& n : extras)  allocate (n);
     }
 
-    // ── Step 6 — place the MidiTriggers into empty slots.
-    auto slots = findEmptySlots (container, payload.size());
-    if (slots.size() < payload.size())
-        return;
+    // ── Step 6 — append the MidiTriggers. Identity is the stamped
+    // miditrigger-uid (Step 3); there is no slot pool and append never fails.
+    Array<ValueTree> placed;
 
     // Mutation phase. The gate silences GuiItem tree reactions (Value bindings
     // still fire); the flag dismounts TriggerBankEditor property components.
@@ -2789,7 +2725,8 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     for (int i = 0; i < payload.size(); ++i)
     {
         remapNoteRanges (payload.getReference (i), delta);
-        fillSlot (slots.getReference (i), payload.getReference (i), nullptr);
+        container.appendChild (payload.getReference (i), nullptr);
+        placed.add (payload.getReference (i));
     }
 
     // ── Step 7 — append extras. MidiEditor still de-dupes by midi-state-index
@@ -2866,11 +2803,11 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     treeGate.close();
     builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
 
-    // ── Make the result visible: one reconcile builds items for the appended
-    // extras; the filled slots' items then refresh individually — their writes
-    // happened under the gate, and syncStaticValues' one-shot latches need a
-    // pass against the complete tree (calc-driven trigger props resolve only
-    // after the extras' items exist). Scroll bracketed across the layout pass.
+    // ── Make the result visible: one reconcile builds items for every
+    // appended node; the new triggers' items then refresh individually —
+    // syncStaticValues' one-shot latches need a pass against the complete
+    // tree (calc-driven trigger props resolve only after the extras' items
+    // exist). Scroll bracketed across the layout pass.
     juce::Point<int> savedScroll;
     if (auto* vp = findContainerViewport())
         savedScroll = vp->getViewPosition();
@@ -2878,8 +2815,8 @@ void NewMidiKeyboardComponent::TriggerEditor::insertPayloadAtKey (ValueTree payl
     if (auto* containerComp = builder->findGuiItem (container))
         containerComp->reconcileSubComponents();
 
-    for (auto& slot : slots)
-        if (auto* item = builder->findGuiItem (slot))
+    for (auto& node : placed)
+        if (auto* item = builder->findGuiItem (node))
             item->updateInternal();
 
     if (auto* vp = findContainerViewport())
@@ -3180,7 +3117,7 @@ void NewMidiKeyboardComponent::TriggerEditor::saveKeyAs (int note)
     // sweep copyKeys / doClear use — so multi-trigger groups (e.g. Note_Repeat's
     // SPEED + REPEAT under one id, paired with a View carrying the LFO and
     // controls) get saved whole. MidiTrigger siblings use propertiesOnlyCopy
-    // (slot index dropped, destination supplies its own on load); non-trigger
+    // (uid travels, re-stamped by the load-side uniquify pass); non-trigger
     // siblings use createCopy so View / nested LFO content survives. Anything
     // in the bank that isn't part of this group is left out — the curated-bank
     // assumption is gone; the group id is the bundling boundary now.
@@ -3316,8 +3253,8 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
 
     // Group-by-id: nodes sharing an id form a logical bundle (e.g. a MidiTrigger
     // paired with a ListBox shown in the macro panel). Capture ids first —
-    // clearPropertiesOfNode strips the id property too, so we need them now if
-    // we're to find the linked siblings afterwards.
+    // the nodes are removed below, so we need them now if we're to find the
+    // linked siblings afterwards.
     StringArray groupIDs;
     for (const auto& node : nodes)
     {
@@ -3326,20 +3263,19 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
             groupIDs.addIfNotAlreadyThere (id);
     }
 
-    // Mutation phases run under the gate — un-gated, each property removal
-    // fires a full container sweep (dozens per cleared trigger). Cleared
-    // triggers are collected for the explicit re-sync at the tail; there are
-    // no returns between here and the gate clear there.
-    Array<ValueTree> clearedTriggers;
+    // Mutation phases run under the gate — un-gated, each removal fires a
+    // full container sweep. There are no returns between here and the gate
+    // clear at the tail.
+    bool removedAnything = false;
     foleys::GuiItem::ScopedTreeEditGate treeGate;
 
-    // Clear, don't delete — mirrors clearSelected. The slot stays alive with
-    // its trigger-index; only its contents go.
+    // Delete — the trigger's engine object is reaped by the orphan flush.
     for (auto& node : nodes)
-    {
-        clearPropertiesOfNode (node, nullptr);
-        clearedTriggers.add (node);
-    }
+        if (node.isValid() && node.getParent() == container)
+        {
+            container.removeChild (node, nullptr);
+            removedAnything = true;
+        }
 
     // Sweep the rest of the bank for siblings sharing one of those ids and
     // dispose of them too. MidiTriggers stay in the slot pool (cleared in
@@ -3348,34 +3284,25 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
     // the lists first — removeChild shifts sibling indices mid-iteration.
     if (! groupIDs.isEmpty())
     {
-        static const Identifier midiTriggerType ("MidiTrigger");
-
-        Array<ValueTree> linkedTriggers, linkedExtras;
+        Array<ValueTree> linked;
         for (auto child : container)
         {
             if (nodes.contains (child))
-                continue;   // already handled above (its id is gone now anyway)
+                continue;   // already removed above
 
             const auto childID = child.getProperty ("id").toString();
             if (childID.isEmpty() || ! groupIDs.contains (childID, true))
                 continue;
 
-            if (child.getType() == midiTriggerType) linkedTriggers.add (child);
-            else                                    linkedExtras.add (child);
+            linked.add (child);
         }
 
-        for (auto& n : linkedTriggers)
-        {
-            clearPropertiesOfNode (n, nullptr);
-            clearedTriggers.add (n);
-        }
-
-        for (auto& n : linkedExtras)
+        for (auto& n : linked)
             if (n.isValid() && n.getParent() == container)
+            {
                 container.removeChild (n, nullptr);
-
-        if (! linkedExtras.isEmpty() && builder != nullptr)
-            toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
+                removedAnything = true;
+            }
     }
 
     // [global] companions — remove "<stem> [global]" nodes whose stem has no
@@ -3386,8 +3313,6 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
     // [global] outlives its consumers, but only as long as any exists.
     if (! groupIDs.isEmpty())
     {
-        static const Identifier midiTriggerType ("MidiTrigger");
-
         StringArray stems;
         for (const auto& id : groupIDs)
         {
@@ -3420,34 +3345,25 @@ void NewMidiKeyboardComponent::TriggerEditor::doClear (int note)
                     globalsToRemove.add (child);
 
             for (auto& g : globalsToRemove)
-            {
-                if (g.getType() == midiTriggerType)
+                if (g.isValid() && g.getParent() == container)
                 {
-                    clearPropertiesOfNode (g, nullptr);
-                    clearedTriggers.add (g);
-                }
-                else if (g.isValid() && g.getParent() == container)
                     container.removeChild (g, nullptr);
-            }
-
-            if (! globalsToRemove.isEmpty() && builder != nullptr)
-                toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
+                    removedAnything = true;
+                }
         }
     }
 
     treeGate.close();
 
-    // One reconcile destroys the removed extras' items; the cleared trigger
-    // slots' items then re-sync so their bare nodes read as de-configured on
-    // the audio side.
+    // One reconcile destroys the removed nodes' items; the orphan flush
+    // reaps their engine objects.
     if (builder != nullptr)
     {
         if (auto* containerComp = builder->findGuiItem (container))
             containerComp->reconcileSubComponents();
 
-        for (auto& node : clearedTriggers)
-            if (auto* item = builder->findGuiItem (node))
-                item->updateInternal();
+        if (removedAnything)
+            toybox::scheduleFlushUnusedMidiObjects (builder->getMagicState());
     }
 
     owner.repaint();
@@ -3459,11 +3375,9 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
     if (! container.isValid())
         return;
 
-    static const Identifier midiTriggerType ("MidiTrigger");
-
-    // Mirrors clearAllTriggers: MidiTrigger slots keep their slot (index
-    // preserved, contents cleared); other node types are removed entirely.
-    // Snapshot first — removing extras shifts child indices mid-iteration.
+    // Everything goes — triggers included; their engine objects are reaped
+    // by the orphan flush. Snapshot first — removing shifts child indices
+    // mid-iteration.
     Array<ValueTree> children;
     for (auto child : container)
         children.add (child);
@@ -3478,26 +3392,16 @@ void NewMidiKeyboardComponent::TriggerEditor::clearAll()
         foleys::GuiItem::ScopedTreeEditGate gate;
 
         for (auto& node : children)
-        {
-            if (node.getType() == midiTriggerType)
-                clearPropertiesOfNode (node, nullptr);
-            else if (node.isValid() && node.getParent() == container)
+            if (node.isValid() && node.getParent() == container)
                 container.removeChild (node, nullptr);
-        }
     }
 
     builder->getMagicState().getPropertyAsValue ("flag:tree_edit_in_progress").setValue (false);
 
-    // One reconcile destroys the removed extras' items; the surviving slot
-    // items then re-sync so their bare nodes read as de-configured on the
-    // audio side (syncStaticValues stores false across the board).
+    // One reconcile destroys the removed items; the tail flush reaps the
+    // engine objects.
     if (auto* containerComp = builder->findGuiItem (container))
         containerComp->reconcileSubComponents();
-
-    for (auto& node : children)
-        if (node.getType() == midiTriggerType)
-            if (auto* item = builder->findGuiItem (node))
-                item->updateInternal();
 
     if (auto* vp = findContainerViewport())
         vp->setViewPosition (savedScroll);
