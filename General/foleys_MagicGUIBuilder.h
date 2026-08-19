@@ -136,6 +136,7 @@ public:
         juce::String    tooltip;
         bool            favourite = false;
         bool            advanced  = false;   // consumers may hide behind a toggle
+        juce::Colour    nodeColour;          // node editor box tint; transparent = default
     };
 
     /**
@@ -204,7 +205,8 @@ public:
     /**
      returns the names of all registered factories
      */
-    juce::StringArray  getFactoryNames() const;
+    juce::StringArray getFactoryNames() const;       // palette listing: favourites + category headers
+    juce::StringArray  getFactoryTypeNames() const;   // flat list of registered type names
     juce::String       getFactoryCategory (juce::Identifier type) const;
     juce::String       getFactoryLongName (juce::Identifier type) const;   // falls back to the type string
     juce::String       getFactoryTooltip  (juce::Identifier type) const;

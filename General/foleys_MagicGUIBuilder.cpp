@@ -671,6 +671,14 @@ juce::String MagicGUIBuilder::getFactoryCategory (juce::Identifier type) const
     return it != factories.end() ? it->second.category : juce::String();
 }
 
+juce::StringArray MagicGUIBuilder::getFactoryTypeNames() const
+{
+    juce::StringArray names;
+    for (const auto& f : factories)
+        names.add (f.first.toString());
+    return names;
+}
+
 juce::String MagicGUIBuilder::getFactoryLongName (juce::Identifier type) const
 {
     auto it = factories.find (type);

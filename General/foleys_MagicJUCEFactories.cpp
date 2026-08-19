@@ -2087,38 +2087,47 @@ const juce::Identifier  WebBrowserItem::pUrl            { "url" };
 
 void MagicGUIBuilder::registerJUCEFactories()
 {
-    
-    //    "Favourites:",
-    //    IDs::view.toString(),
-    //    IDs::slider.toString(),
-    //    "ImageButton",
-    //    "PopupMenu",
-    //    "ParameterLabel",
-    //    "Image",
-    //    "ImageMeter",
-    //    "Text",
-    //    "Rectangle",
-    //    "Evaluate",
-    //    "Trigger",
-    //    "GuiProperty",
-    
-    bool isFavourite = true;
-
-    registerFactory (IDs::slider,            &SliderItem::factory,            "Controls", isFavourite);
-    registerFactory (IDs::comboBox,          &ComboBoxItem::factory,          "Controls");
-    registerFactory (IDs::textButton,        &TextButtonItem::factory,        "Controls");
-    registerFactory (IDs::toggleButton,      &ToggleButtonItem::factory,      "Controls");
-    registerFactory (IDs::label,             &LabelItem::factory,             "Controls");
-    registerFactory (IDs::plot,              &PlotItem::factory,              "Meters & Plots");
-    registerFactory (IDs::xyDragComponent,   &XYDraggerItem::factory,         "Controls");
-    registerFactory (IDs::keyboardComponent, &KeyboardItem::factory,          "Controls");
-    registerFactory (IDs::drumpadComponent,  &DrumpadItem::factory,           "Controls");
-    registerFactory (IDs::meter,             &LevelMeterItem::factory,        "Meters & Plots");
-    registerFactory ("MidiLearn",            &MidiLearnItem::factory,         "MIDI & Sequencing");
-    registerFactory (IDs::listBox,           &ListBoxItem::factory,           "Controls");
+    registerFactory (IDs::slider,            &SliderItem::factory,            "Controls",        "Slider",
+                     "Slider bound to a parameter",
+                     true, false);
+    registerFactory (IDs::comboBox,          &ComboBoxItem::factory,          "Controls",        "Combo Box",
+                     "Dropdown bound to a parameter",
+                     false, true);
+    registerFactory (IDs::textButton,        &TextButtonItem::factory,        "Controls",        "Text Button",
+                     "Button with a text label",
+                     false, false);
+    registerFactory (IDs::toggleButton,      &ToggleButtonItem::factory,      "Controls",        "Toggle Button",
+                     "On/off toggle bound to a parameter",
+                     false, false);
+    registerFactory (IDs::label,             &LabelItem::factory,             "Controls",        "Label",
+                     "Text label",
+                     false, false);
+    registerFactory (IDs::plot,              &PlotItem::factory,              "Meters & Plots",  "Plot",
+                     "Waveform or curve plot from a plot source",
+                     false, true);
+    registerFactory (IDs::xyDragComponent,   &XYDraggerItem::factory,         "Controls",        "XY Pad",
+                     "Two-parameter XY drag surface",
+                     false, false);
+    registerFactory (IDs::keyboardComponent, &KeyboardItem::factory,          "Controls",        "Keyboard",
+                     "On-screen MIDI keyboard",
+                     false, true);
+    registerFactory (IDs::drumpadComponent,  &DrumpadItem::factory,           "Controls",        "Drum Pad",
+                     "Grid of MIDI trigger pads",
+                     false, false);
+    registerFactory (IDs::meter,             &LevelMeterItem::factory,        "Meters & Plots",  "Level Meter",
+                     "Level meter from a magic level source",
+                     false, true);
+    registerFactory ("MidiLearn",            &MidiLearnItem::factory,         "MIDI & Sequencing", "MIDI Learn (Legacy)",
+                     "Legacy MIDI learn component",
+                     false, true);
+    registerFactory (IDs::listBox,           &ListBoxItem::factory,           "Controls",        "List Box",
+                     "Scrollable list of items",
+                     false, false);
 
 #if JUCE_MODULE_AVAILABLE_juce_gui_extra && JUCE_WEB_BROWSER
-    registerFactory (IDs::webBrowser, &WebBrowserItem::factory);
+    registerFactory (IDs::webBrowser,        &WebBrowserItem::factory,        "Utility",         "Web Browser",
+                     "Embedded web browser view",
+                     false, true);
 #endif // JUCE_WEB_BROWSER
 }
 
