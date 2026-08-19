@@ -137,16 +137,17 @@ public:
         bool            favourite = false;
         bool            advanced  = false;   // consumers may hide behind a toggle
         juce::Colour    nodeColour;          // node editor box tint; transparent = default
+        bool            minimiseByDefault = false;   // new canvas nodes of this type start minimised
+        juce::String    shortName;                   // compact label for minimised canvas boxes
     };
 
     /**
      Register a factory for Components to be available in the GUI editor.
      */
-    void registerFactory (juce::Identifier type, FactoryFunction factory);
-    void registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category, bool isFavourite = false);
     void registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category,
                           const juce::String& longName, const juce::String& tooltip,
                           bool isFavourite = false, bool isAdvanced = false);
+    void registerFactory (juce::Identifier type, FactoryFunction factory, FactoryInfo info);
 
     /**
      With that method you can register your custom LookAndFeel class and apply it to different components.
@@ -212,6 +213,8 @@ public:
     juce::String       getFactoryTooltip  (juce::Identifier type) const;
     bool               isFactoryFavourite (juce::Identifier type) const;
     bool               isFactoryAdvanced  (juce::Identifier type) const;
+    bool               isFactoryMinimisedByDefault (juce::Identifier type) const;
+    juce::String       getFactoryShortName (juce::Identifier type) const;   // empty if none set
     const FactoryInfo* getFactoryInfo     (juce::Identifier type) const;   // nullptr if unregistered
 
     std::function<void(juce::ComboBox&)> createChoicesMenuLambda (juce::StringArray choices) const;

@@ -574,19 +574,20 @@ GuiItem* MagicGUIBuilder::findGuiItem (const juce::ValueTree& node)
     return nullptr;
 }
 
-void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory)
-{
-    registerFactory (type, factory, {}, {}, {}, false, false);
-}
-
-void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category, bool isFavourite)
-{
-    registerFactory (type, factory, category, {}, {}, isFavourite, false);
-}
-
 void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category,
                                        const juce::String& longName, const juce::String& tooltip,
                                        bool isFavourite, bool isAdvanced)
+{
+    FactoryInfo info;
+    info.category  = category;
+    info.longName  = longName;
+    info.tooltip   = tooltip;
+    info.favourite = isFavourite;
+    info.advanced  = isAdvanced;
+    registerFactory (type, factory, std::move (info));
+}
+
+void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory, FactoryInfo info)
 {
     if (factories.find (type) != factories.cend())
     {
@@ -596,13 +597,7 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction fa
         return;
     }
 
-    FactoryInfo info;
-    info.factory   = factory;
-    info.category  = category;
-    info.longName  = longName;
-    info.tooltip   = tooltip;
-    info.favourite = isFavourite;
-    info.advanced  = isAdvanced;
+    info.factory = factory;
     factories[type] = std::move (info);
 }
 
@@ -703,6 +698,18 @@ bool MagicGUIBuilder::isFactoryAdvanced (juce::Identifier type) const
 {
     auto it = factories.find (type);
     return it != factories.end() && it->second.advanced;
+}
+
+bool MagicGUIBuilder::isFactoryMinimisedByDefault (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() && it->second.minimiseByDefault;
+}
+
+juce::String MagicGUIBuilder::getFactoryShortName (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() ? it->second.shortName : juce::String();
 }
 
 const MagicGUIBuilder::FactoryInfo* MagicGUIBuilder::getFactoryInfo (juce::Identifier type) const
