@@ -326,7 +326,7 @@ std::unique_ptr<GuiItem> MagicGUIBuilder::createGuiItem (const juce::ValueTree& 
     auto factory = factories.find (node.getType());
     if (factory != factories.end())
     {
-        auto item = factory->second (*this, node);
+        auto item = factory->second.factory (*this, node);
         if (!dontUpdate)
             item->updateInternal();
         
@@ -574,7 +574,19 @@ GuiItem* MagicGUIBuilder::findGuiItem (const juce::ValueTree& node)
     return nullptr;
 }
 
-void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&))
+void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory)
+{
+    registerFactory (type, factory, {}, {}, {}, false, false);
+}
+
+void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category, bool isFavourite)
+{
+    registerFactory (type, factory, category, {}, {}, isFavourite, false);
+}
+
+void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category,
+                                       const juce::String& longName, const juce::String& tooltip,
+                                       bool isFavourite, bool isAdvanced)
 {
     if (factories.find (type) != factories.cend())
     {
@@ -584,16 +596,14 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<Gu
         return;
     }
 
-    factories [type] = factory;
-}
-
-void MagicGUIBuilder::registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&), const juce::String& category, bool isFavourite)
-{
-    registerFactory (type, factory);
-    factoryCategories [type] = category;
-
-    if (isFavourite)
-        factoryFavourites.insert (type);
+    FactoryInfo info;
+    info.factory   = factory;
+    info.category  = category;
+    info.longName  = longName;
+    info.tooltip   = tooltip;
+    info.favourite = isFavourite;
+    info.advanced  = isAdvanced;
+    factories[type] = std::move (info);
 }
 
 juce::StringArray MagicGUIBuilder::getFactoryNames() const
@@ -612,13 +622,12 @@ juce::StringArray MagicGUIBuilder::getFactoryNames() const
         auto name = f.first.toString();
 
         // Collect favourites
-        if (factoryFavourites.count (f.first))
+        if (f.second.favourite)
             favourites.add (name);
 
         // Place into category or uncategorised
-        auto it = factoryCategories.find (f.first);
-        if (it != factoryCategories.end())
-            categorised[it->second].add (name);
+        if (f.second.category.isNotEmpty())
+            categorised[f.second.category].add (name);
         else
             uncategorised.add (name);
     }
@@ -658,8 +667,40 @@ juce::StringArray MagicGUIBuilder::getFactoryNames() const
 
 juce::String MagicGUIBuilder::getFactoryCategory (juce::Identifier type) const
 {
-    auto it = factoryCategories.find (type);
-    return it != factoryCategories.end() ? it->second : juce::String();
+    auto it = factories.find (type);
+    return it != factories.end() ? it->second.category : juce::String();
+}
+
+juce::String MagicGUIBuilder::getFactoryLongName (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    if (it != factories.end() && it->second.longName.isNotEmpty())
+        return it->second.longName;
+    return type.toString();
+}
+
+juce::String MagicGUIBuilder::getFactoryTooltip (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() ? it->second.tooltip : juce::String();
+}
+
+bool MagicGUIBuilder::isFactoryFavourite (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() && it->second.favourite;
+}
+
+bool MagicGUIBuilder::isFactoryAdvanced (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() && it->second.advanced;
+}
+
+const MagicGUIBuilder::FactoryInfo* MagicGUIBuilder::getFactoryInfo (juce::Identifier type) const
+{
+    auto it = factories.find (type);
+    return it != factories.end() ? &it->second : nullptr;
 }
 
 void MagicGUIBuilder::registerLookAndFeel (juce::String name, std::unique_ptr<juce::LookAndFeel> lookAndFeel)

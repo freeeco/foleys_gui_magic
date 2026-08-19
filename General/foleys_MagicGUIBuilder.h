@@ -124,11 +124,28 @@ public:
      */
     void updateColours();
 
+    using FactoryFunction = std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&);
+
+    /** Everything registration knows about a node type. The registry is the
+        single source for palettes, add menus and tooltips. */
+    struct FactoryInfo
+    {
+        FactoryFunction factory   = nullptr;
+        juce::String    category;
+        juce::String    longName;    // display name; empty = use the type string
+        juce::String    tooltip;
+        bool            favourite = false;
+        bool            advanced  = false;   // consumers may hide behind a toggle
+    };
+
     /**
-     Register a factory for Components to be available in the GUI editor. If you need a reference to the application, you can capture that in the factory lambda.
+     Register a factory for Components to be available in the GUI editor.
      */
-    void registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&));
-    void registerFactory (juce::Identifier type, std::unique_ptr<GuiItem>(*factory)(MagicGUIBuilder& builder, const juce::ValueTree&), const juce::String& category, bool isFavourite = false);
+    void registerFactory (juce::Identifier type, FactoryFunction factory);
+    void registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category, bool isFavourite = false);
+    void registerFactory (juce::Identifier type, FactoryFunction factory, const juce::String& category,
+                          const juce::String& longName, const juce::String& tooltip,
+                          bool isFavourite = false, bool isAdvanced = false);
 
     /**
      With that method you can register your custom LookAndFeel class and apply it to different components.
@@ -187,8 +204,13 @@ public:
     /**
      returns the names of all registered factories
      */
-    juce::StringArray getFactoryNames() const;
-    juce::String      getFactoryCategory (juce::Identifier type) const;
+    juce::StringArray  getFactoryNames() const;
+    juce::String       getFactoryCategory (juce::Identifier type) const;
+    juce::String       getFactoryLongName (juce::Identifier type) const;   // falls back to the type string
+    juce::String       getFactoryTooltip  (juce::Identifier type) const;
+    bool               isFactoryFavourite (juce::Identifier type) const;
+    bool               isFactoryAdvanced  (juce::Identifier type) const;
+    const FactoryInfo* getFactoryInfo     (juce::Identifier type) const;   // nullptr if unregistered
 
     std::function<void(juce::ComboBox&)> createChoicesMenuLambda (juce::StringArray choices) const;
     std::function<void(juce::ComboBox&)> createParameterMenuLambda() const;
@@ -302,9 +324,7 @@ private:
     std::unique_ptr<IOSTooltipOverlay> iosTooltipOverlay;
 #endif
 
-    std::map<juce::Identifier, std::unique_ptr<GuiItem>(*)(MagicGUIBuilder& builder, const juce::ValueTree&)> factories;
-    std::map<juce::Identifier, juce::String> factoryCategories;
-    std::set<juce::Identifier> factoryFavourites;
+    std::map<juce::Identifier, FactoryInfo> factories;
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     bool editMode = false;
