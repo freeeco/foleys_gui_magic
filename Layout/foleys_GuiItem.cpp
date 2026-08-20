@@ -113,8 +113,8 @@ void GuiItem::updateInternal()
 
     update();
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    setEditMode (magicBuilder.isEditModeOn());
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
+    setEditMode (magicBuilder.isNodeEditable (configNode));
     resized();
 #endif
     
@@ -371,7 +371,7 @@ void GuiItem::componentTransform()
         originY += juce::roundToInt (offsetY);
     }
     
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
     lastOriginLocalX = originX - getBounds().getX();
     lastOriginLocalY = originY - getBounds().getY();
     hasOriginOffset  = originXOffsetStr.isNotEmpty() || originYOffsetStr.isNotEmpty()
@@ -592,7 +592,7 @@ juce::Rectangle<int> GuiItem::getClientBounds() const
 
 void GuiItem::resized()
 {
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
     if (borderDragger)
         borderDragger->setBounds (getLocalBounds());
 #endif
@@ -755,8 +755,8 @@ GuiItem* GuiItem::findGuiItem (const juce::ValueTree& node)
 
 void GuiItem::paintOverChildren (juce::Graphics& g)
 {
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    if (magicBuilder.isEditModeOn() && magicBuilder.isNodeSelected (configNode))
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
+    if (magicBuilder.isNodeEditable (configNode) && magicBuilder.isNodeSelected (configNode))
     {
         const float handleSize = 5.0f;
         const float lineThickness = 1.0f;
@@ -822,7 +822,7 @@ void GuiItem::paintOverChildren (juce::Graphics& g)
     }
 }
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
 
 void GuiItem::setEditMode (bool shouldEdit)
 {
@@ -832,7 +832,23 @@ void GuiItem::setEditMode (bool shouldEdit)
         borderDragger->setVisible (shouldEdit);
 
     if (auto* component = getWrappedComponent())
-        component->setInterceptsMouseClicks (!shouldEdit, !shouldEdit);
+    {
+        if (shouldEdit)
+        {
+            if (! wrappedClickStateSaved)
+            {
+                component->getInterceptsMouseClicks (wrappedTookClicks, wrappedTookChildClicks);
+                wrappedClickStateSaved = true;
+            }
+
+            component->setInterceptsMouseClicks (false, false);
+        }
+        else if (wrappedClickStateSaved)
+        {
+            component->setInterceptsMouseClicks (wrappedTookClicks, wrappedTookChildClicks);
+            wrappedClickStateSaved = false;
+        }
+    }
 }
 
 void GuiItem::toFrontForEditing()
@@ -851,11 +867,11 @@ void GuiItem::toFrontForEditing()
 
 void GuiItem::setDraggable (bool selected)
 {
-    if (selected && selectionToFront && magicBuilder.isEditModeOn())
+    if (selected && selectionToFront && magicBuilder.isNodeEditable (configNode))
             toFrontForEditing();
     
     if (selected &&
-            magicBuilder.isEditModeOn() &&
+            magicBuilder.isNodeEditable (configNode) &&
             getParentsLayoutType() == LayoutType::Contents &&
             configNode != magicBuilder.getGuiRootNode())
     {
@@ -969,10 +985,13 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
     if (getParentsLayoutType() == LayoutType::Contents &&
         configNode != magicBuilder.getGuiRootNode())
     {
-        magicBuilder.setSelectedNode (configNode);
+        if (magicBuilder.onItemClicked)
+            magicBuilder.onItemClicked (configNode, event.mods);
+        else
+            magicBuilder.setSelectedNode (configNode);
     }
     
-    if (magicBuilder.isEditModeOn())
+    if (magicBuilder.isNodeEditable (configNode))
     {
         originDragStartY      = event.getScreenPosition().y;
         originDragStartRotate = (float) magicBuilder.getStyleProperty (IDs::rotate, configNode);
@@ -984,7 +1003,7 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
         }
     }
     
-    if (magicBuilder.isEditModeOn() && hasOriginOffset)
+    if (magicBuilder.isNodeEditable (configNode) && hasOriginOffset)
     {
         const float hitRadius = 8.0f;
         auto localPos = event.getPosition().toFloat();
@@ -1014,7 +1033,7 @@ void GuiItem::mouseDown (const juce::MouseEvent& event)
 
 void GuiItem::mouseDrag (const juce::MouseEvent& event)
 {
-    if (magicBuilder.isEditModeOn() && event.mods.isCommandDown()
+    if (magicBuilder.isNodeEditable (configNode) && event.mods.isCommandDown()
         && !event.mods.isShiftDown() && !event.mods.isAltDown() && !event.mods.isCtrlDown())
     {
         int deltaY = originDragStartY - event.getScreenPosition().y;
@@ -1131,7 +1150,7 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
 
         savePosition();
     }
-    else if (magicBuilder.isEditModeOn() && event.mouseWasDraggedSinceMouseDown())
+    else if (magicBuilder.isNodeEditable (configNode) && event.mouseWasDraggedSinceMouseDown())
     {
         auto* container = juce::DragAndDropContainer::findParentDragContainerFor (this);
         container->startDragging (IDs::dragSelected, this);

@@ -1319,14 +1319,40 @@ void MagicGUIBuilder::refreshColours()
         parent->repaint();
 }
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
 
-void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect)
+// Published as state, not triggers, so the bindings stay correct across GUI
+// rebuilds. Both polarities: visibility="system:gui_edit_disabled" hides an
+// item while editing, "system:gui_edit_enabled" shows one only while editing.
+void MagicGUIBuilder::publishEditModeFlags (bool shouldEdit)
 {
-    editMode = shouldEdit;
+    magicState.getPropertyAsValue ("system:gui_edit_enabled") .setValue (shouldEdit);
+    magicState.getPropertyAsValue ("system:gui_edit_disabled").setValue (! shouldEdit);
+}
+
+void MagicGUIBuilder::setEditMode (bool shouldEdit, bool shouldDeselect, juce::ValueTree scope)
+{
+    editMode  = shouldEdit;
+    editScope = shouldEdit ? scope : juce::ValueTree();
+
+    publishEditModeFlags (shouldEdit);
+
     if (parent == nullptr) return;
+
+    // Clear the whole tree first, then light up only the scope, so a previous
+    // scope can't leave items unlocked behind us.
     if (root.get() != nullptr)
-        root->setEditMode (shouldEdit);
+    {
+        root->setEditMode (false);
+
+        if (shouldEdit)
+        {
+            auto* target = editScope.isValid() ? findGuiItem (editScope)
+                                               : static_cast<GuiItem*> (root.get());
+            if (target != nullptr)
+                target->setEditMode (true);
+        }
+    }
 
     // Only restore z-order when LEAVING edit mode
     if (!shouldEdit && GuiItem::selectionToFront && selectedNode.isValid())
@@ -1343,6 +1369,17 @@ bool MagicGUIBuilder::isEditModeOn() const
     return editMode;
 }
 
+bool MagicGUIBuilder::isNodeEditable (const juce::ValueTree& node) const
+{
+    if (! editMode)
+        return false;
+
+    if (! editScope.isValid())
+        return true;
+
+    return node == editScope || node.isAChildOf (editScope);
+}
+
 #endif
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
@@ -1351,18 +1388,20 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
 {
     if (selectedNode != node)
     {
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
         if (auto* item = findGuiItem (selectedNode))
             if (!isNodeSelected (selectedNode))
                 item->setDraggable (false);
-       #endif
+#endif
 
         selectedNode = node;
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
         if (magicToolBox.get() != nullptr)
             magicToolBox->setSelectedNode (selectedNode);
+#endif
 
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
         if (auto* item = findGuiItem (selectedNode))
             item->setDraggable (true);
 #endif
@@ -1384,6 +1423,11 @@ juce::Array<juce::ValueTree> MagicGUIBuilder::getSelectedNodes() const
         return magicToolBox->getSelectedNodes();
 #endif
 
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
+    if (onGetSelectedNodes)
+        return onGetSelectedNodes();
+#endif
+
     if (selectedNode.isValid())
         return { selectedNode };
 
@@ -1392,15 +1436,24 @@ juce::Array<juce::ValueTree> MagicGUIBuilder::getSelectedNodes() const
 
 #endif
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
 
 bool MagicGUIBuilder::isNodeSelected (const juce::ValueTree& node) const
 {
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     if (magicToolBox)
         return magicToolBox->isNodeSelected (node);
+#endif
+
+    if (onIsNodeSelected)
+        return onIsNodeSelected (node);
 
     return selectedNode == node;
 }
+
+#endif
+
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
 
 void MagicGUIBuilder::draggedItemOnto (juce::ValueTree dragged, juce::ValueTree target, int index)
 {
@@ -1477,6 +1530,10 @@ ToolBox& MagicGUIBuilder::getMagicToolBox()
 
     return *magicToolBox;
 }
+
+#endif
+
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
 
 void MagicGUIBuilder::restoreZOrderForAll()
 {

@@ -283,15 +283,41 @@ public:
     void refreshColours();
 
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    void restoreZOrderForAll ();
-    
     void attachToolboxToWindow (juce::Component& window);
+#endif
+
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
+    /** Publishes system:gui_edit_enabled / system:gui_edit_disabled for
+        visibility bindings — overlays that would swallow clicks bind the
+        latter. */
+    void publishEditModeFlags (bool shouldEdit);
+
+    void restoreZOrderForAll ();
 
     /**
      This method sets the GUI in edit mode, that allows to drag the components around.
+     An invalid scope unlocks the whole tree; a valid one unlocks only that node
+     and its descendants, leaving the rest of the GUI live.
      */
-    void setEditMode (bool shouldEdit, bool shouldDeselect = false);
+    void setEditMode (bool shouldEdit, bool shouldDeselect = false, juce::ValueTree scope = {});
+
+    /** The global flag — what a lock button reflects. */
     bool isEditModeOn() const;
+
+    /** Whether this particular node is unlocked: edit mode on, and inside the
+        current scope. Drag handlers and selection handles test this. */
+    bool isNodeEditable (const juce::ValueTree& node) const;
+
+    /** Selection hooks, for hosts that own their own selection model (the node
+        editor's multi-select). All optional — unset, selection falls back to
+        the builder's single selectedNode, which is the ToolBox-era behaviour.
+        A host that sets these must clear them before it is destroyed. */
+    std::function<bool (const juce::ValueTree&)>  onIsNodeSelected;
+    std::function<juce::Array<juce::ValueTree>()> onGetSelectedNodes;
+
+    /** Called when an item on the live GUI is clicked in edit mode, so the host
+        can route it into its own selection instead of setSelectedNode. */
+    std::function<void (const juce::ValueTree&, const juce::ModifierKeys&)> onItemClicked;
 #endif
     
 #if FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS
@@ -300,10 +326,11 @@ public:
     juce::Array<juce::ValueTree> getSelectedNodes() const;
 #endif
     
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
     bool isNodeSelected (const juce::ValueTree& node) const;
+#endif
 
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     void draggedItemOnto (juce::ValueTree dropped, juce::ValueTree target, int index=-1);
     ToolBox& getMagicToolBox();
 #endif
@@ -335,9 +362,12 @@ private:
 
     std::map<juce::Identifier, FactoryInfo> factories;
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
-    bool editMode = false;
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
+    bool            editMode = false;
+    juce::ValueTree editScope;   // invalid = whole tree
+#endif
 
+#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
     std::unique_ptr<ToolBox> magicToolBox;
 #endif
 

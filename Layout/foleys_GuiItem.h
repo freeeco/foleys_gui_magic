@@ -43,6 +43,11 @@
 
 #include <melatonin_blur/melatonin_blur.h>
 
+/** Drag-to-position editing on the live GUI. Available in full editor builds
+    and in property-component builds, where the ToolBox is absent and the host
+    app supplies the lock control. */
+#define FOLEYS_ENABLE_GUI_DRAG_EDITING (FOLEYS_SHOW_GUI_EDITOR_PALLETTE || USE_PROPERTY_COMPONENTS)
+
 namespace foleys
 {
 
@@ -232,7 +237,7 @@ public:
     juce::String getTabCaption (const juce::String& defaultName) const;
     juce::Colour getTabColour() const;
     
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
     static inline bool selectionToFront = true;
     void toFrontForEditing();
 #endif
@@ -259,7 +264,7 @@ public:
     
     
 
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
 
     /**
      This method sets the GUI in edit mode, that allows to drag the components around.
@@ -338,7 +343,7 @@ private:
     bool shadowEnable = false;
     bool redrawAll = false;
     bool blurNeedsRepaint = true;
-#if FOLEYS_SHOW_GUI_EDITOR_PALLETTE
+#if FOLEYS_ENABLE_GUI_DRAG_EDITING
     int  lastOriginLocalX  { 0 };
     int  lastOriginLocalY  { 0 };
     bool  hasOriginOffset       { false };
@@ -394,6 +399,13 @@ private:
     juce::String dragStartPosX;
     juce::String dragStartPosY;
     
+    // Wrapped-component interception across edit mode. Saved on unlock and
+    // restored on lock, so an item that made itself click-through stays that
+    // way; never written at all if the item is never unlocked.
+    bool wrappedTookClicks      = true;
+    bool wrappedTookChildClicks = true;
+    bool wrappedClickStateSaved = false;
+
     juce::int64 mouseDownTime = 0;
     static constexpr juce::int64 dragDelayMs = 150;
     
