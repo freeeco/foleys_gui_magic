@@ -2117,7 +2117,7 @@ void MagicGUIBuilder::registerJUCEFactories()
     registerFactory (IDs::meter,             &LevelMeterItem::factory,        "Meters & Plots",  "Level Meter",
                      "Level meter from a magic level source",
                      false, true);
-    registerFactory ("MidiLearn",            &MidiLearnItem::factory,         "MIDI & Sequencing", "MIDI Learn (Legacy)",
+    registerFactory ("MidiLearn",            &MidiLearnItem::factory,         "MIDI", "MIDI Learn (Legacy)",
                      "Legacy MIDI learn component",
                      false, true);
     registerFactory (IDs::listBox,           &ListBoxItem::factory,           "Controls",        "List Box",

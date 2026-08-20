@@ -140,6 +140,10 @@ public:
         bool            minimiseByDefault = false;   // new canvas nodes of this type start minimised
         juce::String    shortName;                   // compact label for minimised canvas boxes
     };
+    
+    /** Default box tint for MIDI-category types, which carry no per-type
+        colour of their own. Independent of the wire/port MIDI colour. */
+    static inline const juce::Colour kMidiNodeColour { 0xff5b8fd6 };
 
     /**
      Register a factory for Components to be available in the GUI editor.

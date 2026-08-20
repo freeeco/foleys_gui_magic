@@ -597,6 +597,11 @@ void MagicGUIBuilder::registerFactory (juce::Identifier type, FactoryFunction fa
         return;
     }
 
+    // MIDI types carry no per-type colour — fall back to the domain tint.
+    if (info.nodeColour.isTransparent()
+        && info.category.upToFirstOccurrenceOf ("/", false, false) == "MIDI")
+        info.nodeColour = kMidiNodeColour;
+
     info.factory = factory;
     factories[type] = std::move (info);
 }
