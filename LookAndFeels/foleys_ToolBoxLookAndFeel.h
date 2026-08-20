@@ -322,13 +322,16 @@ public:
         g.setFont (popupFontSize);
 
         auto textX = area.getX() + (int) (popupPadding * (area.getHeight() * 0.03f)) + 4;
+
+        const int inset = textX - area.getX();
+
         auto textR = juce::Rectangle<int> (textX, area.getY(),
                                            area.getWidth() - textX, area.getHeight());
         if (hasSubMenu)
             textR.removeFromRight (28);
         else if (shortcutKeyText.isNotEmpty())
-            textR.removeFromRight ((int) (popupPadding * 0.8f));
-        
+            textR.removeFromRight (inset);
+
         // Shortcut key text on the right
         if (shortcutKeyText.isNotEmpty())
         {
@@ -336,7 +339,7 @@ public:
             g.setColour (isHighlighted ? ToolBoxColours::textBright.withAlpha (0.7f)
                                        : ToolBoxColours::textDim);
             g.drawText (shortcutKeyText,
-                        textR.withTrimmedRight ((int) popupPadding * 0.8f),
+                        area.withTrimmedRight (inset),
                         juce::Justification::centredRight, true);
         }
 
@@ -445,7 +448,7 @@ public:
 
     void drawStretchableLayoutResizerBar (juce::Graphics& g,
                                           int w, int h,
-                                          bool, bool isMouseOver, bool isMouseDragging) override
+                                          bool isVerticalBar, bool isMouseOver, bool isMouseDragging) override
     {
         g.setColour (isMouseOver || isMouseDragging ? ToolBoxColours::borderLight
                                                     : ToolBoxColours::divider);
@@ -456,14 +459,55 @@ public:
         auto cy = h * 0.5f;
         auto dotSize = 2.0f;
         auto spacing = 5.0f;
-        g.fillEllipse (cx - spacing - dotSize * 0.5f, cy - dotSize * 0.5f, dotSize, dotSize);
-        g.fillEllipse (cx - dotSize * 0.5f,           cy - dotSize * 0.5f, dotSize, dotSize);
-        g.fillEllipse (cx + spacing - dotSize * 0.5f, cy - dotSize * 0.5f, dotSize, dotSize);
+
+        // Dots run along the bar's long axis — down it when the bar is
+        // vertical, across it otherwise.
+        const float dx = isVerticalBar ? 0.0f : spacing;
+        const float dy = isVerticalBar ? spacing : 0.0f;
+
+        g.fillEllipse (cx - dx - dotSize * 0.5f, cy - dy - dotSize * 0.5f, dotSize, dotSize);
+        g.fillEllipse (cx - dotSize * 0.5f,      cy - dotSize * 0.5f,      dotSize, dotSize);
+        g.fillEllipse (cx + dx - dotSize * 0.5f, cy + dy - dotSize * 0.5f, dotSize, dotSize);
     }
 
     //==============================================================================
     // TOOLTIP — dark, minimal
     //==============================================================================
+
+    static constexpr int kTooltipMaxWidth = 400;
+    static constexpr int kTooltipPadX     = 6;
+    static constexpr int kTooltipPadY     = 4;
+
+    // Sizing and drawing must lay the text out identically, or the box is
+    // built for a different line count than it paints.
+    static juce::TextLayout layoutTooltipText (const juce::String& text, float maxWidth)
+    {
+        juce::AttributedString s;
+        s.setJustification (juce::Justification::centredLeft);
+        s.setWordWrap (juce::AttributedString::byWord);
+        s.append (text, juce::Font (13.0f), ToolBoxColours::text);
+
+        juce::TextLayout tl;
+        tl.createLayout (s, maxWidth);
+        return tl;
+    }
+
+    juce::Rectangle<int> getTooltipBounds (const juce::String& tipText,
+                                           juce::Point<int> screenPos,
+                                           juce::Rectangle<int> parentArea) override
+    {
+        const auto tl = layoutTooltipText (tipText, (float) kTooltipMaxWidth);
+
+        const int w = (int) std::ceil (tl.getWidth())  + kTooltipPadX * 2;
+        const int h = (int) std::ceil (tl.getHeight()) + kTooltipPadY * 2;
+
+        return juce::Rectangle<int> (screenPos.x > parentArea.getCentreX() ? screenPos.x - (w + 12)
+                                                                          : screenPos.x + 24,
+                                     screenPos.y > parentArea.getCentreY() ? screenPos.y - (h + 6)
+                                                                          : screenPos.y + 6,
+                                     w, h)
+                 .constrainedWithin (parentArea);
+    }
 
     void drawTooltip (juce::Graphics& g, const juce::String& text,
                       int width, int height) override
@@ -474,10 +518,8 @@ public:
         g.setColour (ToolBoxColours::border);
         g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 0.5f);
 
-        g.setColour (ToolBoxColours::text);
-        g.setFont (13.0f);
-        g.drawFittedText (text, bounds.toNearestInt().reduced (4, 2),
-                          juce::Justification::centredLeft, 4);
+        auto area = bounds.reduced ((float) kTooltipPadX, (float) kTooltipPadY);
+        layoutTooltipText (text, area.getWidth()).draw (g, area);
     }
 
     //==============================================================================
