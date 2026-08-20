@@ -185,9 +185,8 @@ void GUITreeEditor::setSelectedNode (const juce::ValueTree& node)
     }
 
     bool alreadySelected = itemToSelect->isSelected();
-    bool deselectOthers = !alreadySelected
-                       && !juce::ModifierKeys::getCurrentModifiers().isCommandDown()
-                       && !juce::ModifierKeys::getCurrentModifiers().isShiftDown();
+    bool deselectOthers  = ! alreadySelected
+                        && ! juce::ModifierKeys::getCurrentModifiers().isShiftDown();
 
     if (!treeView.isMultiSelectEnabled())
         deselectOthers = true;

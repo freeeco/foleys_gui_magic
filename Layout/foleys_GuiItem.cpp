@@ -828,8 +828,17 @@ void GuiItem::setEditMode (bool shouldEdit)
 {
     setInterceptsMouseClicks (shouldEdit, true);
 
-    if (borderDragger)
-        borderDragger->setVisible (shouldEdit);
+    // Locking has to drop the draggers, not just hide them — the selection
+    // doesn't change, so setDraggable(false) never runs to do it.
+    if (! shouldEdit)
+    {
+        borderDragger.reset();
+        componentDragger.reset();
+    }
+    else if (borderDragger)
+    {
+        borderDragger->setVisible (true);
+    }
 
     if (auto* component = getWrappedComponent())
     {
@@ -1082,7 +1091,7 @@ void GuiItem::mouseDrag (const juce::MouseEvent& event)
         return;
     }
 
-    if (componentDragger)
+    if (componentDragger && magicBuilder.isNodeEditable (configNode))
     {
         if (juce::Time::currentTimeMillis() - mouseDownTime < dragDelayMs)
             return;
