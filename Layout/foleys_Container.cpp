@@ -699,6 +699,13 @@ void Container::setEditMode (bool shouldEdit)
     GuiItem::setEditMode (shouldEdit);
 }
 
+void Container::releaseBlocking()
+{
+    setInterceptsMouseClicks (magicBuilder.isNodeEditable (configNode), true);
+    viewport.setInterceptsMouseClicks (true, true);
+    containerBox.setInterceptsMouseClicks (false, true);
+}
+
 void Container::setDraggable (bool selected)
 {
     if (selected)
@@ -714,11 +721,26 @@ void Container::setDraggable (bool selected)
     else
     {
         // Restore everything
+        // This Container may itself have been blocked as a child of another
+        // container being dragged; nothing else restores that.
+        setInterceptsMouseClicks (magicBuilder.isNodeEditable (configNode), true);
+
         viewport.setInterceptsMouseClicks (true, true);
         containerBox.setInterceptsMouseClicks (false, true);
 
+        // Restore each child to the edit state it should actually be in —
+        // hardcoding true leaves them intercepting when editing is off or
+        // when they're outside the current scope.
+        // A child that is itself a Container had its own viewport and
+        // containerBox blocked by the branch above; setEditMode only reaches
+        // the GuiItem, so release those through setDraggable instead.
         for (auto& child : children)
-            child->setEditMode (true);
+        {
+            if (child->isContainer())
+                child->setDraggable (false);
+            else
+                child->setEditMode (magicBuilder.isNodeEditable (child->getConfigNode()));
+        }
     }
 
     // Call base to handle border dragger etc.

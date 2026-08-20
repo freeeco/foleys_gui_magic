@@ -1240,7 +1240,13 @@ void GuiItem::mouseDoubleClick (const juce::MouseEvent& event)
             auto posInChild = event.getEventRelativeTo (childItem).getPosition();
             if (childItem->getLocalBounds().contains (posInChild))
             {
-                magicBuilder.setSelectedNode (childNode);
+                // Hosted: the host may have its own notion of which container
+                // is open, so selecting the child is its business.
+                if (magicBuilder.onItemClicked)
+                    magicBuilder.onItemClicked (childNode, event.mods);
+                else
+                    magicBuilder.setSelectedNode (childNode);
+
                 return;
             }
         }

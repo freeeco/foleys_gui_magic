@@ -1392,6 +1392,15 @@ void MagicGUIBuilder::setSelectedNode (const juce::ValueTree& node)
         if (auto* item = findGuiItem (selectedNode))
             if (!isNodeSelected (selectedNode))
                 item->setDraggable (false);
+
+        // An ancestor of the new selection must never block its children, or
+        // the selection becomes unreachable. Releasing only the previous
+        // selection leaves one stuck whenever the selection moves without
+        // passing back through it.
+        for (auto p = node.getParent(); p.isValid(); p = p.getParent())
+            if (auto* ancestor = findGuiItem (p))
+                if (! isNodeSelected (p))
+                    ancestor->setDraggable (false);
 #endif
 
         selectedNode = node;

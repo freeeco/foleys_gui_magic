@@ -144,6 +144,11 @@ public:
      */
     void setEditMode (bool shouldEdit) override;
     void setDraggable (bool selected) override;
+
+    /** Restores this container's own click interception without touching its
+        children. The ancestor walk in setSelectedNode covers every level
+        itself, so recursing from each one re-walks the whole subtree. */
+    void releaseBlocking();
     void showChildForEditing (GuiItem* child);
     void restoreFromEditing();
 #endif
