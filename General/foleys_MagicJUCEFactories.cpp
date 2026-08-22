@@ -2110,7 +2110,7 @@ void MagicGUIBuilder::registerJUCEFactories()
                      false, false);
     registerFactory (IDs::keyboardComponent, &KeyboardItem::factory,          "Controls",        "Keyboard",
                      "On-screen MIDI keyboard",
-                     false, true);
+                     false, false);
     registerFactory (IDs::drumpadComponent,  &DrumpadItem::factory,           "Controls",        "Drum Pad",
                      "Grid of MIDI trigger pads",
                      false, false);
